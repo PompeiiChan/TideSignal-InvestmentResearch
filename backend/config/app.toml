@@ -1,0 +1,30 @@
+app_name = "smart-investment-research-api"
+app_title = "Smart Investment Research API"
+version = "0.1.0"
+host = "127.0.0.1"
+port = 8099
+debug = false
+timezone = "Asia/Shanghai"
+database_url = "sqlite+aiosqlite:///./data/smart_investment.db"
+mock_data_path = "data/mock"
+local_kb_path = ""
+llm_api_key = ""
+llm_base_url = ""
+llm_model = ""
+llm_intent_api_key = ""
+llm_intent_base_url = ""
+llm_intent_model = ""
+embedding_api_key = ""
+embedding_base_url = ""
+embedding_model = ""
+embedding_dim = ""
+rerank_api_key = ""
+rerank_base_url = ""
+rerank_model = ""
+langgraph_env = ""
+cors_origins = [
+  "http://localhost:5199",
+  "http://127.0.0.1:5199",
+  "http://localhost:5175",
+  "http://127.0.0.1:5175",
+]

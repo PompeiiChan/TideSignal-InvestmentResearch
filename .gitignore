@@ -10,3 +10,5 @@ dist/
 build/
 .DS_Store
 logs/
+backend/data/knowledge-base/.index/
+backend/data/*.db

@@ -1,0 +1,1786 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>智能投研高保真原型</title>
+  <style>
+    :root {
+      --primary: #1677ff;
+      --primary-soft: #eaf3ff;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --text: #1f2329;
+      --muted: #646a73;
+      --subtle: #8f959e;
+      --border: #e5e7eb;
+      --border-strong: #d8dce2;
+      --success: #0f766e;
+      --success-soft: #e9f7f4;
+      --warning: #d97706;
+      --warning-soft: #fff7e6;
+      --danger: #dc2626;
+      --danger-soft: #fff1f2;
+      --surface: #fbfcfd;
+      --radius: 8px;
+      --shadow: 0 16px 36px rgba(31, 35, 41, 0.08);
+      --sidebar-width: 288px;
+      --trace-width: 488px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button, input, textarea {
+      font: inherit;
+      letter-spacing: 0;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      background: var(--bg);
+    }
+
+    .app.admin-mode {
+      grid-template-columns: var(--sidebar-width) minmax(520px, 1fr) var(--trace-width);
+    }
+
+    .sidebar {
+      position: relative;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .resize-handle {
+      position: absolute;
+      top: 0;
+      right: -4px;
+      z-index: 7;
+      width: 8px;
+      height: 100%;
+      cursor: col-resize;
+    }
+
+    .resize-handle::after {
+      content: "";
+      position: absolute;
+      top: 16px;
+      right: 3px;
+      width: 2px;
+      height: calc(100% - 32px);
+      border-radius: 999px;
+      background: transparent;
+    }
+
+    .resize-handle:hover::after,
+    .app.resizing .resize-handle::after {
+      background: #a7c7ff;
+    }
+
+    .brand {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand-name {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      color: #fff;
+      background: linear-gradient(135deg, #1677ff, #0f766e);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .icon-button {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--muted);
+      background: #fff;
+    }
+
+    .icon-button:hover {
+      color: var(--primary);
+      border-color: #bad8ff;
+      background: #f5f9ff;
+    }
+
+    .sidebar-actions {
+      padding: 14px 14px 10px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .new-chat {
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid #bad8ff;
+      border-radius: 8px;
+      color: #0f5cc0;
+      background: #f5f9ff;
+      font-weight: 650;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+    }
+
+    .new-chat:hover {
+      border-color: #7fbcff;
+      background: #eaf3ff;
+      box-shadow: 0 6px 18px rgba(22, 119, 255, 0.12);
+    }
+
+    .new-chat:active {
+      transform: translateY(1px) scale(0.99);
+      box-shadow: none;
+    }
+
+    .new-chat.created {
+      color: #0f766e;
+      border-color: #8fd8ca;
+      background: #e9f7f4;
+    }
+
+    .new-plus {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      color: #fff;
+      background: var(--primary);
+      font-size: 15px;
+      line-height: 1;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    .new-chat:hover .new-plus {
+      transform: rotate(90deg);
+    }
+
+    .new-chat.created .new-plus {
+      background: var(--success);
+      transform: rotate(0deg);
+    }
+
+    .search-wrap {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--subtle);
+      background: #fff;
+      font-size: 13px;
+    }
+
+    .search-wrap:focus-within {
+      border-color: #9bc9ff;
+      box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.1);
+    }
+
+    .search-wrap input {
+      min-width: 0;
+      flex: 1;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      background: transparent;
+      font-size: 13px;
+    }
+
+    .search-wrap input::placeholder {
+      color: var(--subtle);
+    }
+
+    .empty-history {
+      margin: 8px;
+      padding: 12px;
+      border: 1px dashed var(--border-strong);
+      border-radius: 8px;
+      color: var(--subtle);
+      background: #fff;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .chat-list {
+      flex: 1;
+      overflow: auto;
+      padding: 4px 10px 14px;
+    }
+
+    .chat-date {
+      padding: 12px 8px 6px;
+      color: var(--subtle);
+      font-size: 12px;
+    }
+
+    .chat-row {
+      width: 100%;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 9px 10px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      background: transparent;
+      text-align: left;
+    }
+
+    .chat-row:hover {
+      background: #f1f4f8;
+    }
+
+    .chat-row.active {
+      color: var(--text);
+      border-color: #d8e8ff;
+      background: #eef5ff;
+    }
+
+    .chat-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .chat-meta {
+      color: var(--subtle);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .view-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .tab {
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--muted);
+      background: #fff;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .tab.active {
+      color: #0f5cc0;
+      border-color: #bad8ff;
+      background: #eef5ff;
+    }
+
+    .workspace {
+      min-width: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .topbar {
+      height: 64px;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 22px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .page-title {
+      min-width: 0;
+    }
+
+    .page-title h1 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.3;
+      font-weight: 720;
+    }
+
+    .page-title p {
+      margin: 4px 0 0;
+      color: var(--subtle);
+      font-size: 12px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .nav-button {
+      height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--muted);
+      background: #fff;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .nav-button:hover,
+    .nav-button.active {
+      color: #0f5cc0;
+      border-color: #bad8ff;
+      background: #eef5ff;
+    }
+
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .chat-view {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+    }
+
+    .messages {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 28px 24px 18px;
+    }
+
+    .message-stack {
+      width: min(860px, 100%);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .message {
+      display: flex;
+    }
+
+    .message.user {
+      justify-content: flex-end;
+    }
+
+    .bubble {
+      max-width: min(76%, 680px);
+      width: fit-content;
+      padding: 11px 13px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.65;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .message.user .bubble {
+      background: #eef6ff;
+      border-color: #cfe3ff;
+    }
+
+    .assistant-block {
+      width: min(780px, 100%);
+      display: grid;
+      gap: 12px;
+    }
+
+    .assistant-text {
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .rich-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .rich-head {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: #fbfcfd;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      color: var(--muted);
+      background: #f1f5f9;
+      font-size: 12px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .pill.primary {
+      color: #0f5cc0;
+      background: #eaf3ff;
+    }
+
+    .pill.success {
+      color: #0f766e;
+      background: #e9f7f4;
+    }
+
+    .rich-body {
+      padding: 12px;
+      overflow-x: auto;
+    }
+
+    .data-table {
+      min-width: 620px;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    .data-table th {
+      color: var(--muted);
+      background: #fafbfc;
+      font-weight: 700;
+    }
+
+    .up {
+      color: #b42318;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .source-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 12px 12px;
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .risk {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid #f8d8a8;
+      border-radius: 8px;
+      color: #8a4d00;
+      background: #fff8eb;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .stock-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      padding: 14px;
+    }
+
+    .stock-card h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    .stock-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .stock-price {
+      text-align: right;
+    }
+
+    .stock-price strong {
+      display: block;
+      font-size: 22px;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .calculator {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .calc-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .calc-field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .calc-field input {
+      height: 38px;
+      width: 100%;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 0 10px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    .calc-result {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .result-tile {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fbfcfd;
+    }
+
+    .result-tile span {
+      display: block;
+      color: var(--subtle);
+      font-size: 12px;
+    }
+
+    .result-tile strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 18px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .composer {
+      flex: 0 0 auto;
+      padding: 14px 24px 18px;
+      border-top: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .composer-inner {
+      width: min(860px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    .composer-box {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      min-height: 50px;
+      padding: 8px 8px 8px 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(31, 35, 41, 0.06);
+    }
+
+    .composer-box textarea {
+      flex: 1;
+      min-width: 0;
+      min-height: 32px;
+      max-height: 112px;
+      resize: none;
+      border: 0;
+      outline: 0;
+      padding: 6px 0;
+      color: var(--text);
+      background: transparent;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .send {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: 7px;
+      color: #fff;
+      background: var(--primary);
+      font-weight: 800;
+    }
+
+    .send:disabled {
+      cursor: not-allowed;
+      background: #b7c7dc;
+    }
+
+    .composer-note {
+      color: var(--subtle);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .trace-panel {
+      position: relative;
+      min-width: 0;
+      height: 100vh;
+      display: none;
+      flex-direction: column;
+      border-left: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .trace-resize-handle {
+      position: absolute;
+      top: 0;
+      left: -4px;
+      z-index: 7;
+      width: 8px;
+      height: 100%;
+      cursor: col-resize;
+    }
+
+    .trace-resize-handle::after {
+      content: "";
+      position: absolute;
+      top: 16px;
+      left: 3px;
+      width: 2px;
+      height: calc(100% - 32px);
+      border-radius: 999px;
+      background: transparent;
+    }
+
+    .trace-resize-handle:hover::after,
+    .app.trace-resizing .trace-resize-handle::after {
+      background: #a7c7ff;
+    }
+
+    .admin-mode .trace-panel {
+      display: flex;
+    }
+
+    .trace-head {
+      flex: 0 0 auto;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .trace-head h2 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.3;
+    }
+
+    .trace-head p {
+      margin: 5px 0 0;
+      color: var(--subtle);
+      font-size: 12px;
+    }
+
+    .trace-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .trace-metric {
+      padding: 9px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fbfcfd;
+    }
+
+    .trace-metric strong {
+      display: block;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .trace-metric span {
+      color: var(--subtle);
+      font-size: 11px;
+    }
+
+    .trace-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .trace-step {
+      padding: 12px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .trace-step:hover {
+      border-color: #cfe3ff;
+      background: #fcfdff;
+    }
+
+    .step-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+    }
+
+    .step-line > div:last-child {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      margin-top: 5px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .dot.running { background: var(--primary); }
+
+    .step-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 68px;
+      gap: 12px;
+      align-items: start;
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .step-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .step-time {
+      justify-self: end;
+      min-width: 60px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .trace-step p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .step-detail {
+      display: none;
+      width: min(100%, 420px);
+      margin: 12px auto 0;
+      padding: 12px 14px;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+
+    .trace-step.open .step-detail {
+      display: block;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 8px 14px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .kv b {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .json-button {
+      height: 28px;
+      padding: 0 9px;
+      border: 1px solid #b7d7ff;
+      border-radius: 7px;
+      color: #0f5cc0;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .settings-view,
+    .data-view {
+      height: 100%;
+      overflow: auto;
+      padding: 22px;
+      background: var(--bg);
+    }
+
+    .view-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .info-card {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 10px 26px rgba(31, 35, 41, 0.05);
+    }
+
+    .info-card h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    .info-card p,
+    .info-card li {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .info-card ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+
+    .full-row {
+      grid-column: 1 / -1;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.32);
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal {
+      width: min(820px, 100%);
+      max-height: min(720px, 88vh);
+      display: flex;
+      flex-direction: column;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+      overflow: hidden;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 720;
+    }
+
+    .modal-close {
+      width: 30px;
+      height: 30px;
+      border: 0;
+      border-radius: 6px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 18px;
+    }
+
+    .modal-close:hover {
+      background: #f1f4f8;
+    }
+
+    .json-pre {
+      margin: 0;
+      padding: 15px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.65;
+      color: #253044;
+      background: #f8fafc;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 1080px) {
+      html, body {
+        overflow: auto;
+      }
+
+      .app,
+      .app.admin-mode {
+        min-height: 100vh;
+        height: auto;
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .workspace,
+      .trace-panel {
+        height: auto;
+        min-height: 640px;
+      }
+
+      .admin-mode .trace-panel {
+        display: flex;
+        border-left: 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .trace-resize-handle {
+        display: none;
+      }
+
+      .topbar {
+        height: auto;
+        min-height: 64px;
+        flex-wrap: wrap;
+        padding: 14px;
+      }
+
+      .messages {
+        min-height: 520px;
+        padding: 18px 14px;
+      }
+
+      .composer {
+        position: sticky;
+        bottom: 0;
+        padding: 12px 14px;
+      }
+
+      .bubble {
+        max-width: 88%;
+      }
+
+      .view-grid,
+      .calculator,
+      .calc-result {
+        grid-template-columns: 1fr;
+      }
+
+      .data-table {
+        min-width: 560px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <aside class="sidebar">
+      <div class="resize-handle" title="拖拽调整历史列宽"></div>
+      <div class="brand">
+        <div class="brand-name">
+          <span class="brand-mark">投</span>
+          <span>智能投研</span>
+        </div>
+        <button class="icon-button" type="button" title="收起侧边栏">‹</button>
+      </div>
+
+      <div class="sidebar-actions">
+        <button class="new-chat" type="button" id="newChatButton"><span class="new-plus">＋</span><span class="new-chat-label">新建会话</span></button>
+        <label class="search-wrap" for="historySearch">
+          <span>⌕</span>
+          <input id="historySearch" type="search" placeholder="搜索历史问题" autocomplete="off" />
+        </label>
+      </div>
+
+      <div class="chat-list" id="chatList">
+        <div class="chat-date">今天</div>
+      </div>
+
+      <div class="view-tabs">
+        <button class="tab active" type="button" data-mode="client">客户端</button>
+        <button class="tab" type="button" data-mode="admin">管理端</button>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div class="page-title">
+          <h1 id="workspaceTitle">客户端对话页</h1>
+          <p id="workspaceSubtitle">低噪音投研问答，回答包含来源、数据时间和风险提示。</p>
+        </div>
+        <div class="top-actions">
+          <button class="nav-button active" type="button" data-view="chat">对话</button>
+          <button class="nav-button" type="button" data-view="data">数据说明</button>
+          <button class="nav-button admin-only" type="button" data-view="settings">系统设置</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="chat-view" id="chatView">
+          <div class="messages" id="messages">
+            <div class="message-stack" id="messageStack"></div>
+          </div>
+          <div class="composer">
+            <div class="composer-inner">
+              <div class="composer-box">
+                <textarea id="queryInput" rows="1" placeholder="输入投研问题，例如：今天涨幅靠前的半导体股票有哪些？"></textarea>
+                <button class="send" type="button" id="sendButton" title="发送">↑</button>
+              </div>
+              <div class="composer-note">系统仅提供信息整理、数据查询和参数测算，不构成投资建议。</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="data-view hidden" id="dataView">
+          <div class="view-grid">
+            <div class="info-card">
+              <h3>行情数据</h3>
+              <p>用于问数助手返回板块排行、个股涨跌幅、成交额和数据时间。当前为本地模拟数据。</p>
+              <ul>
+                <li>股票代码、名称、现价</li>
+                <li>涨跌幅、成交额、数据时间</li>
+              </ul>
+            </div>
+            <div class="info-card">
+              <h3>研报数据</h3>
+              <p>用于热点助手和问股助手生成观点摘要。当前展示研报标题、机构、发布日期和关键观点。</p>
+            </div>
+            <div class="info-card">
+              <h3>公告数据</h3>
+              <p>用于问股助手检索公司近期公告，展示发布时间、公告摘要和本地路径。</p>
+            </div>
+            <div class="info-card">
+              <h3>财务数据</h3>
+              <p>用于财报解读、同比环比、ROE、营收和利润等指标查询。</p>
+            </div>
+            <div class="info-card">
+              <h3>投研知识库</h3>
+              <p>用于解释投资基础概念、财务指标含义和常见问答。</p>
+            </div>
+            <div class="info-card">
+              <h3>RAG 状态</h3>
+              <p>当前阶段先展示模拟命中结果；后续接入本地 Markdown 检索和硅基流动千问 Embedding / Rerank。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-view hidden" id="settingsView">
+          <div class="view-grid">
+            <div class="info-card">
+              <h3>模型配置</h3>
+              <p>LLM 通过硅基流动调用 DeepSeek。Key、base_url、model 在后端配置中维护，前端只展示配置状态。</p>
+            </div>
+            <div class="info-card">
+              <h3>Embedding / Rerank</h3>
+              <p>Embedding 与 Rerank 使用硅基流动千问，MVP 阶段缺失时使用模拟 RAG 命中。</p>
+            </div>
+            <div class="info-card">
+              <h3>合规规则</h3>
+              <p>默认扫描“建议买入”“推荐”“值得关注”等表达，并检查风险提示和引用来源。</p>
+            </div>
+            <div class="info-card full-row">
+              <h3>Prompt 模块</h3>
+              <p>总控 Agent、热点助手、问数助手、问股助手和质检模块先使用默认 System Prompt，后续可替换。</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <aside class="trace-panel" id="tracePanel">
+      <div class="trace-resize-handle" title="拖拽调整 Trace 面板宽度"></div>
+      <div class="trace-head">
+        <h2>Trace 链路</h2>
+        <p id="traceSub">当前问答的节点流转、工具调用、RAG 命中和质检状态。</p>
+        <div class="trace-metrics">
+          <div class="trace-metric"><strong id="metricLatency">2.24s</strong><span>总耗时</span></div>
+          <div class="trace-metric"><strong id="metricTools">1</strong><span>工具调用</span></div>
+          <div class="trace-metric"><strong id="metricQuality">PASS</strong><span>质检</span></div>
+        </div>
+      </div>
+      <div class="trace-scroll" id="traceSteps"></div>
+    </aside>
+  </main>
+
+  <div class="modal-backdrop" id="jsonModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="jsonTitle">
+      <div class="modal-head">
+        <span id="jsonTitle">完整 JSON</span>
+        <button class="modal-close" type="button" aria-label="关闭">×</button>
+      </div>
+      <pre class="json-pre" id="jsonContent"></pre>
+    </div>
+  </div>
+
+  <script>
+    const conversations = [
+      {
+        id: "semi",
+        query: "今天涨幅靠前的半导体股票有哪些",
+        time: "14:05",
+        agent: "问数助手",
+        messages: [
+          { role: "user", text: "今天涨幅靠前的半导体股票有哪些？" },
+          { role: "assistant", text: "我会按半导体板块内个股涨跌幅排序，并标注数据截止时间和来源。" }
+        ],
+        rich: "ranking",
+        trace: "semi"
+      },
+      {
+        id: "stock",
+        query: "宁德时代基本面怎么样",
+        time: "13:42",
+        agent: "问股助手",
+        messages: [
+          { role: "user", text: "宁德时代基本面怎么样？" },
+          { role: "assistant", text: "我会从公司业务、财务指标、研报观点和风险提示四个维度整理。" }
+        ],
+        rich: "stock",
+        trace: "stock"
+      },
+      {
+        id: "robot",
+        query: "机器人板块今天为什么涨",
+        time: "10:32",
+        agent: "热点助手",
+        messages: [
+          { role: "user", text: "机器人板块今天为什么涨？" },
+          { role: "assistant", text: "我会区分当日驱动和近期背景，避免把旧新闻误归因为当天因素。" }
+        ],
+        rich: "hotspot",
+        trace: "robot"
+      },
+      {
+        id: "calc",
+        query: "15元买入未来预期回报率怎么算",
+        time: "09:58",
+        agent: "测算组件",
+        messages: [
+          { role: "user", text: "如果我 15 元买入，未来到 20 元，预期回报率是多少？" },
+          { role: "assistant", text: "可以，我会基于你输入的价格和数量做参数测算，不提供买卖建议。" }
+        ],
+        rich: "calculator",
+        trace: "calc"
+      },
+      { id: "finance", query: "财报同比和环比有什么差异", time: "昨天", agent: "投研知识库", messages: [], rich: "knowledge", trace: "finance" },
+      { id: "low", query: "低空经济最近有哪些政策催化", time: "昨天", agent: "热点助手", messages: [], rich: "hotspot", trace: "robot" },
+      { id: "macro", query: "宏观利率变化对银行股有什么影响", time: "周六", agent: "问数助手", messages: [], rich: "knowledge", trace: "semi" },
+      { id: "ev", query: "新能源车产业链有哪些核心公司", time: "周五", agent: "问股助手", messages: [], rich: "stock", trace: "stock" }
+    ];
+
+    const traces = {
+      semi: {
+        latency: "2.24s",
+        tools: "1",
+        quality: "PASS",
+        steps: [
+          {
+            title: "Step 1 上下文预处理",
+            time: "38ms",
+            summary: "加载会话摘要，本轮 Query 主体明确，无需指代消解。",
+            detail: [["输入", "用户 Query 与最近 1 轮会话摘要"], ["输出", "无指代消解需求"], ["状态", "success，进入意图识别"]],
+            json: { node: "master_bot_preprocessing", latency_ms: 38, pronoun_resolution: false, session_rounds: 1 }
+          },
+          {
+            title: "Step 2 意图与槽位",
+            time: "278ms",
+            summary: "意图：数据查询；主体：半导体；动作：排名。",
+            detail: [["意图", "行情查询 / 板块行情查询"], ["槽位", "subject=半导体，metric=涨跌幅，top_n=10"], ["缺失槽位", "无"]],
+            json: { node: "master_bot_intent_recognition", sub_agent: "data_agent", global_slots: { subject_name: "半导体", action_type: "排名", missing_slots: [] } }
+          },
+          {
+            title: "Step 3 路由决策",
+            time: "6ms",
+            summary: "路由到问数助手，执行客观数据查询。",
+            detail: [["路由", "route_to_data_agent"], ["理由", "用户请求板块内涨幅排名，不需要热点归因"]],
+            json: { node: "master_bot_router", decision: "route_to_data_agent", reason: "数据查询" }
+          },
+          {
+            title: "Step 4 槽位转换",
+            time: "4ms",
+            summary: "转换为问数助手任务槽位。",
+            detail: [["指标", "涨跌幅"], ["排序", "降序"], ["范围", "半导体板块内个股"]],
+            json: { node: "slot_converter", task_slots: { metric: "涨跌幅", ranking_order: "desc", top_n: 10 } }
+          },
+          {
+            title: "Step 5 工具调用",
+            time: "198ms",
+            summary: "market_data_tool 返回半导体板块涨幅 Top10。",
+            detail: [["工具", "market_data_tool"], ["请求", "sector=半导体，metric=涨跌幅"], ["响应", "返回 Top10，摘要展示前 5 条"]],
+            json: { tool_name: "market_data_tool", request: { sector: "半导体", metric: "涨跌幅", order: "desc" }, response: { status: "success", count: 10 } }
+          },
+          {
+            title: "Step 6 质检合规",
+            time: "52ms",
+            summary: "风险提示存在，citation 完整，结果 PASS。",
+            detail: [["合规", "未命中黑名单表达"], ["引用", "行情数据来源与截止时间完整"], ["结论", "PASS"]],
+            json: { node: "quality_check", compliance_scan: { passed: true }, citation_check: { passed: true }, overall_result: "PASS" }
+          },
+          {
+            title: "Step 7 最终输出",
+            time: "8ms",
+            summary: "生成排行表、来源标签和风险提示。",
+            detail: [["组件", "ranking_table + citation_list + risk_notice"], ["输出", "已渲染到客户端和管理端"]],
+            json: { node: "final_assembly", rich_blocks: ["ranking_table", "citation_list", "risk_notice"] }
+          }
+        ]
+      },
+      stock: {
+        latency: "3.18s",
+        tools: "3",
+        quality: "PASS",
+        steps: [
+          { title: "Step 1 上下文预处理", time: "41ms", summary: "识别用户关注新能源和基本面维度。", detail: [["用户偏好", "新能源、基本面、机构评级"], ["状态", "success"]], json: { node: "preprocess", insights: ["新能源", "基本面"] } },
+          { title: "Step 2 意图与槽位", time: "295ms", summary: "意图：个股基本面分析；主体：宁德时代。", detail: [["意图", "个股分析"], ["主体", "宁德时代 / 300750"], ["风险等级", "中"]], json: { sub_agent: "stock_agent", subject_name: "宁德时代" } },
+          { title: "Step 3 路由决策", time: "7ms", summary: "路由到问股助手。", detail: [["路由", "route_to_stock_agent"], ["理由", "用户询问经营质量和基本面"]], json: { decision: "route_to_stock_agent" } },
+          { title: "Step 5 工具调用", time: "846ms", summary: "查询公司信息、财务指标、研报观点。", detail: [["工具", "company_profile_tool、financial_data_tool、research_report_tool"], ["响应", "返回业务、财务、观点摘要"]], json: { tools: ["company_profile_tool", "financial_data_tool", "research_report_tool"] } },
+          { title: "Step 6 质检合规", time: "74ms", summary: "机构观点不包装成系统建议，风险提示完整。", detail: [["合规", "PASS"], ["说明", "只做摘要，不给买卖建议"]], json: { overall_result: "PASS" } }
+        ]
+      },
+      robot: {
+        latency: "4.76s",
+        tools: "3",
+        quality: "PASS",
+        steps: [
+          { title: "Step 1 上下文预处理", time: "45ms", summary: "识别用户偏好产业链逻辑。", detail: [["偏好", "政策驱动、产业链逻辑"], ["状态", "success"]], json: { node: "preprocess" } },
+          { title: "Step 2 意图与槽位", time: "312ms", summary: "意图：热点归因；主体：机器人板块；时间：今天。", detail: [["意图", "热点上涨归因"], ["主体", "机器人板块"], ["缺失槽位", "无"]], json: { sub_agent: "hotspot_agent" } },
+          { title: "Step 5 工具调用", time: "1077ms", summary: "并行查询行情、新闻、研报。", detail: [["工具", "market_data_tool、news_retrieval_tool、research_report_tool"], ["时间口径", "近 2 个交易日新闻"]], json: { tools_parallel: true, count: 3 } },
+          { title: "Step 6 质检合规", time: "89ms", summary: "检查黑名单表达、时间口径和引用完整性。", detail: [["合规", "PASS"], ["时间", "当日驱动与近期背景已区分"]], json: { overall_result: "PASS" } }
+        ]
+      },
+      calc: {
+        latency: "0.42s",
+        tools: "0",
+        quality: "PASS",
+        steps: [
+          { title: "Step 1 参数识别", time: "28ms", summary: "识别买入价 15 元、情景价 20 元。", detail: [["买入价", "15"], ["情景价", "20"], ["数量", "默认 1000 股，可调整"]], json: { buy_price: 15, target_price: 20, shares: 1000 } },
+          { title: "Step 2 富响应选择", time: "12ms", summary: "选择 calculator 组件。", detail: [["组件", "calculator"], ["边界", "只做测算，不给建议价"]], json: { rich_block: "calculator" } },
+          { title: "Step 3 合规提示", time: "9ms", summary: "追加测算结果不构成投资建议。", detail: [["风险提示", "已添加"], ["质检", "PASS"]], json: { risk_tip_present: true } }
+        ]
+      },
+      finance: {
+        latency: "1.06s",
+        tools: "1",
+        quality: "PASS",
+        steps: [
+          { title: "Step 1 知识库检索", time: "126ms", summary: "命中财务指标解释知识库。", detail: [["命中", "同比 / 环比解释"], ["来源", "本地投研知识库"]], json: { rag_hit: "同比环比解释.md" } }
+        ]
+      }
+    };
+
+    let currentMode = "client";
+    let currentView = "chat";
+    let currentConversationId = "semi";
+
+    const app = document.getElementById("app");
+    const chatList = document.getElementById("chatList");
+    const messageStack = document.getElementById("messageStack");
+    const traceSteps = document.getElementById("traceSteps");
+    const workspaceTitle = document.getElementById("workspaceTitle");
+    const workspaceSubtitle = document.getElementById("workspaceSubtitle");
+    const queryInput = document.getElementById("queryInput");
+    const historySearch = document.getElementById("historySearch");
+    const jsonModal = document.getElementById("jsonModal");
+    const jsonContent = document.getElementById("jsonContent");
+
+    const titleFromQuery = (conversation) => conversation.isDraft ? "新对话" : conversation.query;
+    const yuan = (value) => `${Number(value).toLocaleString("zh-CN", { maximumFractionDigits: 2 })} 元`;
+
+    function renderChatList() {
+      chatList.innerHTML = '<div class="chat-date">今天</div>';
+      const keyword = historySearch.value.trim().toLowerCase();
+      const filtered = conversations.filter((conversation) => {
+        if (!keyword) return true;
+        const title = titleFromQuery(conversation).toLowerCase();
+        const agent = conversation.agent.toLowerCase();
+        return title.includes(keyword) || agent.includes(keyword);
+      });
+
+      if (!filtered.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-history";
+        empty.textContent = "没有匹配的历史问题";
+        chatList.appendChild(empty);
+        return;
+      }
+
+      filtered.forEach((conversation) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `chat-row${conversation.id === currentConversationId ? " active" : ""}`;
+        button.innerHTML = `<span class="chat-title">${titleFromQuery(conversation)}</span><span class="chat-meta">${conversation.time}</span>`;
+        button.addEventListener("click", () => {
+          currentConversationId = conversation.id;
+          render();
+        });
+        chatList.appendChild(button);
+      });
+    }
+
+    function renderMessages() {
+      const conversation = conversations.find((item) => item.id === currentConversationId) || conversations[0];
+      const messages = conversation.messages.length ? conversation.messages : [
+        { role: "user", text: conversation.query },
+        { role: "assistant", text: "已根据本地知识库和模拟数据生成结构化回答。" }
+      ];
+      messageStack.innerHTML = "";
+      messages.forEach((message) => {
+        const row = document.createElement("div");
+        row.className = `message ${message.role}`;
+        row.innerHTML = `<div class="bubble">${message.text}</div>`;
+        messageStack.appendChild(row);
+      });
+      messageStack.appendChild(renderRichBlock(conversation.rich));
+      bindCalculator();
+    }
+
+    function renderRichBlock(type) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "assistant-block";
+      if (type === "ranking") {
+        wrapper.innerHTML = `
+          <div class="rich-card">
+            <div class="rich-head"><span>半导体板块涨幅排行</span><span class="pill primary">模拟行情数据</span></div>
+            <div class="rich-body">
+              <table class="data-table">
+                <thead><tr><th>排名</th><th>股票名称</th><th>代码</th><th>涨跌幅</th><th>现价</th><th>成交额</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>寒武纪</td><td>688256</td><td class="up">+8.76%</td><td>287.50</td><td>42.1亿</td></tr>
+                  <tr><td>2</td><td>北方华创</td><td>002371</td><td class="up">+6.23%</td><td>385.20</td><td>38.7亿</td></tr>
+                  <tr><td>3</td><td>中微公司</td><td>688012</td><td class="up">+5.87%</td><td>198.60</td><td>15.3亿</td></tr>
+                  <tr><td>4</td><td>韦尔股份</td><td>603501</td><td class="up">+4.52%</td><td>112.80</td><td>21.6亿</td></tr>
+                  <tr><td>5</td><td>兆易创新</td><td>603986</td><td class="up">+4.11%</td><td>145.30</td><td>18.2亿</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="source-row">
+              <span class="pill">来源：本地行情模拟数据</span>
+              <span class="pill">截止：2026-06-08 14:05</span>
+            </div>
+          </div>
+          <div class="risk">以上数据来自本地模拟数据，仅用于产品验证，不构成投资建议。</div>
+        `;
+        return wrapper;
+      }
+
+      if (type === "stock") {
+        wrapper.innerHTML = `
+          <div class="rich-card">
+            <div class="rich-head"><span>个股基本面信息卡</span><span class="pill success">问股助手</span></div>
+            <div class="stock-card">
+              <div>
+                <h2>宁德时代 <span class="muted">300750</span></h2>
+                <div class="stock-tags">
+                  <span class="pill">动力电池</span>
+                  <span class="pill">新能源车</span>
+                  <span class="pill">创业板</span>
+                </div>
+              </div>
+              <div class="stock-price">
+                <strong>185.42</strong>
+                <span class="up">+2.18%</span>
+              </div>
+            </div>
+            <div class="rich-body">
+              <table class="data-table">
+                <thead><tr><th>指标</th><th>当前值</th><th>报告期</th><th>解读</th></tr></thead>
+                <tbody>
+                  <tr><td>营业收入</td><td>4009.2亿</td><td>2025年报</td><td>规模保持行业领先</td></tr>
+                  <tr><td>归母净利润</td><td>441.2亿</td><td>2025年报</td><td>盈利能力稳定</td></tr>
+                  <tr><td>ROE</td><td>21.6%</td><td>2025年报</td><td>资本回报较强</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="risk">以上为本地模拟基本面信息整理，不构成投资建议。</div>
+        `;
+        return wrapper;
+      }
+
+      if (type === "hotspot") {
+        wrapper.innerHTML = `
+          <div class="rich-card">
+            <div class="rich-head"><span>热点归因摘要</span><span class="pill success">热点助手</span></div>
+            <div class="rich-body">
+              <p class="assistant-text"><b>市场表现：</b>机器人板块今日模拟涨幅 +3.47%，成交额 187.3 亿。</p>
+              <p class="assistant-text"><b>当日驱动：</b>产业政策发布与人形机器人量产进展形成短期催化。</p>
+              <p class="assistant-text"><b>近期背景：</b>相关 ETF 资金流入和机构研报关注度上升。</p>
+            </div>
+            <div class="source-row">
+              <span class="pill">来源：本地新闻模拟数据</span>
+              <span class="pill">来源：本地研报摘要</span>
+            </div>
+          </div>
+          <div class="risk">热点归因只做信息整理，相关标的为客观列示，不构成投资建议。</div>
+        `;
+        return wrapper;
+      }
+
+      if (type === "calculator") {
+        wrapper.innerHTML = `
+          <div class="rich-card">
+            <div class="rich-head"><span>收益率测算组件</span><span class="pill primary">可交互</span></div>
+            <div class="calculator">
+              <div class="calc-field"><label for="buyPrice">买入价</label><input id="buyPrice" type="number" value="15" step="0.01" /></div>
+              <div class="calc-field"><label for="targetPrice">情景价</label><input id="targetPrice" type="number" value="20" step="0.01" /></div>
+              <div class="calc-field"><label for="shareCount">持仓数量</label><input id="shareCount" type="number" value="1000" step="100" /></div>
+              <div class="calc-field"><label for="feeRate">估算费率</label><input id="feeRate" type="number" value="0.03" step="0.01" /></div>
+              <div class="calc-result">
+                <div class="result-tile"><span>收益率</span><strong id="returnRate">--</strong></div>
+                <div class="result-tile"><span>预估盈亏</span><strong id="profitAmount">--</strong></div>
+                <div class="result-tile"><span>测算成本</span><strong id="costAmount">--</strong></div>
+              </div>
+            </div>
+          </div>
+          <div class="risk">测算结果仅基于用户输入参数，不构成投资建议。</div>
+        `;
+        return wrapper;
+      }
+
+      wrapper.innerHTML = `
+        <div class="rich-card">
+          <div class="rich-head"><span>知识库解释</span><span class="pill">本地知识库</span></div>
+          <div class="rich-body">
+            <p class="assistant-text">同比用于比较同一周期的年度变化，环比用于比较相邻周期的变化。系统会根据用户问题选择更合适的展示方式。</p>
+          </div>
+        </div>
+        <div class="risk">以上解释来自本地投研知识库，不构成投资建议。</div>
+      `;
+      return wrapper;
+    }
+
+    function bindCalculator() {
+      const buy = document.getElementById("buyPrice");
+      const target = document.getElementById("targetPrice");
+      const shares = document.getElementById("shareCount");
+      const fee = document.getElementById("feeRate");
+      if (!buy || !target || !shares || !fee) return;
+
+      const update = () => {
+        const buyValue = Number(buy.value || 0);
+        const targetValue = Number(target.value || 0);
+        const shareValue = Number(shares.value || 0);
+        const feeValue = Number(fee.value || 0) / 100;
+        const cost = buyValue * shareValue;
+        const gross = (targetValue - buyValue) * shareValue;
+        const fees = (buyValue + targetValue) * shareValue * feeValue;
+        const profit = gross - fees;
+        const rate = cost ? (profit / cost) * 100 : 0;
+        document.getElementById("returnRate").textContent = `${rate.toFixed(2)}%`;
+        document.getElementById("profitAmount").textContent = yuan(profit);
+        document.getElementById("costAmount").textContent = yuan(cost);
+      };
+
+      [buy, target, shares, fee].forEach((input) => input.addEventListener("input", update));
+      update();
+    }
+
+    function renderTrace() {
+      const conversation = conversations.find((item) => item.id === currentConversationId) || conversations[0];
+      const trace = traces[conversation.trace] || traces.semi;
+      document.getElementById("metricLatency").textContent = trace.latency;
+      document.getElementById("metricTools").textContent = trace.tools;
+      document.getElementById("metricQuality").textContent = trace.quality;
+      document.getElementById("traceSub").textContent = `${conversation.agent} · ${conversation.query}`;
+      traceSteps.innerHTML = "";
+
+      trace.steps.forEach((step, index) => {
+        const node = document.createElement("div");
+        node.className = `trace-step${index === 1 ? " open" : ""}`;
+        node.innerHTML = `
+          <div class="step-line">
+            <span class="dot${index === 1 ? " running" : ""}"></span>
+            <div>
+              <div class="step-head"><span class="step-title">${step.title}</span><span class="step-time">${step.time}</span></div>
+              <p>${step.summary}</p>
+              <div class="step-detail">
+                <div class="kv">${step.detail.map(([key, value]) => `<b>${key}</b><span>${value}</span>`).join("")}</div>
+                <button class="json-button" type="button">查看完整 JSON</button>
+              </div>
+            </div>
+          </div>
+        `;
+        node.addEventListener("click", (event) => {
+          if (event.target.closest(".json-button")) return;
+          node.classList.toggle("open");
+        });
+        node.querySelector(".json-button").addEventListener("click", (event) => {
+          event.stopPropagation();
+          openJson(step.title, step.json);
+        });
+        traceSteps.appendChild(node);
+      });
+    }
+
+    function openJson(title, data) {
+      document.getElementById("jsonTitle").textContent = title;
+      jsonContent.textContent = JSON.stringify(data, null, 2);
+      jsonModal.classList.add("show");
+      jsonModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeJson() {
+      jsonModal.classList.remove("show");
+      jsonModal.setAttribute("aria-hidden", "true");
+    }
+
+    function render() {
+      if (currentMode === "client" && currentView === "settings") {
+        currentView = "chat";
+      }
+      app.classList.toggle("admin-mode", currentMode === "admin");
+      workspaceTitle.textContent = currentView === "chat"
+        ? (currentMode === "admin" ? "管理端可观测页" : "客户端对话页")
+        : currentView === "data" ? "本地知识库 / 模拟数据说明" : "系统设置";
+      workspaceSubtitle.textContent = currentView === "chat"
+        ? (currentMode === "admin" ? "同一会话基础上展示右侧 Trace 链路。" : "低噪音投研问答，回答包含来源、数据时间和风险提示。")
+        : currentView === "data" ? "说明当前本地数据、模拟工具和 RAG 命中状态。" : "展示模型、Prompt 和合规规则配置状态。";
+
+      document.getElementById("chatView").classList.toggle("hidden", currentView !== "chat");
+      document.getElementById("dataView").classList.toggle("hidden", currentView !== "data");
+      document.getElementById("settingsView").classList.toggle("hidden", currentView !== "settings");
+
+      document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.mode === currentMode));
+      document.querySelectorAll(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.view === currentView));
+      document.querySelectorAll(".admin-only").forEach((button) => button.classList.toggle("hidden", currentMode !== "admin"));
+
+      renderChatList();
+      renderMessages();
+      renderTrace();
+      document.getElementById("messages").scrollTop = 0;
+    }
+
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        currentMode = tab.dataset.mode;
+        currentView = "chat";
+        render();
+      });
+    });
+
+    document.querySelectorAll(".nav-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        currentView = button.dataset.view;
+        render();
+      });
+    });
+
+    document.getElementById("newChatButton").addEventListener("click", () => {
+      const button = document.getElementById("newChatButton");
+      const label = button.querySelector(".new-chat-label");
+      const next = {
+        id: `new-${Date.now()}`,
+        query: "",
+        isDraft: true,
+        time: "刚刚",
+        agent: "总控 Agent",
+        messages: [{ role: "assistant", text: "新对话已创建。发送首条问题后，历史标题会自动替换为该问题，并按列宽显示省略号。" }],
+        rich: "knowledge",
+        trace: "finance"
+      };
+      conversations.unshift(next);
+      currentConversationId = next.id;
+      render();
+      button.classList.add("created");
+      label.textContent = "已创建";
+      queryInput.focus();
+      setTimeout(() => {
+        button.classList.remove("created");
+        label.textContent = "新建会话";
+      }, 900);
+    });
+
+    document.getElementById("sendButton").addEventListener("click", () => {
+      const query = queryInput.value.trim();
+      if (!query) return;
+      const activeConversation = conversations.find((item) => item.id === currentConversationId);
+      const responseText = query.includes("回报") || query.includes("收益") ? "已生成可交互测算组件，你可以调整买入价、情景价和持仓数量。" : "已根据当前模拟数据生成结构化回答。";
+      const next = {
+        id: activeConversation?.isDraft ? activeConversation.id : `ask-${Date.now()}`,
+        query,
+        isDraft: false,
+        time: "刚刚",
+        agent: query.includes("回报") || query.includes("收益") ? "测算组件" : "总控 Agent",
+        messages: [
+          { role: "user", text: query },
+          { role: "assistant", text: responseText }
+        ],
+        rich: query.includes("回报") || query.includes("收益") ? "calculator" : "ranking",
+        trace: query.includes("回报") || query.includes("收益") ? "calc" : "semi"
+      };
+      if (activeConversation?.isDraft) {
+        const index = conversations.findIndex((item) => item.id === activeConversation.id);
+        conversations.splice(index, 1, next);
+      } else {
+        conversations.unshift(next);
+      }
+      currentConversationId = next.id;
+      queryInput.value = "";
+      render();
+    });
+
+    queryInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        document.getElementById("sendButton").click();
+      }
+    });
+
+    historySearch.addEventListener("input", renderChatList);
+
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+    document.querySelector(".resize-handle").addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      const handle = event.currentTarget;
+      app.classList.add("resizing");
+      handle.setPointerCapture(event.pointerId);
+      const onMove = (moveEvent) => {
+        const width = clamp(moveEvent.clientX, 240, 420);
+        app.style.setProperty("--sidebar-width", `${width}px`);
+      };
+      const onUp = () => {
+        app.classList.remove("resizing");
+        handle.removeEventListener("pointermove", onMove);
+        handle.removeEventListener("pointerup", onUp);
+        handle.removeEventListener("pointercancel", onUp);
+      };
+      handle.addEventListener("pointermove", onMove);
+      handle.addEventListener("pointerup", onUp);
+      handle.addEventListener("pointercancel", onUp);
+    });
+
+    document.querySelector(".trace-resize-handle").addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      const handle = event.currentTarget;
+      app.classList.add("trace-resizing");
+      handle.setPointerCapture(event.pointerId);
+      const onMove = (moveEvent) => {
+        const width = clamp(window.innerWidth - moveEvent.clientX, 380, 640);
+        app.style.setProperty("--trace-width", `${width}px`);
+      };
+      const onUp = () => {
+        app.classList.remove("trace-resizing");
+        handle.removeEventListener("pointermove", onMove);
+        handle.removeEventListener("pointerup", onUp);
+        handle.removeEventListener("pointercancel", onUp);
+      };
+      handle.addEventListener("pointermove", onMove);
+      handle.addEventListener("pointerup", onUp);
+      handle.addEventListener("pointercancel", onUp);
+    });
+
+    document.querySelector(".modal-close").addEventListener("click", closeJson);
+    jsonModal.addEventListener("click", (event) => {
+      if (event.target === jsonModal) closeJson();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeJson();
+    });
+
+    render();
+  </script>
+</body>
+</html>

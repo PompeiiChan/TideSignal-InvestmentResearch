@@ -1,0 +1,1389 @@
+{
+  "project": "智能投研",
+  "project_type": "web",
+  "created": "2026-06-08",
+  "source_files": {
+    "prd": "docs/PRD.md",
+    "plan": "docs/Plan.md",
+    "api_contracts": "docs/api-contracts.md"
+  },
+  "runtime": {
+    "python": "$PY",
+    "resolved_in_current_session": "python3"
+  },
+  "external_services": [
+    {
+      "name": "硅基流动 LLM / DeepSeek",
+      "required": false,
+      "config_keys": [
+        "LLM_API_KEY",
+        "LLM_BASE_URL",
+        "LLM_MODEL"
+      ],
+      "tester_access_required": "测试 Key、Base URL、模型名和可调用额度",
+      "fallback_allowed": true,
+      "status": "confirmed"
+    },
+    {
+      "name": "硅基流动 Embedding / 千问",
+      "required": false,
+      "config_keys": [
+        "EMBEDDING_API_KEY",
+        "EMBEDDING_BASE_URL",
+        "EMBEDDING_MODEL",
+        "EMBEDDING_DIM"
+      ],
+      "tester_access_required": "测试 Key、Base URL、模型名、向量维度和可调用额度",
+      "fallback_allowed": true,
+      "status": "confirmed"
+    },
+    {
+      "name": "硅基流动 Rerank / 千问",
+      "required": false,
+      "config_keys": [
+        "RERANK_API_KEY",
+        "RERANK_BASE_URL",
+        "RERANK_MODEL"
+      ],
+      "tester_access_required": "测试 Key、Base URL、模型名和可调用额度",
+      "fallback_allowed": true,
+      "status": "confirmed"
+    },
+    {
+      "name": "本地 Markdown 知识库",
+      "required": false,
+      "config_keys": [
+        "LOCAL_KB_PATH"
+      ],
+      "tester_access_required": "本地知识库目录路径和可读取的 Markdown 示例文件",
+      "fallback_allowed": true,
+      "status": "confirmed"
+    },
+    {
+      "name": "本地 Mock 行情 / 财务 / 公告 / 宏观数据",
+      "required": true,
+      "config_keys": [
+        "MOCK_DATA_PATH"
+      ],
+      "tester_access_required": "本地 Mock 数据目录路径；缺失时使用项目内置示例数据",
+      "fallback_allowed": true,
+      "status": "confirmed"
+    },
+    {
+      "name": "LangGraph",
+      "required": false,
+      "config_keys": [
+        "LANGGRAPH_ENV"
+      ],
+      "tester_access_required": "本地依赖、完整 Agent 流转图和可执行编排配置",
+      "fallback_allowed": true,
+      "status": "confirmed"
+    },
+    {
+      "name": "第三方真实金融数据 API",
+      "required": false,
+      "config_keys": [],
+      "tester_access_required": "MVP 不接入",
+      "fallback_allowed": false,
+      "status": "confirmed"
+    },
+    {
+      "name": "支付 / 结算",
+      "required": false,
+      "config_keys": [],
+      "tester_access_required": "不涉及",
+      "fallback_allowed": false,
+      "status": "confirmed"
+    },
+    {
+      "name": "短信 / 邮件 / 推送",
+      "required": false,
+      "config_keys": [],
+      "tester_access_required": "不涉及",
+      "fallback_allowed": false,
+      "status": "confirmed"
+    },
+    {
+      "name": "对象存储 / 文件服务",
+      "required": false,
+      "config_keys": [],
+      "tester_access_required": "MVP 使用本地文件，不涉及第三方服务",
+      "fallback_allowed": false,
+      "status": "confirmed"
+    },
+    {
+      "name": "第三方登录 / SSO / OAuth",
+      "required": false,
+      "config_keys": [],
+      "tester_access_required": "MVP 不做多账号登录",
+      "fallback_allowed": false,
+      "status": "confirmed"
+    },
+    {
+      "name": "地图 / 定位 / 实名 / 风控",
+      "required": false,
+      "config_keys": [],
+      "tester_access_required": "不涉及",
+      "fallback_allowed": false,
+      "status": "confirmed"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "前端 Mock MVP 页面闭环",
+      "type": "frontend",
+      "description": "搭建 React + TypeScript + Vite 前端工程，并用 Mock 数据实现客户端对话页、管理端可观测页、会话历史、Trace 详情、数据说明、系统设置、富响应和交互式测算。受影响范围：frontend/、frontend/src/app、frontend/src/pages、frontend/src/components、frontend/src/services、frontend/src/mocks、frontend/.env、frontend/vite.config.ts。严禁调用真实后端 API；Mock 数据必须与 docs/api-contracts.md 对齐。",
+      "source_feature": "FE01-FE09 / F01-F08",
+      "acceptanceCriteria": [
+        "用户打开客户端页面，能看到左侧会话历史、中间对话区和固定在底部的输入框，历史再多也不会把输入框顶出页面。",
+        "用户在客户端输入投研问题并发送，页面新增本轮问答，回答展示表格、个股卡、引用来源和“不构成投资建议”风险提示。",
+        "用户点击新建会话，发送首条问题前历史标题显示“新对话”，发送后标题替换为用户输入的问题，长标题按侧栏宽度自动省略。",
+        "用户在历史搜索框输入关键词，历史列表能实时过滤；没有结果时页面展示空状态。",
+        "用户点击历史记录右侧三点按钮，选择“删除”，该会话从历史列表移除；如果删除的是当前会话，页面自动切换到下一条会话或展示空状态。",
+        "用户切换到管理端，能看到同一会话的问答内容和右侧 Trace 链路；客户端不展示系统设置入口，管理端展示系统设置入口。",
+        "用户点击 Trace 节点，节点在原位置展开摘要详情；点击查看完整 JSON，页面弹出完整 JSON 弹窗。",
+        "用户打开数据说明页和系统设置页，能看到本地 Mock 数据、RAG 状态、模型配置、Prompt 和合规规则状态，且页面不展示真实密钥。",
+        "用户拖拽历史列和 Trace 面板宽度，中间对话区、底部输入框和卡片内容保持稳定，没有遮挡、跳动或溢出。",
+        "用户在 1440x900 桌面窗口和 390x844 移动宽度浏览页面，主要文字、按钮、表格和输入框均可见，没有明显横向或纵向溢出。"
+      ],
+      "technicalChecks": [
+        "cd frontend && npm run type-check 通过",
+        "cd frontend && npm run lint 通过",
+        "cd frontend && npm run build 通过",
+        "frontend/src/mocks/ 的 Session、Message、Trace、RichBlock、数据源状态和配置状态结构与 docs/api-contracts.md 一致",
+        "VITE_USE_MOCK=true 时页面不依赖后端服务即可完成 Mock MVP 验收",
+        "frontend/.env 中 VITE_API_BASE_URL=/api，frontend/vite.config.ts 配置 server.proxy['/api'] 默认指向 http://127.0.0.1:8099 或 http://localhost:8099",
+        "固定高度容器按内容理论高度预留至少 20% 缓冲；真实浏览器验证 1440x900 与 390x844 无溢出"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": [
+          "P01",
+          "P02",
+          "P03",
+          "P04",
+          "P05",
+          "P06"
+        ],
+        "services": [
+          "frontend/src/services/api.ts",
+          "frontend/src/services/mockApi.ts"
+        ],
+        "realApiEndpoints": [],
+        "mockExitCriteria": []
+      },
+      "externalServices": [],
+      "dependencies": [],
+      "priority": 1,
+      "rules_files": [
+        "dev-standards/frontend.md"
+      ],
+      "status": "passed",
+      "developer_id": null,
+      "tester_id": "codex-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "用户门禁反馈已补充：历史记录行右侧三点菜单支持删除会话；Mock 阶段不调用真实后端。",
+      "user_gate": true
+    },
+    {
+      "id": "T-002",
+      "title": "后端基础设施与本地联调代理",
+      "type": "backend",
+      "description": "基于项目内 pycore 搭建 backend/src FastAPI 服务入口、统一响应、配置加载、健康检查、CORS、基础测试与启动脚本。同步确认前端 Vite /api 代理和 frontend/.env，为后续 VITE_USE_MOCK=false 真实联调打基础。受影响范围：backend/src、backend/tests、backend/scripts、backend/.env.example、frontend/.env、frontend/vite.config.ts。",
+      "source_feature": "F09 / BE00",
+      "acceptanceCriteria": [
+        "后端服务可在本地启动，健康检查返回服务正常。",
+        "前端切到真实 API 模式时，浏览器请求会走 /api 代理到后端自动验证端口，而不是直接访问完整后端 URL。",
+        "配置文件只展示字段名和默认状态，不包含真实 Key、Token 或密码。"
+      ],
+      "technicalChecks": [
+        "backend/src/main.py 使用 pycore.api.APIServer 创建服务，不重写已有 pycore server/config/logger 能力",
+        "backend/src/settings.py 使用 pycore.core.ConfigManager 读取显式配置文件，敏感值只允许进入 .env / .env.local",
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd backend && PYTHONPATH=.. $PY -m uvicorn src.main:app --host 127.0.0.1 --port 8099 可短时启动，GET /api/health 返回 200 和统一响应格式",
+        "backend CORS 允许 localhost/127.0.0.1 的 5199 与 5175",
+        "frontend/.env 中 VITE_API_BASE_URL=/api；frontend/vite.config.ts 的 /api 代理默认指向后端自动验证端口 8099",
+        "frontend/vite.config.ts 支持通过 VITE_BACKEND_PROXY_TARGET=http://localhost:8003 临时切换 /api 代理到用户门禁后端端口"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": [],
+        "services": [
+          "frontend/src/services/api.ts"
+        ],
+        "realApiEndpoints": [
+          "GET /api/health"
+        ],
+        "mockExitCriteria": []
+      },
+      "externalServices": [],
+      "dependencies": [
+        "T-001"
+      ],
+      "priority": 2,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md"
+      ],
+      "status": "passed",
+      "developer_id": null,
+      "tester_id": "codex-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "T-002 已通过 Tester 验证，并经用户手动验收确认通过；pycore/ 是框架依赖，未纳入当前项目业务代码质量门禁。Vite /api 代理默认后端 8099，并支持 VITE_BACKEND_PROXY_TARGET 临时切到用户门禁端口 8003。完成后自动进入第一个功能闭环 T-003。",
+      "user_gate": false
+    },
+    {
+      "id": "T-003",
+      "title": "会话历史与布局偏好真实 API 闭环",
+      "type": "integration",
+      "description": "实现会话列表、新建会话、会话详情和布局偏好 API，并把前端会话历史、搜索、新建、切换、侧栏宽度和 Trace 面板宽度从 Mock 切到真实后端。受影响范围：backend/src/api、backend/src/services、backend/src/models 或存储层、backend/tests、frontend/src/services、frontend/src/pages、frontend/src/components。 本任务同时实现会话删除 API 与前端三点菜单删除联调。",
+      "source_feature": "F03 / F10 / BE01 / BE04",
+      "acceptanceCriteria": [
+        "用户在客户端或管理端点击新建会话，历史列表出现“新对话”，切换到该会话后对话区为空且可输入。",
+        "用户在历史搜索框输入关键词，列表只展示匹配的会话；清空关键词后恢复全部历史。",
+        "用户点击任一历史会话，当前对话区显示该会话的消息内容。",
+        "用户拖拽历史列或 Trace 面板宽度，刷新页面后宽度仍按上次设置展示，且内容不遮挡。",
+        "用户打开历史记录右侧三点菜单并删除某条会话后，该会话从真实会话列表移除；删除当前会话时页面自动切换到下一条会话或展示空状态。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "VITE_USE_MOCK=false 启动前端时，GET /api/sessions、POST /api/sessions、GET /api/sessions/{session_id}、DELETE /api/sessions/{session_id}、GET /api/layout/preferences、PATCH /api/layout/preferences 均命中真实后端",
+        "浏览器网络面板或自动化测试证明请求经 /api 代理到 8099；frontend/.env 保持 VITE_API_BASE_URL=/api",
+        "该功能页面不再走 frontend/src/mocks 中的会话和布局 Mock 分支",
+        "固定高度会话项按内容理论高度预留至少 20% 缓冲，真实浏览器验证 1440x900 与 390x844 无溢出"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P01",
+          "P02",
+          "P03",
+          "P04"
+        ],
+        "services": [
+          "frontend/src/services/sessions.ts",
+          "frontend/src/services/layout.ts",
+          "frontend/src/stores/sessionStore.ts"
+        ],
+        "realApiEndpoints": [
+          "GET /api/sessions",
+          "POST /api/sessions",
+          "GET /api/sessions/{session_id}",
+          "GET /api/layout/preferences",
+          "PATCH /api/layout/preferences",
+          "DELETE /api/sessions/{session_id}"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 时会话历史、新建、切换、搜索和布局保存不读取 frontend/src/mocks/*",
+          "真实后端返回的错误以统一错误格式展示为可理解提示",
+          "VITE_USE_MOCK=false 时删除会话必须调用真实 DELETE /api/sessions/{session_id}，不得只从前端列表本地移除"
+        ]
+      },
+      "externalServices": [],
+      "dependencies": [
+        "T-002"
+      ],
+      "priority": 3,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md"
+      ],
+      "status": "passed",
+      "developer_id": null,
+      "tester_id": "codex-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "Tester PASS：后端 ruff/mypy/pytest 与前端 type-check/lint/build 均通过；VITE_USE_MOCK=false 真实联调覆盖会话列表、新建、搜索、切换、删除和布局读写，浏览器验证 1440x900 与 390x844 无明显溢出。报告：.sdd/test-reports/test-T-003.md",
+      "user_gate": true
+    },
+    {
+      "id": "T-004",
+      "title": "Chat Query 与富响应 fallback 闭环",
+      "type": "integration",
+      "description": "实现 POST /api/chat/query 的后端 Mock/fallback 投研回答、富响应、风险提示、引用、首问标题更新和基础 Trace 摘要，并把客户端和管理端发送问题从 Mock 切到真实后端。受影响范围：backend/src/api、backend/src/services、backend/src/integrations、backend/tests、frontend/src/services/chat.ts、对话页、富响应组件。",
+      "source_feature": "F01 / F02 / F07 / F08 / F10 / BE02",
+      "acceptanceCriteria": [
+        "用户在客户端输入投研问题并发送，页面显示用户消息和助手回答，回答包含结构化表格或卡片、引用来源和风险提示。",
+        "用户发送收益测算类问题后，页面展示可交互测算组件；用户修改买入价、情景价或持仓数量，收益率和盈亏实时变化。",
+        "用户发送新会话的第一条问题后，历史标题从“新对话”替换为该问题内容。",
+        "用户切换到管理端查看同一会话，能看到同一轮 Query、Response 和 Trace 摘要。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd backend && PYTHONPATH=.. $PY -m uvicorn src.main:app --host 127.0.0.1 --port 8099 可短时启动；联调默认通过 Vite /api 代理访问该后端",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "VITE_USE_MOCK=false 时 POST /api/chat/query 命中真实后端，并返回 docs/api-contracts.md 规定的 session、user_message、assistant_message、trace 结构",
+        "POST /api/chat/query 必须持久化本轮 user_message 和 assistant_message；随后 GET /api/sessions/{session_id} 可回读同一轮消息、更新后的标题、last_message_preview 和 last_trace_id",
+        "浏览器或等价自动化测试证明请求经 /api 代理到 8099；frontend/.env 保持 VITE_API_BASE_URL=/api",
+        "该功能不再走 frontend/src/mocks 中的 chat query Mock 分支；页面不得展示开发调试用 [Mock] 标签，允许按 PRD 展示“本地模拟数据”来源",
+        "LLM_API_KEY / LLM_BASE_URL / LLM_MODEL 缺失时只能标记 Mock/fallback 回答，不得声明真实 LLM 联调通过",
+        "MOCK_DATA_PATH 缺失时使用项目内置示例数据；响应 sources / risk_notice 必须明确本地模拟数据口径，LangGraph 未接入时只返回 fallback Trace 摘要，不得声明真实 LangGraph 流转通过",
+        "如使用 httpx/openai 类网络客户端，必须显式 trust_env=False，不得裸用继承环境代理的快捷调用",
+        "固定高度富响应卡片按内容理论高度预留至少 20% 缓冲，真实浏览器验证 1440x900 与 390x844 无溢出"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P01",
+          "P02",
+          "P03"
+        ],
+        "services": [
+          "frontend/src/services/chat.ts",
+          "frontend/src/stores/sessionStore.ts"
+        ],
+        "realApiEndpoints": [
+          "POST /api/chat/query",
+          "GET /api/sessions/{session_id}"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 时发送问题、标题更新、富响应渲染均使用真实后端响应",
+          "真实外部 LLM 缺失时，测试报告明确写 Mock/fallback 验收"
+        ]
+      },
+      "externalServices": [
+        "硅基流动 LLM / DeepSeek",
+        "本地 Mock 行情 / 财务 / 公告 / 宏观数据",
+        "LangGraph"
+      ],
+      "dependencies": [
+        "T-003"
+      ],
+      "priority": 4,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": null,
+      "tester_id": "codex-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "[PASS] T-004 Chat Query 与富响应 fallback 闭环已通过 Tester 独立验证。验证范围仅为 fallback：未声明真实 LLM、真实金融数据 API、LangGraph 完整流转、T-005 完整 Trace 详情 API 或 T-006 数据源/设置 API 通过。详见：.sdd/test-reports/test-T-004.md",
+      "user_gate": true
+    },
+    {
+      "id": "T-005",
+      "title": "Trace API 与管理端详情闭环",
+      "type": "integration",
+      "description": "实现 Trace 详情和 Trace 节点 raw JSON API，并将管理端右侧 Trace 面板、节点内联展开和完整 JSON 弹窗切到真实后端。受影响范围：backend/src/api、backend/src/services、backend/tests、frontend/src/services/traces.ts、Trace 面板组件、JSON 弹窗。",
+      "source_feature": "F02 / F04 / F11 / BE03",
+      "acceptanceCriteria": [
+        "用户在管理端点击某轮问答，右侧 Trace 面板展示该问答的完整步骤时间线、节点状态和耗时。",
+        "用户点击任一 Trace 节点，节点在当前时间线内展开输入、输出和关键字段摘要。",
+        "用户点击“查看完整 JSON”，弹窗展示该节点的结构化 JSON，关闭弹窗后仍停留在原 Trace 面板。",
+        "用户拖拽 Trace 面板宽度，Trace 节点卡片和中间对话区保持稳定，没有遮挡或溢出。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "VITE_USE_MOCK=false 时 GET /api/traces/{trace_id} 与 GET /api/traces/{trace_id}/steps/{step_id}/raw 命中真实后端",
+        "浏览器或等价自动化测试证明请求经 /api 代理到 8099；frontend/.env 保持 VITE_API_BASE_URL=/api",
+        "该功能不再走 frontend/src/mocks 中的 Trace Mock 分支",
+        "LangGraph 流转图未提供时 Trace 数据只能标记为 fallback Trace，不得声明真实 LangGraph 编排联调通过",
+        "Trace 节点固定高度或最大高度容器预留至少 20% 缓冲，真实浏览器验证 1440x900 与 390x844 无溢出"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P02",
+          "P04"
+        ],
+        "services": [
+          "frontend/src/services/traces.ts",
+          "frontend/src/stores/traceStore.ts"
+        ],
+        "realApiEndpoints": [
+          "GET /api/traces/{trace_id}",
+          "GET /api/traces/{trace_id}/steps/{step_id}/raw"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 时 Trace 面板、节点展开和 raw JSON 弹窗均使用真实后端响应",
+          "真实 LangGraph 缺失时，测试报告明确写 fallback Trace 验收"
+        ]
+      },
+      "externalServices": [
+        "LangGraph"
+      ],
+      "dependencies": [
+        "T-004"
+      ],
+      "priority": 5,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": null,
+      "tester_id": "codex-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "[PASS] T-005 Trace API 与管理端详情闭环已通过 Tester 独立验证。验证范围仅为 fallback Trace：未声明真实 LangGraph 编排联调通过。详见：.sdd/test-reports/test-T-005.md",
+      "user_gate": true
+    },
+    {
+      "id": "T-006",
+      "title": "数据源状态与系统设置真实 API 闭环",
+      "type": "integration",
+      "description": "实现数据源状态 API 和配置状态 API，并将数据说明页、系统设置页从 Mock 切到真实后端。页面只展示配置字段、状态、缺失项、Prompt 和合规规则，不允许展示真实密钥。受影响范围：backend/src/api、backend/src/services、backend/src/config、backend/tests、frontend/src/services/config.ts、数据说明页、系统设置页。",
+      "source_feature": "F05 / F06 / F12 / BE05 / BE06",
+      "acceptanceCriteria": [
+        "用户打开数据说明页，能看到行情、财务、公告、研报、知识库等本地数据源的状态、路径说明和样本数量。",
+        "用户打开系统设置页，能看到 LLM、Embedding、Rerank 的字段名、当前状态和缺失项，但看不到任何真实密钥内容。",
+        "用户在管理端能看到 Prompt 默认配置和合规黑名单表达，客户端仍不展示系统设置入口。",
+        "当外部服务 Key 尚未提供时，页面清楚显示 mocked 或 missing 状态，不把能力描述成真实已接入。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "VITE_USE_MOCK=false 时 GET /api/data-sources/status 与 GET /api/config/status 命中真实后端",
+        "浏览器或等价自动化测试证明请求经 /api 代理到 8099；frontend/.env 保持 VITE_API_BASE_URL=/api",
+        "页面和 .sdd/tasks.json、docs/**、日志中不写入真实 Key、Token、JWT Secret 或可还原片段",
+        "LLM / Embedding / Rerank / LOCAL_KB_PATH 缺失时状态为 mocked、missing 或 fallback，不得标记真实服务联调通过",
+        "数据说明和设置页固定高度区域预留至少 20% 缓冲，真实浏览器验证 1440x900 与 390x844 无溢出"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P05",
+          "P06"
+        ],
+        "services": [
+          "frontend/src/services/dataSources.ts",
+          "frontend/src/services/config.ts"
+        ],
+        "realApiEndpoints": [
+          "GET /api/data-sources/status",
+          "GET /api/config/status"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 时数据说明页和系统设置页均使用真实后端响应",
+          "外部服务缺失时，测试报告明确写 fallback 或 missing 验收"
+        ]
+      },
+      "externalServices": [
+        "硅基流动 LLM / DeepSeek",
+        "硅基流动 Embedding / 千问",
+        "硅基流动 Rerank / 千问",
+        "本地 Markdown 知识库",
+        "本地 Mock 行情 / 财务 / 公告 / 宏观数据",
+        "LangGraph"
+      ],
+      "dependencies": [
+        "T-002"
+      ],
+      "priority": 6,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": null,
+      "tester_id": "codex-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "[PASS] T-006 数据源状态与系统设置真实 API 闭环已通过 Tester 独立验证。验证范围仅为状态 fallback：未声明真实 LLM、Embedding、Rerank、本地知识库或 LangGraph 联调通过。详见：.sdd/test-reports/test-T-006.md",
+      "user_gate": true
+    },
+    {
+      "id": "T-007",
+      "title": "Agent/RAG/质检 fallback 链路闭环",
+      "type": "integration",
+      "description": "在现有 Chat Query 与 Trace 链路内补齐演示级 Agent 路由、Mock 数据工具调用、模拟 RAG 命中和质检合规结果展示。真实 LLM、Embedding、Rerank、本地知识库检索和 LangGraph 编排均以用户后续提供 Key、路径和流转图为 blocked 条件；本任务只允许通过 fallback 链路验收。受影响范围：backend/src/services、backend/src/integrations、backend/tests、frontend 富响应和 Trace 展示。",
+      "source_feature": "F04 / F05 / F07 / BE07 / BE08 / BE09",
+      "acceptanceCriteria": [
+        "用户发送热点、问数或问股类问题后，回答能展示对应的表格、卡片、引用来源和风险提示。",
+        "用户在管理端查看 Trace，能看到意图识别、路由决策、工具调用、RAG 命中和质检合规等步骤。",
+        "用户打开 Trace 节点详情，能看见命中文档标题、来源类型、相关性说明和质检 PASS / FAIL 结果。",
+        "当真实模型 Key、知识库路径或 LangGraph 流转图尚未提供时，工程 Trace/raw/config 可保留 fallback 或 blocked 条件，但客户端和管理端可见 UI 不展示 Agent fallback 摘要、真实 LLM 未接入或 LangGraph 未接入等内部工程文案。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "VITE_USE_MOCK=false 时 Agent/RAG/质检结果经 POST /api/chat/query 和 GET /api/traces/{trace_id} 从真实后端返回",
+        "浏览器或等价自动化测试证明请求经 /api 代理到 8099；frontend/.env 保持 VITE_API_BASE_URL=/api",
+        "LLM_API_KEY、EMBEDDING_API_KEY、RERANK_API_KEY、LOCAL_KB_PATH 或 LangGraph 流转图缺失时，本任务不得标记真实 LLM/Embedding/Rerank/LangGraph/本地知识库完整联调通过",
+        "外部服务调用失败时有清晰错误处理和日志，不得静默吞错；真实密钥不得硬编码进代码、docs/** 或 .sdd/**",
+        "如使用 httpx/openai 类网络客户端，必须显式 trust_env=False，不得裸用继承环境代理的快捷调用"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P01",
+          "P02",
+          "P04",
+          "P05",
+          "P06"
+        ],
+        "services": [
+          "frontend/src/services/chat.ts",
+          "frontend/src/services/traces.ts",
+          "frontend/src/services/dataSources.ts",
+          "frontend/src/services/config.ts"
+        ],
+        "realApiEndpoints": [
+          "POST /api/chat/query",
+          "GET /api/traces/{trace_id}",
+          "GET /api/data-sources/status",
+          "GET /api/config/status"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 时页面不使用前端 Mock 生成 Agent/RAG/质检结果",
+          "真实外部服务和本地知识库条件缺失时，测试报告明确写 fallback 或 blocked 条件"
+        ]
+      },
+      "externalServices": [
+        "硅基流动 LLM / DeepSeek",
+        "硅基流动 Embedding / 千问",
+        "硅基流动 Rerank / 千问",
+        "本地 Markdown 知识库",
+        "本地 Mock 行情 / 财务 / 公告 / 宏观数据",
+        "LangGraph"
+      ],
+      "dependencies": [
+        "T-004",
+        "T-005",
+        "T-006"
+      ],
+      "priority": 7,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": "codex-developer",
+      "tester_id": "codex-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "T-007 已通过 Tester 自动验收，随后根据用户验收反馈完成追加修整：客户端回答统一包裹在一个气泡内；个股基本面卡补充毛利率、净利率、经营性现金流量净额，并追加 200-300 字基本面点评；风险提示和来源改为回答末尾普通文本；移除/过滤 Agent fallback 回答摘要、当前回答由演示级链路生成、真实 LLM/LangGraph 未接入等内部工程文案；后端输出层与前端 store/ChatView/TracePanel 均增加防御性清洗，旧 SQLite/旧 API/旧 mock 返回脏数据时也不得进入可见 UI。本任务仍仅验证 fallback 链路，不代表真实 LLM、Embedding、Rerank、本地知识库或 LangGraph 完整联调通过。下一任务为 T-008，状态 pending。",
+      "user_gate": true
+    },
+    {
+      "id": "T-008",
+      "title": "全链路 E2E 回归与启动说明",
+      "type": "integration",
+      "description": "完成前端 Mock 模式、真实 API fallback 模式和全页面浏览器回归；补充 docs/startup.md。E2E 只做全系统回归，不替代前面各业务任务内的首次真实 API 联调。受影响范围：docs/startup.md、frontend 测试配置、backend 测试配置、.sdd/test-reports。",
+      "source_feature": "阶段 4 / E2E 回归测试",
+      "acceptanceCriteria": [
+        "用户按启动说明打开前端页面后，能完成客户端提问、查看回答、使用测算组件、搜索历史和切换会话。",
+        "用户切换到管理端后，能查看同一会话、Trace 时间线、Trace 节点展开和完整 JSON 弹窗。",
+        "用户打开数据说明页和系统设置页，能看见数据源、模型、Prompt 和合规规则状态，且没有真实密钥泄露。",
+        "用户在 1440x900 和 390x844 两种窗口尺寸下浏览主要页面，输入框、历史列、Trace 面板、表格和按钮均不遮挡、不溢出。",
+        "当外部 Key、知识库路径或 LangGraph 流转图尚未提供时，最终报告明确说明哪些能力仅完成 fallback 验收。"
+      ],
+      "technicalChecks": [
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "后端在 8099 短时启动，前端在 5199 短时启动，VITE_USE_MOCK=false 完成真实 API fallback 回归",
+        "Vite /api 代理仍指向后端自动验证端口 8099；frontend/.env 仍保持 VITE_API_BASE_URL=/api",
+        "浏览器自动化或等价检查覆盖 1440x900 与 390x844，确认固定高度容器预留 20% 缓冲且无明显溢出",
+        "各功能的首次真实 API 联调证据来自对应任务报告，不允许在 E2E 阶段补做才算通过",
+        "docs/startup.md 包含环境要求、启动命令、Mock 模式、真实 API fallback 模式、外部服务配置字段和当前未完成真实联调的清单"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P01",
+          "P02",
+          "P03",
+          "P04",
+          "P05",
+          "P06"
+        ],
+        "services": [
+          "frontend/src/services/*"
+        ],
+        "realApiEndpoints": [
+          "GET /api/health",
+          "GET /api/sessions",
+          "POST /api/sessions",
+          "GET /api/sessions/{session_id}",
+          "POST /api/chat/query",
+          "GET /api/traces/{trace_id}",
+          "GET /api/traces/{trace_id}/steps/{step_id}/raw",
+          "PATCH /api/layout/preferences",
+          "GET /api/data-sources/status",
+          "GET /api/config/status"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 全链路回归请求均命中真实后端",
+          "外部服务缺失能力在最终报告中标记 fallback 或 blocked，不标记真实联调通过"
+        ]
+      },
+      "externalServices": [
+        "硅基流动 LLM / DeepSeek",
+        "硅基流动 Embedding / 千问",
+        "硅基流动 Rerank / 千问",
+        "本地 Markdown 知识库",
+        "本地 Mock 行情 / 财务 / 公告 / 宏观数据",
+        "LangGraph"
+      ],
+      "dependencies": [
+        "T-003",
+        "T-004",
+        "T-005",
+        "T-006",
+        "T-007"
+      ],
+      "priority": 8,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": null,
+      "tester_id": "cursor-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "",
+      "user_gate": true
+    },
+    {
+      "id": "T-009",
+      "title": "硅基流动 LLM 真实接入",
+      "type": "integration",
+      "description": "在 backend/src/integrations/llm/ 封装硅基流动 OpenAI 兼容 HTTP 调用，将意图识别、回答生成、质检合规模块从 fallback 切换为真实 LLM；同步更新 GET /api/config/status 在 Key 有效时标记 ready，并确保 VITE_USE_MOCK=false 时客户端提问走真实模型输出。受影响范围：backend/src/integrations/llm/、backend/src/services/、backend/tests、frontend/src/services/chat.ts、对话页、系统设置页。",
+      "source_feature": "F13 / BE10",
+      "acceptanceCriteria": [
+        "用户在客户端输入投研问题并发送，页面展示由真实模型生成的助手回答，回答包含结构化内容、引用来源和风险提示，且不再出现“演示级链路”“真实 LLM 未接入”等内部工程文案。",
+        "用户发送新会话首条问题后，历史标题仍能从“新对话”替换为该问题内容。",
+        "用户切换到管理端查看同一会话，能看到本轮问答的 Trace 摘要，且意图识别或回答生成相关节点展示真实模型调用结果（不含任何密钥内容）。",
+        "用户打开系统设置页，能看到 LLM 配置字段名和 ready 状态，页面不展示真实密钥。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "LLM_API_KEY、LLM_BASE_URL、LLM_MODEL 已从 backend/.env 读取，未硬编码进代码、docs/** 或 .sdd/**",
+        "硅基流动 LLM 调用使用 httpx 且显式 trust_env=False，不得裸用继承环境代理的快捷调用",
+        "VITE_USE_MOCK=false 时 POST /api/chat/query 命中真实后端，回答由真实 LLM 生成；浏览器或等价自动化测试证明请求经 /api 代理到 8099",
+        "frontend/.env 保持 VITE_API_BASE_URL=/api；frontend/vite.config.ts 的 /api 代理指向 http://127.0.0.1:8099 或 http://localhost:8099",
+        "GET /api/config/status 在 LLM Key 有效时标记 LLM 为 ready，不得仍显示 mocked 或 fallback",
+        "Tester 必须完成真实硅基流动 LLM 调用验收；Key 已配时不得用 fallback/Mock 判 PASS",
+        "外部服务调用失败时有清晰错误处理和日志，不得静默吞错",
+        "固定高度回答气泡与富响应卡片预留至少 20% 缓冲，真实浏览器验证 1440x900 与 390x844 无溢出"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P01",
+          "P02",
+          "P06"
+        ],
+        "services": [
+          "frontend/src/services/chat.ts",
+          "frontend/src/services/config.ts",
+          "frontend/src/stores/sessionStore.ts"
+        ],
+        "realApiEndpoints": [
+          "POST /api/chat/query",
+          "GET /api/config/status"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 时发送问题与 LLM 状态展示均使用真实后端响应",
+          "不得再读取 frontend/src/mocks 中的 chat query Mock 分支生成回答",
+          "真实 LLM 联调失败时本任务不得 PASS"
+        ]
+      },
+      "externalServices": [
+        "硅基流动 LLM / DeepSeek"
+      ],
+      "dependencies": [
+        "T-008"
+      ],
+      "priority": 9,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": "cursor-developer",
+      "tester_id": "cursor-tester",
+      "retry_count": 1,
+      "blocked": false,
+      "notes": "[PASS] T-009 - 双 Key 配置就绪；修复 Qwen3.5 enable_thinking 顶层参数后真实联调通过（intent=Qwen3.5-9B，output=Qwen3.5-27B）。待用户门禁确认后进入 T-010。\n详见：.sdd/test-reports/T-009-report.md",
+      "user_gate": true
+    },
+    {
+      "id": "T-010",
+      "title": "Embedding + 本地 Markdown 知识库检索",
+      "type": "integration",
+      "description": "对 backend/data/knowledge-base/ 下 hotspots/、financials/、industry-reports/、company-reports/、structured-data/ 的 Markdown 分块向量化（硅基流动 Embedding），建立可检索索引（缓存可写入 backend/data/knowledge-base/.index/），并在 Chat Query / RAG 链路中完成语义召回与上下文注入；同步更新 GET /api/data-sources/status 展示真实文件数与 ready 状态。热点知识库独立于五家样本公司，不强制映射样本公司。受影响范围：backend/src/integrations/embedding/、backend/src/services/rag/、backend/tests、frontend 引用展示与数据说明页。",
+      "source_feature": "F14 / F16 / BE11",
+      "acceptanceCriteria": [
+        "用户在客户端询问市场热点、财报、行业研报或公司研报相关问题，回答能展示来自本地知识库的真实引用来源（文档标题、来源类型），且引用内容与问题相关。",
+        "用户在管理端查看 Trace，RAG 检索节点能看到命中文档标题、召回分数或相关性说明。",
+        "用户打开数据说明页，能看到知识库目录、真实 Markdown 文件数量和 ready 状态，热点库与五家样本公司行情数据分别展示，不要求热点必须映射到样本公司。",
+        "用户打开系统设置页，能看到 Embedding 配置字段名和 ready 状态，页面不展示真实密钥。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "EMBEDDING_API_KEY、EMBEDDING_BASE_URL、EMBEDDING_MODEL、EMBEDDING_DIM、LOCAL_KB_PATH 已从 backend/.env 读取，未硬编码进代码、docs/** 或 .sdd/**",
+        "知识库扫描 backend/data/knowledge-base/（36 个 Markdown）；向量索引缓存可写入 .index/ 且可 gitignore",
+        "Embedding 调用使用 httpx 且显式 trust_env=False",
+        "VITE_USE_MOCK=false 时 POST /api/chat/query 与 GET /api/data-sources/status 命中真实后端；浏览器证明请求经 /api 代理到 8099",
+        "frontend/.env 保持 VITE_API_BASE_URL=/api",
+        "热点、财报、行业研报、公司研报四类文档各至少 1 条可验证 RAG 命中用例；hotspots/ 不强制映射五家样本公司",
+        "Tester 必须完成真实 Embedding 调用与本地知识库检索验收；Key 与知识库已就位时不得 fallback PASS",
+        "外部服务调用失败时有清晰错误处理和日志，不得静默吞错"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P01",
+          "P02",
+          "P04",
+          "P05",
+          "P06"
+        ],
+        "services": [
+          "frontend/src/services/chat.ts",
+          "frontend/src/services/traces.ts",
+          "frontend/src/services/dataSources.ts",
+          "frontend/src/services/config.ts"
+        ],
+        "realApiEndpoints": [
+          "POST /api/chat/query",
+          "GET /api/traces/{trace_id}",
+          "GET /api/data-sources/status",
+          "GET /api/config/status"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 时 RAG 引用与数据源状态均使用真实后端响应",
+          "不得再用模拟 RAG 命中或静态引用占位判 PASS",
+          "真实 Embedding/知识库联调失败时本任务不得 PASS"
+        ]
+      },
+      "externalServices": [
+        "硅基流动 Embedding / 千问",
+        "本地 Markdown 知识库"
+      ],
+      "dependencies": [
+        "T-009"
+      ],
+      "priority": 10,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": "cursor-developer",
+      "tester_id": "cursor-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "[PASS] T-010 - 真实 Embedding + 本地 Markdown 检索验收通过：.index/ 1036 chunks、rag semantic/ready、四类 RAG 用例 REAL_API_TEST 12/12、Chat 200 含知识库引用、Trace RAG 节点含标题与分数。\n详见：.sdd/test-reports/T-010-report.md",
+      "user_gate": true
+    },
+    {
+      "id": "T-011",
+      "title": "Rerank 重排",
+      "type": "integration",
+      "description": "在 T-010 召回结果基础上接入硅基流动 Rerank，对 RAG 候选片段重排后注入上下文；Trace 记录重排前后顺序或分数变化。失败时记录日志，不得静默吞错。受影响范围：backend/src/integrations/rerank/、backend/src/services/rag/、backend/tests、管理端 Trace 面板。",
+      "source_feature": "F15 / BE12",
+      "acceptanceCriteria": [
+        "用户在客户端询问需要引用研报或公告的问题，回答中的引用来源顺序能体现重排后的相关性（更相关的文档排在更前或 Trace 可见重排依据）。",
+        "用户在管理端查看 Trace 的 RAG 检索节点，能看到重排前候选、重排后顺序或重排分数等可观测信息。",
+        "用户打开系统设置页，能看到 Rerank 配置字段名和 ready 状态，页面不展示真实密钥。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "RERANK_API_KEY、RERANK_BASE_URL、RERANK_MODEL 已从 backend/.env 读取，未硬编码进代码、docs/** 或 .sdd/**",
+        "Rerank 调用使用 httpx 且显式 trust_env=False",
+        "VITE_USE_MOCK=false 时 POST /api/chat/query 与 GET /api/traces/{trace_id} 命中真实后端；浏览器证明请求经 /api 代理到 8099",
+        "frontend/.env 保持 VITE_API_BASE_URL=/api",
+        "GET /api/config/status 在 Rerank Key 有效时标记 ready",
+        "Trace RAG 节点必须记录重排前后顺序变化或重排分数，不得省略 Rerank 步骤",
+        "Tester 必须完成真实硅基流动 Rerank 调用验收；Key 已配时不得 fallback PASS",
+        "Rerank 失败时有清晰错误处理和日志，不得静默吞错"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P01",
+          "P02",
+          "P04",
+          "P06"
+        ],
+        "services": [
+          "frontend/src/services/chat.ts",
+          "frontend/src/services/traces.ts",
+          "frontend/src/services/config.ts"
+        ],
+        "realApiEndpoints": [
+          "POST /api/chat/query",
+          "GET /api/traces/{trace_id}",
+          "GET /api/config/status"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 时 RAG 重排结果与 Trace 展示均使用真实后端响应",
+          "不得用静态排序或模拟重排判 PASS",
+          "真实 Rerank 联调失败时本任务不得 PASS"
+        ]
+      },
+      "externalServices": [
+        "硅基流动 Rerank / 千问"
+      ],
+      "dependencies": [
+        "T-010"
+      ],
+      "priority": 11,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "in_progress",
+      "developer_id": "cursor-main",
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "Developer 已完成：Trace 展示 rerank_before/after、失败 logger.warning 降级 hybrid、test_rerank.py 通过。索引 v6 2510 chunks ready。待用户验收后标 passed，再进入 T-012 LangGraph。",
+      "user_gate": true
+    },
+    {
+      "id": "T-011a",
+      "title": "系统权威时间注入",
+      "type": "integration",
+      "description": "T-012 前小任务：向意图/回答/质检 Prompt 注入权威 current_date；RAG 引用带 time_period；质检 payload 含 system_context 与 rag_citations，避免用模型内置日历误判知识库文档不存在。",
+      "source_feature": "F13 增强 / 质检口径",
+      "acceptanceCriteria": [
+        "质检不再仅因“2025 年报尚未发布”等日历推测误判 FAIL（在引用含 2025A/2026Q1 且系统日期为 2026 时）。",
+        "回答引用 time 字段展示文档 time_period，而非仅“本地知识库”。",
+        "Trace 预处理节点可见 system_context.current_date。"
+      ],
+      "technicalChecks": [
+        "$PY -m pytest backend/tests/test_system_time.py 通过",
+        "REFERENCE_DATE 可选配置；留空则用 Asia/Shanghai 服务器日期"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": [],
+        "services": [],
+        "realApiEndpoints": [],
+        "mockExitCriteria": []
+      },
+      "externalServices": [],
+      "dependencies": [
+        "T-010"
+      ],
+      "priority": 11,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md"
+      ],
+      "status": "passed",
+      "developer_id": "cursor-main",
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "已实现 system_time.py、Prompt 注入、rag time_period 引用、quality_check rag_citations；test_system_time.py 6 passed。待用户重启后端后复测泸州老窖类问题。",
+      "user_gate": true
+    },
+    {
+      "id": "T-012",
+      "title": "LangGraph 真实编排",
+      "type": "integration",
+      "description": "依据 docs/agent/langgraph-flow.md（去除测算版）实现 LangGraph StateGraph，将 T-007 fallback Agent 链路替换为真实编排；Trace steps[].node 与流转图节点 ID 一一对应，输出 routing_output、rag_hits、quality_check、final_response 等结构化字段。流转图已提供，不得猜测节点结构。受影响范围：backend/src/agents/、backend/src/integrations/langgraph/、backend/tests、管理端 Trace 面板与客户端回答展示。",
+      "source_feature": "F17 / BE13",
+      "acceptanceCriteria": [
+        "用户在客户端发送热点、问数、问股或文档问答类问题，页面展示完整回答，且回答末尾仍包含风险提示。",
+        "用户在管理端查看 Trace 时间线，能看到与流转图一致的节点序列（如 context_preprocess、intent_recognition、routing_decision、rag_retrieval、quality_check、response_assembly 等），节点状态与耗时可见。",
+        "用户点击任一 Trace 节点展开详情，能看到该节点的输入输出摘要；点击“查看完整 JSON”可看到与节点对应的结构化数据。",
+        "用户发送需澄清的模糊问题时，页面展示结构化追问，Trace 可见 clarification_check 与 clarification_response 分支。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "实现严格对齐 docs/agent/langgraph-flow.md 节点清单与分支条件；steps[].node 与节点 ID 一致",
+        "不得保留 T-007 演示级 fallback Agent 链路作为默认执行路径；LangGraph 未接入时不得判 PASS",
+        "VITE_USE_MOCK=false 时 POST /api/chat/query 与 GET /api/traces/{trace_id} 命中真实后端；浏览器证明请求经 /api 代理到 8099",
+        "frontend/.env 保持 VITE_API_BASE_URL=/api",
+        "GET /api/config/status 反映 LangGraph ready 状态",
+        "涉及 LLM/Embedding/Rerank 的网络调用均使用 httpx trust_env=False",
+        "Tester 必须验证真实 LangGraph 编排执行，不得用 fallback Trace 判 PASS",
+        "外部服务或节点执行失败时有清晰错误处理和日志，不得静默吞错",
+        "流转图要求：不得由模型自由测算收益预测；计算仅允许 tool_call 固定公式"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P01",
+          "P02",
+          "P04"
+        ],
+        "services": [
+          "frontend/src/services/chat.ts",
+          "frontend/src/services/traces.ts"
+        ],
+        "realApiEndpoints": [
+          "POST /api/chat/query",
+          "GET /api/traces/{trace_id}",
+          "GET /api/traces/{trace_id}/steps/{step_id}/raw",
+          "GET /api/config/status"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 时 Trace 时间线与节点详情均来自真实 LangGraph 编排",
+          "不得再展示 fallback Trace 或“LangGraph 未接入”工程文案",
+          "真实 LangGraph 联调失败时本任务不得 PASS"
+        ]
+      },
+      "externalServices": [
+        "硅基流动 LLM / DeepSeek",
+        "硅基流动 Embedding / 千问",
+        "硅基流动 Rerank / 千问",
+        "本地 Markdown 知识库",
+        "本地 Mock 行情 / 财务 / 公告 / 宏观数据",
+        "LangGraph"
+      ],
+      "dependencies": [
+        "T-009",
+        "T-010",
+        "T-011"
+      ],
+      "priority": 12,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "in_progress",
+      "developer_id": "cursor-main",
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "P1-P4 Developer 完成：LangGraph 全图 + chat_service 仅走 Runner；需 LANGGRAPH_ENV=local。报告见 .sdd/developer-reports/T-012-P*.md。待 Tester + 用户门禁。",
+      "user_gate": true
+    },
+    {
+      "id": "T-013",
+      "title": "V1.1 全链路真实 AI 回归",
+      "type": "integration",
+      "description": "完成 V1.1 全链路真实 AI 回归：硅基流动 LLM + Embedding + 本地知识库 RAG + Rerank + LangGraph；更新 docs/startup.md 中外部服务与「未完成真实联调清单」；双视口 E2E 覆盖真实 RAG 命中与 Trace 节点。本任务只做全系统回归，不替代 T-009～T-012 各任务内的首次真实联调。受影响范围：docs/startup.md、frontend 测试配置、backend 测试配置、.sdd/test-reports。",
+      "source_feature": "V1.1 收尾回归 / 阶段 5",
+      "acceptanceCriteria": [
+        "用户按启动说明以 VITE_USE_MOCK=false 打开前端后，能完成客户端提问并收到真实 LLM 生成、带知识库引用的回答。",
+        "用户切换到管理端，能查看真实 LangGraph Trace 时间线、节点展开和完整 JSON 弹窗，Trace 节点与流转图一致。",
+        "用户打开数据说明页和系统设置页，能看到 LLM、Embedding、Rerank、知识库和 LangGraph 均为 ready 或已接入状态，且没有真实密钥泄露。",
+        "用户在 1440x900 和 390x844 两种窗口尺寸下浏览主要页面，输入框、历史列、Trace 面板、表格和按钮均不遮挡、不溢出。",
+        "最终回归报告明确声明 V1.1 真实 AI 全链路已通过，不再将任何核心能力标记为 fallback only。"
+      ],
+      "technicalChecks": [
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过",
+        "后端在 8099 短时启动，前端在 5199 短时启动，VITE_USE_MOCK=false 完成 V1.1 真实 AI 全链路回归",
+        "Vite /api 代理仍指向后端 8099；frontend/.env 仍保持 VITE_API_BASE_URL=/api",
+        "浏览器自动化或等价检查覆盖 1440x900 与 390x844，确认固定高度容器预留 20% 缓冲且无明显溢出",
+        "回归覆盖热点、问数、问股、文档问答至少各 1 条真实 RAG/Agent 用例；热点不强制映射五家样本公司",
+        "各 V1.1 能力的首次真实联调证据来自 T-009～T-012 对应任务报告，不允许在 E2E 阶段补做才算通过",
+        "Tester 必须真实调用硅基流动 LLM、Embedding、Rerank 与 LangGraph，Key 已配时不得 fallback PASS",
+        "涉及外部服务的 httpx 调用均显式 trust_env=False",
+        "docs/startup.md 更新 V1.1 启动说明、外部服务配置字段和真实 AI 联调状态；不得写入真实 Key",
+        "最终测试报告区分并确认：LLM、Embedding、Rerank、本地知识库、LangGraph 均为真实联调通过"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": [
+          "P01",
+          "P02",
+          "P03",
+          "P04",
+          "P05",
+          "P06"
+        ],
+        "services": [
+          "frontend/src/services/*"
+        ],
+        "realApiEndpoints": [
+          "GET /api/health",
+          "GET /api/sessions",
+          "POST /api/sessions",
+          "GET /api/sessions/{session_id}",
+          "POST /api/chat/query",
+          "GET /api/traces/{trace_id}",
+          "GET /api/traces/{trace_id}/steps/{step_id}/raw",
+          "PATCH /api/layout/preferences",
+          "GET /api/data-sources/status",
+          "GET /api/config/status"
+        ],
+        "mockExitCriteria": [
+          "VITE_USE_MOCK=false 全链路回归请求均命中真实后端",
+          "V1.1 核心 AI 能力不得标记 fallback 或 blocked 作为通过理由",
+          "真实外部服务联调失败时本任务不得 PASS"
+        ]
+      },
+      "externalServices": [
+        "硅基流动 LLM / DeepSeek",
+        "硅基流动 Embedding / 千问",
+        "硅基流动 Rerank / 千问",
+        "本地 Markdown 知识库",
+        "本地 Mock 行情 / 财务 / 公告 / 宏观数据",
+        "LangGraph"
+      ],
+      "dependencies": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012"
+      ],
+      "priority": 13,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "pending",
+      "developer_id": null,
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "V1.1 收尾回归。前置：LLM/Embedding/Rerank Key 已配、知识库已就位、LangGraph 流转图已提供。httpx trust_env=False；VITE_USE_MOCK=false；Tester 必须真实调用外部服务，不得 fallback PASS；Vite 代理 /api -> 8099。",
+      "user_gate": true
+    },
+    {
+      "id": "T-014",
+      "title": "Query 改写节点（延后）",
+      "type": "integration",
+      "description": "V1.2+ backlog，不阻塞 T-012～T-013。在 slot_extraction 之后、rag_retrieval 之前增加 query_rewrite（或等价 retrieval_query 构建），将口语化/多轮指代 Query 转为检索友好语句；Trace 写入 input.retrieval_query。分阶段：① 规则+槽位拼接 ② 可选 LLM 改写 ③ 多 Query 扩展。设计见 docs/agent/langgraph-flow.md §7.1、docs/Plan.md F18。前置建议：槽位 schema 与多轮 pending_slots（F19）稳定后再做 LLM 改写。",
+      "source_feature": "F18",
+      "acceptanceCriteria": [
+        "多轮场景「它一季报怎么样」在上一轮已明确 stock_name 时，RAG 使用改写后的 retrieval_query 且 Trace 可见改写前后对比。",
+        "显性提问（如「罗莱生活 2026 年一季报」）改写后语义不退化，混合检索命中数不低于改写前。",
+        "Embedding 不可用时，改写逻辑不阻断 BM25-only 降级路径。"
+      ],
+      "technicalChecks": [
+        "docs/agent/langgraph-flow.md 节点清单与流转图已包含 query_rewrite",
+        "rag_retrieval 优先使用 state.retrieval_query，缺省回退 normalized_query",
+        "$PY -m pytest backend/tests 含 query_rewrite 或 build_retrieval_query 单测"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": [
+          "P04"
+        ],
+        "services": [
+          "frontend/src/services/traces.ts"
+        ],
+        "realApiEndpoints": [
+          "GET /api/traces/{trace_id}"
+        ],
+        "mockExitCriteria": []
+      },
+      "externalServices": [
+        "硅基流动 LLM / DeepSeek",
+        "硅基流动 Embedding / 千问",
+        "本地 Markdown 知识库"
+      ],
+      "dependencies": [
+        "T-012",
+        "T-013",
+        "T-016",
+        "T-017"
+      ],
+      "priority": 18,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md"
+      ],
+      "status": "backlog",
+      "developer_id": null,
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "2026-06-12 用户确认：Query 改写优先级排到 V1.1 之后；当前 RAG 已具备 BM25+向量混合+Rerank，检索直接用 normalized_query。实现前须先完成 T-015～T-017（短期记忆与槽位跨轮）。",
+      "user_gate": true
+    },
+    {
+      "id": "T-015",
+      "title": "五轮短期记忆窗口（F20）",
+      "type": "integration",
+      "description": "V1.2+ backlog。产品化 PRD 短期记忆：同一会话内保留最近 5 轮 QA（10 条消息）作为 Agent 上下文窗口。统一 `LangGraphRunner._build_chat_history` 与 `context_preprocess` 的截断规则为单一配置源（如 `SHORT_TERM_QA_ROUNDS=5`）；`history_summary` 生成策略与 Trace 字段对齐；意图识别 Prompt 明确要求结合 `history_summary` 解析续问/指代。长期记忆仍延后（V2+）。设计见 docs/PRD.md §5.4、docs/agent/langgraph-flow.md §7.3。",
+      "source_feature": "F20",
+      "acceptanceCriteria": [
+        "同一会话第 6 轮起，Agent 上下文仅保留最近 5 轮 QA，更早消息不进入 `chat_history` / `history_summary`。",
+        "管理端 Trace 的 `context_preprocess` 步骤可看到 `history_count` 与截断后的 `history_summary` 摘要。",
+        "续问场景（如上一轮问「宁德时代基本面」，本轮仅说「一季报呢」）在意图识别阶段能结合 `history_summary` 判定为 stock_analysis 或延续上轮意图（验收用例写入测试）。"
+      ],
+      "technicalChecks": [
+        "短期记忆窗口常量或 settings 仅维护一处，runner 与 context_preprocess 共用",
+        "docs/PRD.md、docs/Plan.md F20 与实现参数一致（5 轮 QA）",
+        "$PY -m pytest backend/tests 含短期记忆窗口与 history_summary 单测"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": [
+          "P04"
+        ],
+        "services": [
+          "frontend/src/services/traces.ts"
+        ],
+        "realApiEndpoints": [
+          "GET /api/traces/{trace_id}"
+        ],
+        "mockExitCriteria": []
+      },
+      "externalServices": [
+        "LangGraph",
+        "硅基流动 LLM / DeepSeek"
+      ],
+      "dependencies": [
+        "T-012",
+        "T-013"
+      ],
+      "priority": 15,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md"
+      ],
+      "status": "backlog",
+      "developer_id": null,
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "2026-06-12 用户确认补入 PRD 短期记忆方案。当前代码已有 limit=10 消息与 history_summary 骨架，本任务做产品规则固化与意图层消费，不含槽位跨轮与 RAG 改写。",
+      "user_gate": true
+    },
+    {
+      "id": "T-016",
+      "title": "会话 pending_slots 多轮闭环（F19）",
+      "type": "integration",
+      "description": "V1.2+ backlog。实现会话级槽位短期记忆：在 5 轮 QA 窗口内继承并合并 `stock_name`、`time_period`、`industry`、`metric` 等已确认槽位（`pending_slots` / `active_slots`），供 `slot_extraction`、`clarification_check` 与下游路由使用。须有意图必填槽位单一配置源、`slot_confidence` 参与澄清阈值；本轮未提及的槽位从上轮继承，本轮显式覆盖时更新。可选：会话表 `context_state` JSON 字段或在 `context_preprocess` 从最近 Trace/消息反推。设计见 docs/agent/langgraph-flow.md §7.2、§7.3。",
+      "source_feature": "F19",
+      "acceptanceCriteria": [
+        "第一轮问「宁德时代基本面怎么样」并回答后，第二轮问「它 2026 一季报怎么样」时，`slot_extraction` 输出含 `stock_name=宁德时代`（或等价 code），无需用户重复公司名。",
+        "用户在新一轮显式更换标的（如改问「泸州老窖呢」）时，继承槽位被覆盖，不误用上一轮公司。",
+        "缺必填槽位时仍走 `clarification_response`；已继承槽位不计入 missing。"
+      ],
+      "technicalChecks": [
+        "槽位必填表与澄清阈值集中配置（单文件或 settings），节点只引用不硬编码",
+        "Trace 的 slot_extraction / clarification_check 可见继承前后 slots 对比",
+        "$PY -m pytest backend/tests 含多轮槽位继承用例"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": [
+          "P04"
+        ],
+        "services": [
+          "frontend/src/services/traces.ts"
+        ],
+        "realApiEndpoints": [
+          "GET /api/traces/{trace_id}"
+        ],
+        "mockExitCriteria": []
+      },
+      "externalServices": [
+        "LangGraph",
+        "硅基流动 LLM / DeepSeek"
+      ],
+      "dependencies": [
+        "T-015"
+      ],
+      "priority": 16,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md"
+      ],
+      "status": "backlog",
+      "developer_id": null,
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "多轮指代核心依赖本任务；须在 T-014 Query 改写之前完成。",
+      "user_gate": true
+    },
+    {
+      "id": "T-017",
+      "title": "多轮上下文注入下游节点（F20）",
+      "type": "integration",
+      "description": "V1.2+ backlog。在 T-015 窗口与 T-016 槽位继承基础上，将 `history_summary` 与 `active_slots` 注入 `slot_extraction`、子 Agent 规划（如 `stock_analysis_agent`）与 `response_assembly`，使续问回答与 RAG 检索能利用短期记忆。`response_assembly` user prompt 须含精简对话摘要或结构化 carryover；`evidence_pack` 可增 `conversation_context`。RAG 仍用 `normalized_query` 直至 T-014 落地，但槽位须参与 `company_index` 过滤。设计见 docs/agent/langgraph-flow.md §7.3。",
+      "source_feature": "F20",
+      "acceptanceCriteria": [
+        "多轮问股场景：第二轮追问在上轮同一标的语境下，`response_assembly` 生成内容延续标的与时间口径，不出现「请提供公司名称」类退化。",
+        "Trace 中 slot_extraction、response_assembly 的 input 含 `history_summary` 或 `active_slots` 字段。",
+        "无历史的首轮对话行为与当前单轮一致，不因注入逻辑回归。"
+      ],
+      "technicalChecks": [
+        "仅注入短期窗口内上下文，不读取超出 5 轮 QA 的消息",
+        "Prompt 更新：slots / stock_analysis / assembly 对多轮续问的约束与 _shared 版式不冲突",
+        "$PY -m pytest backend/tests 含 response_assembly 多轮上下文用例"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": [
+          "P01",
+          "P04"
+        ],
+        "services": [
+          "frontend/src/services/chat.ts"
+        ],
+        "realApiEndpoints": [
+          "POST /api/chat/query",
+          "GET /api/traces/{trace_id}"
+        ],
+        "mockExitCriteria": []
+      },
+      "externalServices": [
+        "LangGraph",
+        "硅基流动 LLM / DeepSeek",
+        "本地 Markdown 知识库"
+      ],
+      "dependencies": [
+        "T-015",
+        "T-016"
+      ],
+      "priority": 17,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md"
+      ],
+      "status": "backlog",
+      "developer_id": null,
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "完成本任务后多轮「能聊下去」；检索侧口语改写仍由 T-014 负责。",
+      "user_gate": true
+    },
+    {
+      "id": "T-018",
+      "title": "问股 live 基本面 Tool（新浪/同花顺/东财/巨潮）",
+      "type": "integration",
+      "description": "V1.2 backlog。在 T-013 通过后，为 stock_analysis 链路接入 live 基本面 Tool（参考 third_party/a-stock-data，适配进 integrations/market_data/，非 Skill 运行时调用）：① 新浪财报三表财务快照；② 同花顺一致预期；③ 东财 reportapi 研报元数据；④ 巨潮公告（复用 cninfo_client）；⑤ 可选腾讯 PE/PB/市值。与本地 RAG 互补：Tool 补任意 A 股结构化数字与列表，RAG 保留深度全文。失败降级本地 KB 或明确缺失，Trace 标来源与 fallback。受影响范围：backend/src/integrations/market_data/、backend/src/agents/tools/、routing_decision、stock_analysis/assembly Prompt、backend/tests。",
+      "source_feature": "F21 / 问股 live 数据",
+      "acceptanceCriteria": [
+        "用户在客户端询问知识库未收录的 A 股（如创业板随机公司）基本面，回答能引用新浪财务关键指标（营收、净利润、毛利率、ROE 等）并标明报告期。",
+        "问「机构怎么看某某公司」时，能展示同花顺一致预期或东财研报列表元数据（评级、EPS 预测等），非空答。",
+        "问股 Trace 的 tool_call 节点可见各 Tool 名称、is_mock/fallback 状态与数据来源归因（含 third_party/a-stock-data Apache-2.0）。",
+        "外部接口失败时回答不 500，降级为本地 KB 或明确说明暂无结构化数据；不得把 live 失败伪装成真实 PASS。",
+        "问股 Prompt 边界不变：不接 K 线/盘口/短线资金流；估值仅 PE/PB 等基本面口径。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过（含 stock live tool 单测，HTTP mock）",
+        "新浪/东财客户端参考 a-stock-data SKILL.md §6.4 / 研报层，走 em_get 或等价限流",
+        "routing_decision stock_analysis_agent tool_names 注册新 Tool，保留 mock_financial_profile_lookup 作 KB 降级",
+        "GET /api/config/status 不泄露密钥；live 数据源状态可观测",
+        "VITE_USE_MOCK=false 时问股链路经 LangGraph tool_call 命中真实后端"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": ["P01", "P04", "P06"],
+        "services": ["frontend/src/services/chat.ts", "frontend/src/services/traces.ts"],
+        "realApiEndpoints": ["POST /api/chat/query", "GET /api/traces/{trace_id}"],
+        "mockExitCriteria": [
+          "不得用静态硬编码替代 live Tool 判 PASS",
+          "真实 HTTP 失败须可见 fallback 边界"
+        ]
+      },
+      "externalServices": [
+        "新浪财经财报 API",
+        "同花顺 THS",
+        "东方财富 reportapi",
+        "巨潮 cninfo",
+        "腾讯财经（可选估值）",
+        "LangGraph",
+        "本地 Markdown 知识库"
+      ],
+      "dependencies": ["T-013"],
+      "priority": 18,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "backlog",
+      "developer_id": null,
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "数据源选型已对齐：财务=新浪、机构预期=同花顺、研报元数据=东财、公告=巨潮；与 T-019 KB 扩容并行不冲突。",
+      "user_gate": true
+    },
+    {
+      "id": "T-019",
+      "title": "知识库扩容：创业板 50 家财报（新浪 API）",
+      "type": "integration",
+      "description": "V1.2 知识库扩容。从创业板（代码 300xxx，SZSE ChiNext）随机抽取 50 家 A 股上市公司（固定 random seed 可复现，排除已入库 5 家样本中与创业板重复者），调用新浪财经 CompanyFinanceService.getFinanceReport2022 拉取利润表/资产负债表/现金流量表最近各 2 期，按 docs/knowledge-base-ingestion.md（RAG V7）写成 financials/ Markdown：含迁移元数据、分节（最近年报 12-31 期 + 最近一季报 03-31 期）、### 主要财务数据 表格正文（非 PDF 全文，但须含营业收入/净利润等可检索指标）。同步更新 structured-data/companies.md、document_manifest.md；递增 RAG_INDEX_VERSION；交付 .sdd/test-reports/T-019-ingestion-report.md。来源标注 is_mock=false、来源=新浪财经公开 API。",
+      "source_feature": "F14 扩容 / 问股 RAG 覆盖",
+      "acceptanceCriteria": [
+        "financials/ 新增 50 个 Markdown 文件（每家 1 文件），命名符合 {code}-{slug}-financial-{periods}.md 规范。",
+        "每家至少 2 个唯一 doc_id（年报 ann_{code}_{year} + 季报 q1_{code}_{year}），元数据表含 company_id、ticker、time_period、公司名称。",
+        "companies.md 新增 50 行；document_manifest.md 新增对应行；无重复 doc_id。",
+        "RAG_INDEX_VERSION 递增后索引可重建；对 3 家新增公司各 1 条财报问句检索冒烟，Trace 能命中 financials/ 且 snippet 含营业收入或净利润数值。",
+        "知识库 README 文件数统计更新；50 家公司均为创业板且与抽样清单一致（附 companies_chinext_batch1.json 或同等清单）。"
+      ],
+      "technicalChecks": [
+        "严格遵循 docs/knowledge-base-ingestion.md §4～§7；元数据不进可检索正文混段",
+        "新浪 API 调用间隔 ≥1s，失败公司记录到 ingestion 报告，不阻断整批",
+        "批量脚本放 backend/scripts/ 或 tools/，可重复执行；原始 API 响应可选缓存到 backend/data/raw/sina/（gitignore）",
+        "$PY -m pytest backend/tests/test_rag_service.py -q 通过（或增量冒烟脚本）",
+        "不修改 T-018 live Tool 代码路径（本任务仅 KB 落盘）"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": ["P06"],
+        "services": [],
+        "realApiEndpoints": ["GET /api/data-sources/status"],
+        "mockExitCriteria": []
+      },
+      "externalServices": ["新浪财经财报 API"],
+      "dependencies": ["T-010"],
+      "priority": 19,
+      "rules_files": ["dev-standards/backend-dev.md"],
+      "status": "in_progress",
+      "developer_id": "cursor-developer",
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "用户确认：RAG 从 5 家扩至约 55 家（含原样本）；创业板随机 50 家，新浪三表入库。",
+      "user_gate": true
+    }
+  ]
+}
