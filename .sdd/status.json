@@ -5,5 +5,5 @@
   "development_ready": true,
   "current_task": "roadmap-T-020",
   "blocked": false,
-  "notes": "T-013（V1.1 全链路）、T-020（过程时间线）用户门禁均已通过（2026-06-18）。下一焦点：docs/agent/tool-richness-roadmap.md 问数工具丰富度 P1 用户验收（§2.4）；并行 T-019 创业板财报 KB 扩容。"
+  "notes": "T-013、T-020（时间线）用户门禁已通过（2026-06-18）。V1.2 检查点 7485f74。问数 P1 用户验收清单：.sdd/test-reports/acceptance-roadmap-T-020-P1.md"
 }

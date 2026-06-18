@@ -3,7 +3,7 @@
 > **维护说明**：每完成一个 Phase 的验收，将「当前活动 Phase」推进到下一项，并在 `.sdd/status.json` 的 `notes` 同步。  
 > **对话提醒约定**：用户说「继续工具路线图」「按 roadmap 修」或「问数验收过了」时，Agent 应读本文件 **§二 当前活动 Phase** 并执行下一项，无需用户重复列举 backlog。
 
-**最后更新**：2026-06-13  
+**最后更新**：2026-06-18  
 **背景**：全链路工具审计结论——多数工具只返回「最新截面 / 单次调用」，与用户期望的「更丰富、可对比」不一致。财报多期（问股）已做第一轮修复；本路线图覆盖其余链路。
 
 ---
@@ -35,7 +35,7 @@
 
 | 子阶段 | 内容 | 状态 |
 |--------|------|------|
-| **T-020-P1** | 动态 `tool_names` 编排（对齐问股方案 C）；支持一次调用排行+热力图；提高默认 `rank_limit` | 🟡 开发中 |
+| **T-020-P1** | 动态 `tool_names` 编排（对齐问股方案 C）；支持一次调用排行+热力图；提高默认 `rank_limit` | 🟡 **待用户验收**（清单：`.sdd/test-reports/acceptance-roadmap-T-020-P1.md`） |
 | **T-020-P2** | 指数 / 单股实时报价工具（东财或腾讯）；`index_quote_lookup` / `stock_quote_lookup` | ⏳ P1 验收后 |
 | **T-020-P3** | `time_range` 真正接入（近 5/20 交易日涨跌幅、区间表现）；需新行情历史接口 | ⏳ P2 验收后 |
 
@@ -55,8 +55,10 @@
 1. **多工具**：问「今天行业热力图怎么样，顺便看看半导体成分股涨幅前五」→ Trace `tool_call` 命中 **≥2** 个工具（`sector_heatmap_lookup` + `market_ranking_lookup`），且前端有热力图块 + 正文解读。
 2. **动态单工具**：问「全行业板块涨幅榜」→ 仅 `market_ranking_lookup`，`ranking_mode=industry_boards`。
 3. **计算器独占**：给齐买卖价/份额 → 仅 `local_return_calculator`，不混调排行。
-4. **榜单长度**：默认 `rank_limit` ≥ 8（或 Agent 显式规划 ≥8）。
-5. **降级透明**：API 失败时 `fallback_used=true`，正文/Trace 标明 demo 口径。
+4. **榜单长度**：默认 `rank_limit` ≥ 8（`tool_call` 默认 10；Agent 规划建议 8–10）。
+5. **失败透明（已去 Mock）**：东财 API 失败时返回空结果 + `error`/`notes`；正文与 Trace **不得**编造行情，**不得**回落 demo 数据。
+
+**用户验收清单**：`.sdd/test-reports/acceptance-roadmap-T-020-P1.md`（检查点 `7485f74`）
 
 **通过后**：将本文 §一 中 T-020 标为 ✅，§二 切换为 **T-021**，并更新 `.sdd/status.json`。
 
