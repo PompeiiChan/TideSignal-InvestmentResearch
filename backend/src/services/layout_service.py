@@ -10,12 +10,14 @@ from ..models.layout import LayoutPreferencesRead, WidthRange
 from ..repositories.layout_repository import LayoutRepository
 from ..settings import get_settings
 
-SIDEBAR_MIN = 240
+SIDEBAR_MIN = 200
 SIDEBAR_MAX = 420
 TRACE_PANEL_MIN = 380
 TRACE_PANEL_MAX = 640
-DEFAULT_SIDEBAR_WIDTH = 288
+DEFAULT_SIDEBAR_WIDTH = 230
 DEFAULT_TRACE_PANEL_WIDTH = 488
+# One-time migration targets: old factory default and previously persisted max-drag width.
+LEGACY_SIDEBAR_WIDTHS = frozenset({288, 420})
 
 
 def _now() -> datetime:
@@ -51,6 +53,11 @@ class LayoutService:
             )
             await self.repo.save(record)
             await self.db.commit()
+        elif record.sidebar_width in LEGACY_SIDEBAR_WIDTHS:
+            record.sidebar_width = DEFAULT_SIDEBAR_WIDTH
+            record.updated_at = _now()
+            await self.repo.save(record)
+            await self.db.commit()
         return self._to_read(record)
 
     async def update_preferences(
@@ -60,7 +67,7 @@ class LayoutService:
     ) -> LayoutPreferencesRead:
         """Persist validated preferences."""
         if sidebar_width < SIDEBAR_MIN or sidebar_width > SIDEBAR_MAX:
-            raise ValueError("sidebar_width 必须在 240 到 420 之间")
+            raise ValueError("sidebar_width 必须在 200 到 420 之间")
         if trace_panel_width < TRACE_PANEL_MIN or trace_panel_width > TRACE_PANEL_MAX:
             raise ValueError("trace_panel_width 必须在 380 到 640 之间")
         record = await self.repo.get()

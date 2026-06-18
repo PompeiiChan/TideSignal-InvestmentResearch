@@ -8,6 +8,7 @@ import { SettingsPage } from '../components/SettingsPage'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
 import { TracePanel } from '../components/TracePanel'
+import { useEmptyClientChat } from '../hooks/useEmptyClientChat'
 import { useInvestmentStore, type AppView, type ViewMode } from '../stores/useInvestmentStore'
 
 interface WorkspacePageProps {
@@ -25,6 +26,7 @@ export function WorkspacePage({ initialMode, initialView }: WorkspacePageProps) 
   const loadConfigStatus = useInvestmentStore((state) => state.loadConfigStatus)
   const sidebarWidth = useInvestmentStore((state) => state.sidebarWidth)
   const tracePanelWidth = useInvestmentStore((state) => state.tracePanelWidth)
+  const isEmptyClientChat = useEmptyClientChat()
 
   useEffect(() => {
     void initialize(initialMode, initialView)
@@ -38,7 +40,7 @@ export function WorkspacePage({ initialMode, initialView }: WorkspacePageProps) 
 
   useEffect(() => {
     if (!initialized) return
-    if (view === 'data') void loadDataSources()
+    if (mode === 'admin' && view === 'data') void loadDataSources()
     if (mode === 'admin' && view === 'settings') void loadConfigStatus()
   }, [initialized, loadConfigStatus, loadDataSources, mode, view])
 
@@ -53,11 +55,11 @@ export function WorkspacePage({ initialMode, initialView }: WorkspacePageProps) 
       }
     >
       <Sidebar />
-      <section className="workspace">
+      <section className={`workspace${isEmptyClientChat ? ' workspace--chat-empty' : ''}`}>
         <Topbar />
         <div className="content">
           {view === 'chat' && <ChatView />}
-          {view === 'data' && <DataPage />}
+          {mode === 'admin' && view === 'data' && <DataPage />}
           {view === 'settings' && <SettingsPage />}
         </div>
       </section>

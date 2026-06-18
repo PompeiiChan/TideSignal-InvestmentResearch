@@ -36,6 +36,14 @@ def lookup_hotspot_signal(
             limit=limit,
         )
         stocks = live.get("stocks") or []
+        topic_matched = bool(live.get("topic_matched", True))
+        if keyword and not topic_matched:
+            notes = (
+                "同花顺当日强势股列表中未命中该主题关键词；"
+                "不得将无关 reason 标签当作该主题盘面热度。"
+            )
+        else:
+            notes = "强势股 + reason 标签；深度归因仍以知识库 RAG 为主"
         return {
             "tool": "hotspot_signal_lookup",
             "signal_mode": "ths_live",
@@ -46,13 +54,18 @@ def lookup_hotspot_signal(
             "stock_count": len(stocks),
             "themes": live.get("themes") or [],
             "total_available": live.get("total_available", 0),
-            "matched_count": live.get("matched_count", 0),
+            "matched_count": live.get("matched_count", len(stocks)),
+            "topic_matched": topic_matched,
             "source": _SOURCE_LIVE,
             "is_mock": False,
             "fallback_used": False,
             "timeliness": "当日盘面信号（同花顺人工题材标签）",
-            "confidence_note": "题材标签为现象层归因，须与 RAG 月报交叉验证",
-            "notes": "强势股 + reason 标签；深度归因仍以知识库 RAG 为主",
+            "confidence_note": (
+                "未命中主题关键词时不得引用无关题材标签"
+                if not topic_matched
+                else "题材标签为现象层归因，须与 RAG 月报交叉验证"
+            ),
+            "notes": notes,
             "attribution": _ATTRIBUTION,
         }
     except Exception as exc:

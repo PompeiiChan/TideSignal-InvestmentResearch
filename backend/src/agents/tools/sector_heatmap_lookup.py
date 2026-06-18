@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from ...integrations.market_data.eastmoney_client import industry_heatmap_boards
+from ...services.trading_calendar import resolve_default_trade_date
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ _MOCK_TILES: list[dict[str, Any]] = [
 
 
 def _trade_date_label() -> str:
-    return datetime.now(tz=ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
+    return resolve_default_trade_date()
 
 
 def _normalize_tiles(boards: list[dict[str, Any]]) -> list[dict[str, Any]]:

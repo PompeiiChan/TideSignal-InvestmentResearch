@@ -52,6 +52,22 @@ def test_lookup_hotspot_signal_live(mock_get: MagicMock) -> None:
 
 
 @patch("src.integrations.market_data.ths_client.requests.get")
+def test_lookup_hotspot_signal_topic_not_matched(mock_get: MagicMock) -> None:
+    """When keyword misses THS list, do not return unrelated market leaders."""
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json.return_value = _ths_payload()
+    mock_get.return_value = response
+
+    result = lookup_hotspot_signal(topic="宠物行业", signal_limit=5)
+
+    assert result["signal_mode"] == "ths_live"
+    assert result["topic_matched"] is False
+    assert result["stock_count"] == 0
+    assert "未命中" in result["notes"]
+
+
+@patch("src.integrations.market_data.ths_client.requests.get")
 def test_lookup_hotspot_signal_kb_fallback(mock_get: MagicMock) -> None:
     mock_get.side_effect = RuntimeError("network down")
 

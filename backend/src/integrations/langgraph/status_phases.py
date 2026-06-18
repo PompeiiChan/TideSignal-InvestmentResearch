@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from ...integrations.langgraph.state import AgentState
 
-StreamPhase = Literal["thinking", "checking", "writing", "rewriting"]
+StreamPhase = Literal["thinking", "checking", "writing", "rewriting", "enriching"]
 
 _OUTPUT_NODES = frozenset(
     {
@@ -27,6 +27,8 @@ def resolve_entry_phase(node: str, state: AgentState) -> tuple[StreamPhase, str]
     """Map a LangGraph node entry to a user-visible phase and label."""
     if node == "quality_check":
         return "checking", "Checking"
+    if node in {"evidence_gap_check", "gap_planner"}:
+        return "enriching", "Enriching"
     if node in _OUTPUT_NODES:
         if node == "response_assembly" and _has_revision_feedback(state):
             return "rewriting", "Rewriting"
@@ -60,5 +62,6 @@ def emit_stream_phase(
         "checking": "Checking",
         "writing": "Writing",
         "rewriting": "Rewriting",
+        "enriching": "Enriching",
     }[phase]
     stream_callback(build_status_event(phase, display))

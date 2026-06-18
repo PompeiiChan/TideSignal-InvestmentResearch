@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from backend.src.agents.stock_tool_plan import resolve_stock_tool_names
 from backend.src.agents.tools.valuation_profile_lookup import lookup_valuation_profile
 
@@ -44,6 +42,31 @@ def test_resolve_stock_tool_names_filters_unknown_tools() -> None:
         analysis_dimensions=[],
     )
     assert names == ["mock_financial_profile_lookup", "valuation_profile_lookup"]
+
+
+def test_resolve_stock_tool_names_pipeline_query_skips_financial_tools() -> None:
+    names = resolve_stock_tool_names(
+        ["mock_financial_profile_lookup", "valuation_profile_lookup"],
+        query="恒瑞医药的创新药管线？",
+        analysis_dimensions=["研发管线布局"],
+    )
+    assert names == []
+
+
+def test_resolve_stock_tool_names_pipeline_fallback_is_empty() -> None:
+    names = resolve_stock_tool_names(
+        None,
+        query="恒瑞医药的创新药管线怎么样",
+        analysis_dimensions=[],
+    )
+    assert names == []
+
+
+def test_is_qualitative_business_query_detects_pipeline() -> None:
+    from backend.src.agents.stock_tool_plan import is_qualitative_business_query
+
+    assert is_qualitative_business_query(query="恒瑞医药的创新药管线？") is True
+    assert is_qualitative_business_query(query="分析一下千禾味业2026Q1财报业绩") is False
 
 
 @patch("backend.src.agents.tools.valuation_profile_lookup.fetch_quote_snapshot")

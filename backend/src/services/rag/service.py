@@ -23,12 +23,30 @@ from .chunker import (
 from .company_index import load_company_aliases, resolve_query_filters
 from .index_store import IndexSnapshot, IndexStore, StoredChunk
 from .models import KnowledgeChunk, RagHit, RagRetrievalResult
-from .retriever import search_chunks, search_chunks_bm25_only
+from .retriever import (
+    HOTSPOT_MIN_SCORE,
+    filter_hits_by_entity,
+    filter_hits_by_min_score,
+    filter_stock_narrative_hits,
+    search_chunks,
+    search_chunks_bm25_only,
+)
 
 logger = get_logger()
 
 _BUILD_LOCK = asyncio.Lock()
 _EMBED_BATCH_SIZE = 4
+
+
+def merge_rag_hit_lists(hit_groups: list[list[RagHit]], *, top_k: int) -> list[RagHit]:
+    """Merge multiple hit lists by chunk_id, keeping the highest score."""
+    merged: dict[str, RagHit] = {}
+    for hits in hit_groups:
+        for hit in hits:
+            existing = merged.get(hit.chunk_id)
+            if existing is None or hit.score > existing.score:
+                merged[hit.chunk_id] = hit
+    return sorted(merged.values(), key=lambda item: item.score, reverse=True)[: max(top_k, 1)]
 
 
 class RagNotReadyError(RuntimeError):
@@ -284,17 +302,143 @@ class RagService:
             started=started,
         )
 
+    async def retrieve_targeted(
+        self,
+        queries: list[str],
+        *,
+        top_k: int = 4,
+        filters: dict[str, str] | None = None,
+        entity_name: str = "",
+        narrative_strict: bool = False,
+        narrative_query: str = "",
+    ) -> RagRetrievalResult:
+        """Run one or more focused retrieval queries and merge unique hits."""
+        started = time.perf_counter()
+        normalized_queries = [query.strip() for query in queries if query.strip()]
+        if not normalized_queries:
+            return RagRetrievalResult(query="", mode="mock")
+
+        snapshot = self._load_snapshot()
+        if snapshot is None or not snapshot.chunks:
+            return RagRetrievalResult(query=" | ".join(normalized_queries), mode="mock")
+
+        merged: dict[str, RagHit] = {}
+        rerank_connected = False
+        rerank_before: list = []
+        rerank_after: list = []
+        mode = "bm25"
+        embedding_connected = False
+        query_vector: list[float] | None = None
+
+        if self.is_embedding_configured():
+            try:
+                snapshot = await self.ensure_index()
+                query_vector, _meta = await self.embedding.embed_text(normalized_queries[0])
+                embedding_connected = True
+            except (RagNotReadyError, EmbeddingClientError) as exc:
+                logger.warning("Targeted retrieval embedding unavailable", detail=str(exc))
+
+        active_filters = dict(filters or {})
+        for query in normalized_queries:
+            scoped_filters = dict(active_filters)
+            if not scoped_filters:
+                scoped_filters = resolve_query_filters(query, self._company_aliases)
+            hits, scope_rerank, scope_before, scope_after, scope_mode = await self._search_with_filters(
+                query,
+                snapshot,
+                top_k=top_k,
+                filters=scoped_filters,
+                query_vector=query_vector,
+            )
+            mode = scope_mode
+            rerank_connected = rerank_connected or scope_rerank
+            if not rerank_before:
+                rerank_before = scope_before
+            if scope_after:
+                rerank_after = scope_after
+            for hit in hits:
+                existing = merged.get(hit.chunk_id)
+                if existing is None or hit.score > existing.score:
+                    merged[hit.chunk_id] = hit
+
+        final_hits = sorted(merged.values(), key=lambda item: item.score, reverse=True)[: max(top_k, 4)]
+        if entity_name.strip():
+            if narrative_strict:
+                final_hits = filter_stock_narrative_hits(
+                    final_hits,
+                    stock_name=entity_name.strip(),
+                    query=narrative_query or " | ".join(normalized_queries),
+                )
+            else:
+                final_hits = filter_hits_by_entity(final_hits, entity_name.strip())
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        return RagRetrievalResult(
+            hits=final_hits,
+            latency_ms=latency_ms,
+            embedding_connected=embedding_connected,
+            rerank_connected=rerank_connected,
+            rerank_before=rerank_before,
+            rerank_after=rerank_after,
+            index_chunk_count=len(snapshot.chunks),
+            query=" | ".join(normalized_queries),
+            model=self.settings.embedding_model if embedding_connected else "",
+            mode=mode if final_hits else "mock",
+        )
+
     async def retrieve_hotspot(self, query: str, *, top_k: int = 10) -> RagRetrievalResult:
         """Retrieve hotspot evidence from monthly hotspots + industry reports."""
+        return await self._retrieve_path_scoped(
+            query,
+            top_k=top_k,
+            scopes=[("hotspots/", 0.55), ("industry-reports/", 0.45)],
+        )
+
+    async def retrieve_hotspot_industry_only(self, query: str, *, top_k: int = 5) -> RagRetrievalResult:
+        """Retrieve industry background only (skip stale monthly hotspot docs)."""
+        return await self._retrieve_path_scoped(
+            query,
+            top_k=top_k,
+            scopes=[("industry-reports/", 1.0)],
+        )
+
+    async def retrieve_stock_narrative(
+        self,
+        query: str,
+        *,
+        top_k: int = 10,
+        stock_name: str = "",
+    ) -> RagRetrievalResult:
+        """Retrieve pipeline / business-narrative evidence: research reports first, then annual reports."""
+        result = await self._retrieve_path_scoped(
+            query,
+            top_k=top_k,
+            scopes=[
+                ("company-reports/", 0.45),
+                ("industry-reports/", 0.35),
+                ("financials/", 0.20),
+            ],
+        )
+        if stock_name.strip():
+            result.hits = filter_stock_narrative_hits(
+                result.hits,
+                stock_name=stock_name.strip(),
+                query=query,
+            )
+        return result
+
+    async def _retrieve_path_scoped(
+        self,
+        query: str,
+        *,
+        top_k: int,
+        scopes: list[tuple[str, float]],
+    ) -> RagRetrievalResult:
+        """Retrieve evidence from weighted path prefixes (hotspot, stock narrative, etc.)."""
         started = time.perf_counter()
         normalized = query.strip()
         if not normalized:
             return RagRetrievalResult(query=query, mode="mock")
 
-        scopes: list[tuple[str, float]] = [
-            ("hotspots/", 0.55),
-            ("industry-reports/", 0.45),
-        ]
         snapshot = self._load_snapshot()
         embedding_configured = self.is_embedding_configured()
         query_vector: list[float] | None = None
@@ -341,8 +485,7 @@ class RagService:
                     merged[hit.chunk_id] = hit
 
         final_hits = sorted(merged.values(), key=lambda item: item.score, reverse=True)[:top_k]
-        if not final_hits:
-            return await self.retrieve(normalized, top_k=top_k)
+        final_hits = filter_hits_by_min_score(final_hits, HOTSPOT_MIN_SCORE)
 
         latency_ms = int((time.perf_counter() - started) * 1000)
         return RagRetrievalResult(

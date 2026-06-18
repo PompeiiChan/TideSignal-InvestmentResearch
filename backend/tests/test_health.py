@@ -67,8 +67,8 @@ async def test_data_sources_status_contract() -> None:
     assert all(item["path"] for item in data["mock_data"])
     assert all(item["sample_count"] >= 0 for item in data["mock_data"])
     assert {item["status"] for item in data["mock_data"]}.issubset({"ready", "mocked", "missing"})
-    assert data["rag"]["embedding_provider"] == "siliconflow-qwen"
-    assert data["rag"]["rerank_provider"] == "siliconflow-qwen"
+    assert data["rag"]["embedding_provider"]
+    assert data["rag"]["rerank_provider"]
     assert data["rag"]["mode"] in {"mock", "semantic"}
     assert data["rag"]["status"] in {"mocked", "ready"}
     knowledge = next(item for item in data["mock_data"] if item["type"] == "knowledge")

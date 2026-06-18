@@ -28,7 +28,7 @@ def _throttled_fetch(url: str) -> str:
     request = urllib.request.Request(url, headers={"User-Agent": _UA})
     try:
         with urllib.request.urlopen(request, timeout=12) as response:
-            payload = response.read().decode("gbk", errors="replace")
+            payload = str(response.read().decode("gbk", errors="replace"))
         _last_call = time.time()
         return payload
     except Exception:

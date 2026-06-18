@@ -122,6 +122,34 @@ def test_route_after_clarification_branches(state: AgentState, expected_route: s
             True,
             "歧义",
         ),
+        (
+            {
+                "intent_id": "document_qa",
+                "intent_confidence": 0.95,
+                "normalized_query": "海天味业2025年年度报告营业收入是多少",
+                "slots": {},
+                "missing_slots": [],
+                "ambiguous_slots": [],
+            },
+            False,
+            "进入路由",
+        ),
+        (
+            {
+                "intent_id": "document_qa",
+                "intent_confidence": 0.95,
+                "normalized_query": "请查询海天味业2025年年度报告中的营业收入数据",
+                "slots": {
+                    "stock_name": "海天味业",
+                    "time_range": "2025A",
+                    "metric": "营业收入",
+                },
+                "missing_slots": ["document_id"],
+                "ambiguous_slots": [],
+            },
+            False,
+            "进入路由",
+        ),
     ],
 )
 async def test_clarification_check_rule_branches(
@@ -210,6 +238,29 @@ def _mock_llm_json_responses(responses: list[dict[str, Any]]) -> Any:
         }
 
     return _chat_completion
+
+
+@pytest.mark.asyncio
+async def test_routing_decision_kb_document_query_routes_to_stock_analysis() -> None:
+    llm, rag, settings = _llm_deps()
+    result = await routing_decision(
+        {
+            "intent_id": "document_qa",
+            "normalized_query": "请查询海天味业2025年年度报告中的营业收入数据",
+            "slots": {
+                "stock_name": "海天味业",
+                "time_range": "2025A",
+                "metric": "营业收入",
+            },
+            "context_pack": {},
+            "risk_hint": "",
+        },
+        llm=llm,
+        rag=rag,
+        settings=settings,
+    )
+    assert result["route_target"] == "stock_analysis_agent"
+    assert result["slots"].get("stock_code")
 
 
 @pytest.mark.asyncio

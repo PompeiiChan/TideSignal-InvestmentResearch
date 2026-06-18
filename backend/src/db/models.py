@@ -83,7 +83,7 @@ class LayoutPreferenceRecord(Base):
     __tablename__ = "layout_preferences"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    sidebar_width: Mapped[int] = mapped_column(Integer, nullable=False, default=288)
+    sidebar_width: Mapped[int] = mapped_column(Integer, nullable=False, default=230)
     trace_panel_width: Mapped[int] = mapped_column(Integer, nullable=False, default=488)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

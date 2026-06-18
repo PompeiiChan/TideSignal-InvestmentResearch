@@ -103,11 +103,9 @@ export const calculatorBlock: RichBlock = {
       { key: 'buy_price', label: '买入价', value: 15, unit: '元' },
       { key: 'target_price', label: '情景价', value: 20, unit: '元' },
       { key: 'share_count', label: '持仓数量', value: 1000, unit: '股' },
-      { key: 'fee_rate', label: '估算费率', value: 0.03, unit: '%' },
     ],
     results: [
-      { key: 'return_rate', label: '收益率', value: '33.27%' },
-      { key: 'profit_amount', label: '预估盈亏', value: '4991.50 元' },
+      { key: 'profit_amount', label: '预估盈亏', value: '5000.00 元' },
       { key: 'cost_amount', label: '测算成本', value: '15000.00 元' },
     ],
   },
@@ -533,17 +531,49 @@ export const mockTraces: Record<string, Trace> = {
 
 export const mockDataSourceStatus: DataSourceStatus = {
   mock_data: [
-    { type: 'market', name: '行情数据', path: 'data/mock/market', status: 'ready', sample_count: 20 },
-    { type: 'financial', name: '财务数据', path: 'data/mock/financial', status: 'ready', sample_count: 12 },
-    { type: 'report', name: '研报数据', path: 'data/mock/reports', status: 'ready', sample_count: 8 },
-    { type: 'announcement', name: '公告数据', path: 'data/mock/announcements', status: 'ready', sample_count: 10 },
-    { type: 'knowledge', name: '投研知识库', path: 'data/knowledge-base', status: 'ready', sample_count: 30 },
+    {
+      type: 'market',
+      name: '行情数据',
+      path: 'backend/data/knowledge-base/structured-data',
+      status: 'ready',
+      sample_count: 6,
+    },
+    {
+      type: 'financial',
+      name: '财务数据',
+      path: 'backend/data/knowledge-base/financials',
+      status: 'ready',
+      sample_count: 55,
+    },
+    {
+      type: 'report',
+      name: '研报数据',
+      path: 'backend/data/knowledge-base/company-reports + industry-reports',
+      status: 'ready',
+      sample_count: 15,
+    },
+    {
+      type: 'announcement',
+      name: '公告与资讯',
+      path: 'integrations/market_data (巨潮公告 + 东财快讯)',
+      status: 'ready',
+      sample_count: 0,
+    },
+    {
+      type: 'knowledge',
+      name: '投研知识库',
+      path: 'backend/data/knowledge-base',
+      status: 'ready',
+      sample_count: 87,
+    },
   ],
   rag: {
-    mode: 'mock',
-    embedding_provider: 'siliconflow-qwen',
-    rerank_provider: 'siliconflow-qwen',
-    status: 'mocked',
+    mode: 'semantic',
+    embedding_provider: 'siliconflow · BAAI/bge-large-zh-v1.5',
+    rerank_provider: 'siliconflow · BAAI/bge-reranker-v2-m3',
+    status: 'ready',
+    chunk_count: 2718,
+    indexed_files: 87,
   },
 }
 

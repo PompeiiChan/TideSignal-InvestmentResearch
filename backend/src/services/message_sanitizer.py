@@ -25,7 +25,7 @@ _LEGACY_CONTENT_REPLACEMENTS = {
     "已路由到问数助手，基于本地模拟行情生成结构化排行回答。": "下面是相关行情数据整理。",
 }
 
-ALLOWED_RICH_BLOCK_TYPES = frozenset({"ranking_table", "calculator", "sector_heatmap"})
+ALLOWED_RICH_BLOCK_TYPES = frozenset({"ranking_table", "calculator", "sector_heatmap", "scenario_calculator"})
 DEPRECATED_RICH_BLOCK_TYPES = frozenset(
     {
         "text",
@@ -48,6 +48,14 @@ def _strip_internal_lines(content: str) -> str:
         if line and not line.startswith("问题：") and not any(phrase in line for phrase in _INTERNAL_PHRASES)
     ]
     return "\n".join(public_lines).strip()
+
+
+def ensure_public_risk_notice(content: str) -> str:
+    """Append the standard disclaimer when the model omitted it."""
+    text = content.strip()
+    if not text or "不构成投资建议" in text:
+        return content
+    return f"{text.rstrip()}\n\n{PUBLIC_RISK_NOTICE}"
 
 
 def sanitize_assistant_content(role: str, content: str) -> str:

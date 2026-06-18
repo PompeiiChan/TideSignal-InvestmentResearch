@@ -1,5 +1,6 @@
 """Services for data source and configuration status pages."""
 
+import json
 from pathlib import Path
 
 from ..integrations.llm.service import LLMService
@@ -15,24 +16,17 @@ from ..models.config_status import (
     RagStatusRead,
 )
 from ..settings import BACKEND_ROOT, get_settings
-from .rag.chunker import resolve_kb_root
+from .rag.chunker import count_markdown_files, resolve_kb_root
 from .rag.service import RagService
 
-FALLBACK_SAMPLE_COUNTS = {
-    "market": 20,
-    "financial": 12,
-    "report": 8,
-    "announcement": 10,
-    "knowledge": 30,
-}
-
-DATA_SOURCES = [
-    ("market", "行情数据", "market"),
-    ("financial", "财务数据", "financial"),
-    ("report", "研报数据", "reports"),
-    ("announcement", "公告数据", "announcements"),
-    ("knowledge", "投研知识库", "knowledge-base"),
-]
+MARKET_TABLE_FILES = (
+    "stock_daily_quotes_mock.md",
+    "industry_daily_quotes_mock.md",
+    "index_daily_quotes_mock.md",
+    "interval_performance_mock.md",
+    "valuation_metrics_mock_completion.md",
+    "valuation_metrics_choice_demo.md",
+)
 
 PROMPTS = [
     ("master_agent", "总控 Agent"),
@@ -52,41 +46,78 @@ class ConfigStatusService:
         self.settings = get_settings()
 
     def get_data_sources_status(self) -> DataSourceStatusRead:
-        """Return local mock data, knowledge-base and RAG status."""
-        base_path = self._resolve_backend_path(self.settings.mock_data_path)
+        """Return local knowledge-base, tool data sources and RAG status."""
         kb_root = resolve_kb_root(self.settings.local_kb_path, BACKEND_ROOT)
-        kb_display = self.settings.local_kb_path.strip() or "data/knowledge-base"
         rag_service = RagService(self.settings)
-        sources: list[MockDataSourceRead] = []
-        for source_type, name, folder_name in DATA_SOURCES:
-            if source_type == "knowledge":
-                configured_path = kb_display.strip("/")
-                source_path = kb_root
-                sample_count = rag_service.markdown_file_count()
-                status: DataSourceStatusValue = "ready" if sample_count > 0 else "missing"
-            else:
-                configured_path = self._display_path(self.settings.mock_data_path, folder_name)
-                source_path = base_path / folder_name
-                sample_count = self._sample_count(source_path, source_type)
-                status = "ready" if source_path.exists() else "mocked"
-            sources.append(
-                MockDataSourceRead(
-                    type=source_type,  # type: ignore[arg-type]
-                    name=name,
-                    path=configured_path,
-                    status=status,
-                    sample_count=sample_count,
-                )
-            )
+        structured_dir = kb_root / "structured-data"
+        financials_dir = kb_root / "financials"
+        company_reports_dir = kb_root / "company-reports"
+        industry_reports_dir = kb_root / "industry-reports"
+
+        market_count = sum(1 for name in MARKET_TABLE_FILES if (structured_dir / name).exists())
+        financial_count = self._count_md_files(financials_dir)
+        report_count = self._count_md_files(company_reports_dir) + self._count_md_files(industry_reports_dir)
+        knowledge_count = count_markdown_files(kb_root)
+
+        sources = [
+            MockDataSourceRead(
+                type="market",
+                name="行情数据",
+                path=self._kb_display_path("structured-data"),
+                status=self._status_from_count(market_count),
+                sample_count=market_count,
+            ),
+            MockDataSourceRead(
+                type="financial",
+                name="财务数据",
+                path=self._kb_display_path("financials"),
+                status=self._status_from_count(financial_count),
+                sample_count=financial_count,
+            ),
+            MockDataSourceRead(
+                type="report",
+                name="研报数据",
+                path=f"{self._kb_display_path('company-reports')} + industry-reports",
+                status=self._status_from_count(report_count),
+                sample_count=report_count,
+            ),
+            MockDataSourceRead(
+                type="announcement",
+                name="公告与资讯",
+                path="integrations/market_data (巨潮公告 + 东财快讯)",
+                status="ready",
+                sample_count=0,
+            ),
+            MockDataSourceRead(
+                type="knowledge",
+                name="投研知识库",
+                path=self._kb_display_path(),
+                status=self._status_from_count(knowledge_count),
+                sample_count=knowledge_count,
+            ),
+        ]
 
         rag_ready = rag_service.is_ready()
+        index_meta = self._read_index_meta(kb_root)
         return DataSourceStatusRead(
             mock_data=sources,
             rag=RagStatusRead(
                 mode="semantic" if rag_ready else "mock",
-                embedding_provider="siliconflow-qwen",
-                rerank_provider="siliconflow-qwen",
+                embedding_provider=self._format_siliconflow_provider(
+                    self.settings.embedding_model,
+                    "Embedding 未配置",
+                ),
+                rerank_provider=self._format_siliconflow_provider(
+                    self.settings.rerank_model,
+                    "Rerank 未配置",
+                ),
                 status="ready" if rag_ready else "mocked",
+                chunk_count=(
+                    int(raw)
+                    if isinstance(raw := index_meta.get("chunk_count", 0), (int, float, str))
+                    else 0
+                ),
+                indexed_files=knowledge_count,
             ),
         )
 
@@ -112,7 +143,7 @@ class ConfigStatusService:
                     },
                 ),
                 self._model_status(
-                    "硅基流动 Embedding / 千问",
+                    "硅基流动 Embedding",
                     {
                         "EMBEDDING_API_KEY": self.settings.embedding_api_key,
                         "EMBEDDING_BASE_URL": self.settings.embedding_base_url,
@@ -121,7 +152,7 @@ class ConfigStatusService:
                     },
                 ),
                 self._model_status(
-                    "硅基流动 Rerank / 千问",
+                    "硅基流动 Rerank",
                     {
                         "RERANK_API_KEY": self.settings.rerank_api_key,
                         "RERANK_BASE_URL": self.settings.rerank_base_url,
@@ -159,15 +190,35 @@ class ConfigStatusService:
             missing_fields=missing_fields,
         )
 
-    def _resolve_backend_path(self, configured_path: str) -> Path:
-        path = Path(configured_path)
-        return path if path.is_absolute() else BACKEND_ROOT / path
+    def _kb_display_path(self, relative: str = "") -> str:
+        kb = (self.settings.local_kb_path.strip() or "data/knowledge-base").strip("/")
+        rel = relative.strip("/")
+        return f"backend/{kb}/{rel}" if rel else f"backend/{kb}"
 
-    def _display_path(self, base_path: str, folder_name: str) -> str:
-        normalized = base_path.strip().strip("/")
-        return f"{normalized}/{folder_name}" if normalized else folder_name
+    def _status_from_count(self, sample_count: int) -> DataSourceStatusValue:
+        return "ready" if sample_count > 0 else "missing"
 
-    def _sample_count(self, path: Path, source_type: str) -> int:
-        if not path.exists():
-            return FALLBACK_SAMPLE_COUNTS[source_type]
-        return sum(1 for item in path.rglob("*") if item.is_file())
+    def _format_siliconflow_provider(self, model: str, fallback: str) -> str:
+        model = model.strip()
+        if not model:
+            return fallback
+        return f"siliconflow · {model}"
+
+    def _read_index_meta(self, kb_root: Path) -> dict[str, object]:
+        meta_path = kb_root / ".index" / "index_meta.json"
+        if not meta_path.is_file():
+            return {}
+        try:
+            payload = json.loads(meta_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
+    def _count_md_files(self, folder: Path) -> int:
+        if not folder.is_dir():
+            return 0
+        return sum(
+            1
+            for path in folder.rglob("*.md")
+            if path.is_file() and path.name.lower() != "readme.md"
+        )

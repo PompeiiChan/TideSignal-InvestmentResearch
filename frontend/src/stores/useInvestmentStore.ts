@@ -12,10 +12,25 @@ import type {
   TraceSummary,
 } from '../types/api'
 import { clamp } from '../utils/format'
+import { extractRichBlockTypes } from '../utils/richBlockLabels'
 import { sanitizeMessage, sanitizeMessages, sanitizeSession } from '../utils/sanitizeResponse'
 
 export type ViewMode = 'client' | 'admin'
 export type AppView = 'chat' | 'data' | 'settings'
+
+function resolveClientView(view: AppView): AppView {
+  return view === 'settings' || view === 'data' ? 'chat' : view
+}
+
+const DEFAULT_SIDEBAR_WIDTH = 230
+const LEGACY_SIDEBAR_WIDTHS = new Set([288, 420])
+
+function normalizeSidebarWidth(width: number): number {
+  if (LEGACY_SIDEBAR_WIDTHS.has(width)) {
+    return DEFAULT_SIDEBAR_WIDTH
+  }
+  return width
+}
 export type StoredTrace = Trace | TraceSummary
 
 let searchRequestSeq = 0
@@ -274,7 +289,13 @@ function handleChatStreamEvent(
 
   if (event === 'rich_blocks') {
     const richBlocks = (data as { rich_blocks?: RichBlock[] }).rich_blocks ?? []
+    const richBlockTypes = extractRichBlockTypes(richBlocks)
     updateAssistant({ rich_blocks: richBlocks, streaming: true })
+    set((current) => ({
+      sessions: current.sessions.map((session) =>
+        session.id === sessionId ? { ...session, rich_block_types: richBlockTypes } : session,
+      ),
+    }))
     return
   }
 
@@ -445,7 +466,7 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
   messagesBySession: {},
   tracesById: {},
   searchKeyword: '',
-  sidebarWidth: 288,
+  sidebarWidth: 230,
   tracePanelWidth: 488,
   expandedStepIds: ['step_002'],
   jsonModal: null,
@@ -453,7 +474,8 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
   configStatus: null,
   pendingQuery: null,
   async initialize(mode, view) {
-    set({ mode, view: mode === 'client' && view === 'settings' ? 'chat' : view })
+    const resolvedView = mode === 'client' ? resolveClientView(view) : view
+    set({ mode, view: resolvedView })
     if (get().initialized) return
     set({ messagesBySession: {} })
     const [sessionsResponse, layoutResponse] = await Promise.all([
@@ -465,22 +487,27 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
     const detailResponse = firstSession ? await investmentService.getSessionDetail(firstSession.id) : null
     const traceId = detailResponse?.data.session.last_trace_id
     const trace = traceId ? await tryGetTrace(traceId) : null
+    const sidebarWidth = normalizeSidebarWidth(layoutResponse.data.sidebar_width)
+    const tracePanelWidth = layoutResponse.data.trace_panel_width
+    if (sidebarWidth !== layoutResponse.data.sidebar_width) {
+      void investmentService.patchLayoutPreferences(sidebarWidth, tracePanelWidth)
+    }
     set({
       initialized: true,
       sessions,
       activeSessionId: firstSession?.id ?? '',
       messagesBySession: firstSession && detailResponse ? { [firstSession.id]: sanitizeMessages(detailResponse.data.messages) } : {},
       tracesById: trace ? { [trace.id]: trace } : {},
-      sidebarWidth: layoutResponse.data.sidebar_width,
-      tracePanelWidth: layoutResponse.data.trace_panel_width,
+      sidebarWidth,
+      tracePanelWidth,
     })
-    if (view === 'data') void get().loadDataSources()
-    if (mode === 'admin' && view === 'settings') void get().loadConfigStatus()
+    if (mode === 'admin' && resolvedView === 'data') void get().loadDataSources()
+    if (mode === 'admin' && resolvedView === 'settings') void get().loadConfigStatus()
   },
   setMode(mode) {
     set((state) => ({
       mode,
-      view: mode === 'client' && state.view === 'settings' ? 'chat' : state.view,
+      view: mode === 'client' ? resolveClientView(state.view) : state.view,
     }))
     if (mode === 'admin') {
       const { activeSessionId, sessions, tracesById } = get()
@@ -495,12 +522,12 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
     }
   },
   setView(view) {
-    set((state) => {
-      const nextView = state.mode === 'client' && view === 'settings' ? 'chat' : view
-      return { view: nextView }
-    })
-    if (view === 'data') void get().loadDataSources()
-    if (get().mode === 'admin' && view === 'settings') void get().loadConfigStatus()
+    set((state) => ({
+      view: state.mode === 'client' ? 'chat' : view,
+    }))
+    const { mode } = get()
+    if (mode === 'admin' && view === 'data') void get().loadDataSources()
+    if (mode === 'admin' && view === 'settings') void get().loadConfigStatus()
   },
   async setSearchKeyword(keyword) {
     const requestSeq = searchRequestSeq + 1
@@ -737,7 +764,7 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
     set({ configStatus: response.data })
   },
   setSidebarWidth(width) {
-    set({ sidebarWidth: clamp(width, 240, 420) })
+    set({ sidebarWidth: clamp(width, 200, 420) })
   },
   setTracePanelWidth(width) {
     set({ tracePanelWidth: clamp(width, 380, 640) })

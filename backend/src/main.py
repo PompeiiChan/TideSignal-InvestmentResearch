@@ -52,9 +52,9 @@ server.on_startup(init_db)
 async def _seed_showcase_rich_blocks() -> None:
     async with async_session_maker() as db:
         service = SessionService(db)
-        await service.ensure_seed_data()
-        await service.ensure_heatmap_demo_session()
+        await service.ensure_client_showcase_sessions()
         await service.ensure_showcase_rich_blocks()
+        await service.ensure_seed_data()
 
 
 server.on_startup(_seed_showcase_rich_blocks)

@@ -1,7 +1,7 @@
 """Typed models for LLM integration results."""
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 ResponseKind = Literal["calculator", "stock", "data", "hotspot"]
 

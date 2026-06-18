@@ -17,7 +17,12 @@ from ...integrations.llm.service import LLMService
 from ...models.chat import ChatQueryResponse
 from ...models.session import MessageRead, MessageRole, SessionRead, SessionSource, TitleSource
 from ...repositories.session_repository import SessionRepository
-from ...services.message_sanitizer import sanitize_assistant_content, sanitize_rich_blocks
+from ...services.message_sanitizer import (
+    ensure_public_risk_notice,
+    sanitize_assistant_content,
+    sanitize_rich_blocks,
+)
+from ...services.rich_block_types import extract_rich_block_types
 from ...services.rag.service import RagService
 from ...services.session_service import _iso, _now
 from ...services.trace_service import TraceService
@@ -146,7 +151,12 @@ class LangGraphRunner:
                 block.setdefault("id", _next_id("block", f"{index:03d}"))
         return normalized_blocks
 
-    def _to_session_read(self, session: SessionRecord) -> SessionRead:
+    def _to_session_read(
+        self,
+        session: SessionRecord,
+        *,
+        rich_block_types: list[str] | None = None,
+    ) -> SessionRead:
         return SessionRead(
             id=session.id,
             title=session.title,
@@ -157,6 +167,7 @@ class LangGraphRunner:
             updated_at=_iso(session.updated_at),
             last_message_preview=sanitize_assistant_content("assistant", session.last_message_preview),
             last_trace_id=session.last_trace_id,
+            rich_block_types=list(rich_block_types or []),
         )
 
     def _to_message_read(self, message: MessageRecord) -> MessageRead:
@@ -260,7 +271,12 @@ class LangGraphRunner:
             return
 
         final_state = self._append_end_step(final_state)
-        content = str(final_state.get("final_response", "")).strip()
+        content = ensure_public_risk_notice(str(final_state.get("final_response", "")).strip())
+        if not content:
+            content = ensure_public_risk_notice(
+                "当前回答生成未完成，请稍后重试或缩小问题范围。"
+            )
+            final_state["final_response"] = content
         response_kind = str(final_state.get("response_kind", "data"))
         raw_blocks = final_state.get("rich_blocks") or []
         rich_blocks = sanitize_rich_blocks(
@@ -272,9 +288,8 @@ class LangGraphRunner:
             ),
         )
 
-        if not streamed_content:
-            if content:
-                yield {"event": "content_done", "data": {"content": content}}
+        if not streamed_content and content:
+            yield {"event": "content_done", "data": {"content": content}}
         if rich_blocks:
             yield {"event": "rich_blocks", "data": {"rich_blocks": rich_blocks}}
 
@@ -306,7 +321,7 @@ class LangGraphRunner:
         await self.db.refresh(session)
 
         response = ChatQueryResponse(
-            session=self._to_session_read(session),
+            session=self._to_session_read(session, rich_block_types=extract_rich_block_types(rich_blocks)),
             user_message=self._to_message_read(user_message),
             assistant_message=self._to_message_read(assistant_message),
             trace=TraceService(self.db).to_summary(trace),

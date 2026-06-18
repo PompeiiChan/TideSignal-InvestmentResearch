@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 
 import pytest
-
 from src.agents.nodes.routing_decision import build_execution_plan
 from src.integrations.llm.prompts.agents.hotspot import HOTSPOT_AGENT_PROMPT_BASE
 from src.integrations.llm.prompts.assembly import ASSEMBLY_HOTSPOT_PROMPT_BASE
@@ -14,11 +13,16 @@ REQUIRED_ASSEMBLY_SECTIONS = ("事实支撑", "预期博弈", "纯叙事风险")
 
 
 def test_hotspot_execution_plan_has_dual_tools_and_rag_strategy() -> None:
-    plan = build_execution_plan("hotspot_agent", slots={"topic": "机器人"})
+    plan = build_execution_plan(
+        "hotspot_agent",
+        slots={"topic": "机器人"},
+        query="5月机器人板块月度复盘",
+    )
     assert plan["needs_rag"] is True
     assert plan["needs_tool"] is True
     assert "hotspot_signal_lookup" in plan["tool_names"]
     assert "hotspot_fact_lookup" in plan["tool_names"]
+    assert plan["hotspot_evidence_mode"] == "rag_primary"
     assert plan["retrieval_config"].get("strategy") == "hotspot_dual"
 
 

@@ -1,4 +1,9 @@
 import { useInvestmentStore } from '../stores/useInvestmentStore'
+import {
+  formatDataSourceStatus,
+  formatSampleCount,
+  getDataSourceSummary,
+} from '../utils/dataSourceCopy'
 
 export function DataPage() {
   const dataSources = useInvestmentStore((state) => state.dataSources)
@@ -10,23 +15,28 @@ export function DataPage() {
         {dataSources?.mock_data.map((item) => (
           <div key={item.type} className="info-card">
             <h3>{item.name}</h3>
-            <p>当前为本地模拟数据，路径：{item.path}。</p>
+            <p>{getDataSourceSummary(item)}</p>
             <ul>
-              <li>状态：{item.status}</li>
-              <li>样本数量：{item.sample_count}</li>
+              <li>状态：{formatDataSourceStatus(item.status)}</li>
+              <li>样本数量：{formatSampleCount(item)}</li>
             </ul>
           </div>
         ))}
         <div className="info-card full-row">
           <h3>RAG 状态</h3>
           <p>
-            当前阶段先展示模拟命中结果；后续接入本地 Markdown 检索和硅基流动千问 Embedding / Rerank。
+            已接入本地 Markdown 混合检索（BM25 预筛 + Embedding 向量检索 + Rerank 重排），索引缓存于知识库
+            `.index/`。
           </p>
           <ul>
-            <li>模式：{dataSources?.rag.mode ?? 'mock'}</li>
-            <li>Embedding：{dataSources?.rag.embedding_provider ?? 'siliconflow-qwen'}</li>
-            <li>Rerank：{dataSources?.rag.rerank_provider ?? 'siliconflow-qwen'}</li>
-            <li>状态：{dataSources?.rag.status ?? 'mocked'}</li>
+            <li>模式：{dataSources?.rag.mode === 'semantic' ? '语义检索' : '降级 Mock'}</li>
+            <li>Embedding：{dataSources?.rag.embedding_provider ?? '未配置'}</li>
+            <li>Rerank：{dataSources?.rag.rerank_provider ?? '未配置'}</li>
+            <li>状态：{dataSources?.rag.status === 'ready' ? '已就位' : '未就绪'}</li>
+            {dataSources?.rag.indexed_files ? (
+              <li>已索引文档：{dataSources.rag.indexed_files} 份 Markdown</li>
+            ) : null}
+            {dataSources?.rag.chunk_count ? <li>索引分块：{dataSources.rag.chunk_count}</li> : null}
           </ul>
         </div>
       </div>

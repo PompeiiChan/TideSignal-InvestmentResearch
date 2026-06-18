@@ -1,15 +1,76 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { AssistantMessageActions } from './AssistantMessageActions'
 import { MarkdownContent } from './MarkdownContent'
 import { RichBlockRenderer } from './RichBlockRenderer'
+import { TideSignalAnimatedLogo } from './TideSignalAnimatedLogo'
+import { useEmptyClientChat } from '../hooks/useEmptyClientChat'
+import { useMarketGreeting } from '../hooks/useMarketGreeting'
 import { useInvestmentStore } from '../stores/useInvestmentStore'
 import { sanitizeMessage } from '../utils/sanitizeResponse'
 
 const EMPTY_MESSAGES: ReturnType<typeof sanitizeMessage>[] = []
 
+const COMPOSER_PLACEHOLDER = '说个你关心的股票或方向，我帮你理理。'
+
+const QUICK_PROMPTS = [
+  '中际旭创基本面怎么样，业绩可持续吗？',
+  '今天涨幅靠前的半导体有哪些？',
+  '帮我看一下今天A股行业板块热力图',
+  '宁德时代现在估值贵不贵？',
+]
+
+interface ComposerProps {
+  query: string
+  disabled: boolean
+  variant: 'default' | 'hero'
+  onChange: (value: string) => void
+  onSubmit: () => void
+}
+
+function Composer({ query, disabled, variant, onChange, onSubmit }: ComposerProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      onSubmit()
+    }
+  }
+
+  return (
+    <div className={`composer composer--${variant}`}>
+      <div className="composer-inner">
+        <div className="composer-box">
+          <textarea
+            ref={textareaRef}
+            rows={variant === 'hero' ? 3 : 1}
+            placeholder={COMPOSER_PLACEHOLDER}
+            value={query}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          <button
+            className="send"
+            type="button"
+            title="发送"
+            disabled={!query.trim() || disabled}
+            onClick={onSubmit}
+          >
+            {disabled ? '…' : '↑'}
+          </button>
+        </div>
+        <div className="composer-note">系统仅提供信息整理、数据查询和参数测算，不构成投资建议。</div>
+      </div>
+    </div>
+  )
+}
+
 export function ChatView() {
   const [query, setQuery] = useState('')
   const stackRef = useRef<HTMLDivElement | null>(null)
+  const isEmptyClientChat = useEmptyClientChat()
+  const marketGreeting = useMarketGreeting()
   const activeSessionId = useInvestmentStore((state) => state.activeSessionId)
   const messagesBySession = useInvestmentStore((state) => state.messagesBySession)
   const pendingQuery = useInvestmentStore((state) => state.pendingQuery)
@@ -19,8 +80,9 @@ export function ChatView() {
   const regenerateMessage = useInvestmentStore((state) => state.regenerateMessage)
 
   useEffect(() => {
+    if (isEmptyClientChat) return
     stackRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
-  }, [messages, isCurrentSessionPending])
+  }, [messages, isCurrentSessionPending, isEmptyClientChat])
 
   const submit = () => {
     const value = query.trim()
@@ -35,6 +97,42 @@ export function ChatView() {
           : detail || '发送失败，请稍后重试。',
       )
     })
+  }
+
+  const composer = (
+    <Composer
+      query={query}
+      disabled={isCurrentSessionPending}
+      variant={isEmptyClientChat ? 'hero' : 'default'}
+      onChange={setQuery}
+      onSubmit={submit}
+    />
+  )
+
+  if (isEmptyClientChat) {
+    return (
+      <section className="chat-view is-empty">
+        <div className="chat-empty-hero">
+          <div className="chat-empty-greeting">
+            <TideSignalAnimatedLogo />
+            <h2 className="chat-empty-title">{marketGreeting}</h2>
+          </div>
+          <div className="chat-empty-composer-wrap">{composer}</div>
+          <div className="chat-empty-suggestions" role="list">
+            {QUICK_PROMPTS.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className="chat-empty-chip"
+                onClick={() => setQuery(prompt)}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -113,35 +211,7 @@ export function ChatView() {
           <div ref={stackRef} />
         </div>
       </div>
-      <div className="composer">
-        <div className="composer-inner">
-          <div className="composer-box">
-            <textarea
-              rows={1}
-              placeholder="输入投研问题，例如：今天涨幅靠前的半导体股票有哪些？"
-              value={query}
-              disabled={isCurrentSessionPending}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  submit()
-                }
-              }}
-            />
-            <button
-              className="send"
-              type="button"
-              title="发送"
-              disabled={!query.trim() || isCurrentSessionPending}
-              onClick={submit}
-            >
-              {isCurrentSessionPending ? '…' : '↑'}
-            </button>
-          </div>
-          <div className="composer-note">系统仅提供信息整理、数据查询和参数测算，不构成投资建议。</div>
-        </div>
-      </div>
+      {composer}
     </section>
   )
 }

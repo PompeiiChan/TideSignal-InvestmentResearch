@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
-import type { CalculatorPayload, RankingTablePayload, RichBlock, SectorHeatmapPayload } from '../types/api'
+import type { CalculatorPayload, RankingTablePayload, RichBlock, ScenarioCalculatorPayload, SectorHeatmapPayload } from '../types/api'
 import { formatYuan } from '../utils/format'
 import { normalizeCalculatorPayload } from '../utils/richBlockPayload'
+import { computeBuyPriceFromReturn, computeGrossProfit, computeReturnRate, roundPrice, roundReturnRate } from '../utils/returnCalc'
+import { ScenarioCalculator } from './ScenarioCalculator'
 import { SectorHeatmap } from './SectorHeatmap'
 
 function isRankingPayload(payload: RichBlock['payload']): payload is RankingTablePayload {
@@ -14,6 +16,10 @@ function isCalculatorPayload(payload: RichBlock['payload']): payload is Calculat
 
 function isHeatmapPayload(payload: RichBlock['payload']): payload is SectorHeatmapPayload {
   return 'tiles' in payload && Array.isArray((payload as SectorHeatmapPayload).tiles)
+}
+
+function isScenarioCalculatorPayload(payload: RichBlock['payload']): payload is ScenarioCalculatorPayload {
+  return 'scenarios' in payload && Array.isArray((payload as ScenarioCalculatorPayload).scenarios)
 }
 
 function DataTable({ payload }: { payload: RankingTablePayload }) {
@@ -46,47 +52,67 @@ function DataTable({ payload }: { payload: RankingTablePayload }) {
 
 function Calculator({ payload }: { payload: CalculatorPayload }) {
   const defaults = Object.fromEntries(payload.fields.map((field) => [field.key, field.value]))
-  const [buyPrice, setBuyPrice] = useState(Number(defaults.buy_price ?? 15))
-  const [targetPrice, setTargetPrice] = useState(Number(defaults.target_price ?? 20))
-  const [shareCount, setShareCount] = useState(Number(defaults.share_count ?? 1000))
-  const [feeRate, setFeeRate] = useState(Number(defaults.fee_rate ?? 0.03))
+  const initialBuyPrice = Number(defaults.buy_price ?? 15)
+  const initialTargetPrice = Number(defaults.target_price ?? 20)
+  const [buyPrice, setBuyPrice] = useState(roundPrice(initialBuyPrice))
+  const [targetPrice, setTargetPrice] = useState(initialTargetPrice)
+  const [shareCount, setShareCount] = useState(Number(defaults.share_count ?? 100))
+  const [returnRatePct, setReturnRatePct] = useState(() =>
+    roundReturnRate(computeReturnRate(initialBuyPrice, initialTargetPrice)),
+  )
 
   const results = useMemo(() => {
     const cost = buyPrice * shareCount
-    const gross = (targetPrice - buyPrice) * shareCount
-    const fees = (buyPrice + targetPrice) * shareCount * (feeRate / 100)
-    const profit = gross - fees
-    const rate = cost ? (profit / cost) * 100 : 0
+    const profit = computeGrossProfit(buyPrice, targetPrice, shareCount)
     return {
-      returnRate: `${rate.toFixed(2)}%`,
       profitAmount: formatYuan(profit),
       costAmount: formatYuan(cost),
     }
-  }, [buyPrice, feeRate, shareCount, targetPrice])
+  }, [buyPrice, shareCount, targetPrice])
+
+  const handleBuyPriceChange = (value: number) => {
+    const rounded = roundPrice(value)
+    setBuyPrice(rounded)
+    setReturnRatePct(roundReturnRate(computeReturnRate(rounded, targetPrice)))
+  }
+
+  const handleTargetPriceChange = (value: number) => {
+    setTargetPrice(value)
+    setReturnRatePct(roundReturnRate(computeReturnRate(buyPrice, value)))
+  }
+
+  const handleReturnRateChange = (value: number) => {
+    const rounded = roundReturnRate(value)
+    setReturnRatePct(rounded)
+    setBuyPrice(computeBuyPriceFromReturn(targetPrice, rounded))
+  }
 
   return (
     <div className="calculator">
+      {payload.assumption ? <p className="calc-assumption">{payload.assumption}</p> : null}
+      <p className="scenario-disclaimer">本测算不包含交易成本和时间成本。</p>
       <label className="calc-field">
         <span>买入价</span>
-        <input type="number" value={buyPrice} step="0.01" onChange={(event) => setBuyPrice(Number(event.target.value || 0))} />
+        <input type="number" value={buyPrice} step="0.01" onChange={(event) => handleBuyPriceChange(Number(event.target.value || 0))} />
+      </label>
+      <label className="calc-field">
+        <span>预期收益率（%）</span>
+        <input
+          type="number"
+          value={returnRatePct}
+          step="0.01"
+          onChange={(event) => handleReturnRateChange(Number(event.target.value || 0))}
+        />
       </label>
       <label className="calc-field">
         <span>情景价</span>
-        <input type="number" value={targetPrice} step="0.01" onChange={(event) => setTargetPrice(Number(event.target.value || 0))} />
+        <input type="number" value={targetPrice} step="0.01" onChange={(event) => handleTargetPriceChange(Number(event.target.value || 0))} />
       </label>
       <label className="calc-field">
         <span>持仓数量</span>
         <input type="number" value={shareCount} step="100" onChange={(event) => setShareCount(Number(event.target.value || 0))} />
       </label>
-      <label className="calc-field">
-        <span>估算费率</span>
-        <input type="number" value={feeRate} step="0.01" onChange={(event) => setFeeRate(Number(event.target.value || 0))} />
-      </label>
-      <div className="calc-result">
-        <div className="result-tile">
-          <span>收益率</span>
-          <strong>{results.returnRate}</strong>
-        </div>
+      <div className="calc-result calc-result--two">
         <div className="result-tile">
           <span>预估盈亏</span>
           <strong>{results.profitAmount}</strong>
@@ -125,6 +151,18 @@ export function RichBlockRenderer({ block }: { block: RichBlock }) {
           <span className="pill primary">可交互</span>
         </div>
         <Calculator payload={normalized} />
+      </div>
+    )
+  }
+
+  if (block.type === 'scenario_calculator' && isScenarioCalculatorPayload(block.payload)) {
+    return (
+      <div className="rich-card">
+        <div className="rich-head">
+          <span>{block.title}</span>
+          <span className="pill primary">情景测算</span>
+        </div>
+        <ScenarioCalculator payload={block.payload} />
       </div>
     )
   }

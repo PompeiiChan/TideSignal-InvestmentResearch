@@ -8,6 +8,7 @@ from typing import Any
 from ...integrations.langgraph.state import AgentState
 from ...integrations.llm.service import LLMService
 from ...services.rag.service import RagService
+from ...services.scenario_return import is_scenario_return_query
 from ...services.system_time import resolve_system_time
 from ...settings import AppSettings
 from ._helpers import run_node_with_trace
@@ -40,6 +41,8 @@ def _summarize_history(history: list[dict[str, str]]) -> str:
 
 
 def _detect_risk_hint(query: str) -> str:
+    if is_scenario_return_query(query):
+        return ""
     lowered = query.lower()
     for keyword in _PREDICTION_KEYWORDS:
         if keyword in lowered or keyword in query:

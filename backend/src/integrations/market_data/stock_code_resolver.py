@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
 
 import requests
 
-from ...services.rag.company_index import enrich_stock_slots_from_kb, load_company_directory
 from ...services.rag.chunker import resolve_kb_root
+from ...services.rag.company_index import enrich_stock_slots_from_kb, load_company_directory
 from ...settings import BACKEND_ROOT, AppSettings, get_settings
 
 _EM_SUGGEST_URL = "https://searchapi.eastmoney.com/api/suggest/get"

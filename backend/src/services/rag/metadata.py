@@ -17,6 +17,7 @@ _FIELD_ALIASES = {
     "时间口径": "time_period",
     "公司名称": "company_name",
     "股票代码": "ticker",
+    "来源": "publisher",
 }
 
 
@@ -32,6 +33,7 @@ class DocMetadata:
     time_period: str = ""
     company_name: str = ""
     ticker: str = ""
+    publisher: str = ""
 
 
 def parse_metadata_table(text: str) -> DocMetadata:

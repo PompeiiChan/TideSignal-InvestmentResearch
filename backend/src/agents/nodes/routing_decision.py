@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from ...integrations.langgraph.state import AgentState
 from ...integrations.llm.service import LLMService
+from ...services.compound_routing import enrich_slots_for_compound, resolve_compound_route_targets
+from ...services.hotspot_recency import build_hotspot_execution_plan
+from ...services.rag.chunker import resolve_kb_root
+from ...services.rag.company_index import enrich_stock_slots_from_kb, is_kb_resolvable_document_query
 from ...services.rag.service import RagService
-from ...settings import AppSettings
+from ...services.scenario_return import is_scenario_return_query
+from ...services.system_time import resolve_system_time
+from ...settings import BACKEND_ROOT, AppSettings
+from ..stock_tool_plan import is_qualitative_business_query
 from ._helpers import run_node_with_trace
 
 _INTENT_ROUTE_MAP: dict[str, str] = {
@@ -87,7 +95,25 @@ def build_execution_plan(
             "tool_plan_mode": "calculator",
             "retrieval_config": {},
         }
-    return dict(_EXECUTION_PLANS.get(route_target, _EXECUTION_PLANS["fallback_response"]))
+    if route_target == "hotspot_agent":
+        time_ctx = resolve_system_time()
+        current = date.fromisoformat(time_ctx.current_date)
+        return build_hotspot_execution_plan(query, slots, current_date=current)
+    plan = dict(_EXECUTION_PLANS.get(route_target, _EXECUTION_PLANS["fallback_response"]))
+    if route_target == "stock_analysis_agent" and slots and (
+        slots.get("scenario_return_mode") or is_scenario_return_query(query)
+    ):
+        plan["scenario_return_mode"] = True
+    if route_target == "stock_analysis_agent" and is_qualitative_business_query(query=query):
+        plan["stock_narrative_mode"] = True
+        plan["needs_tool"] = False
+        plan["tool_names"] = []
+        plan["retrieval_config"] = {
+            "top_k": 10,
+            "strategy": "stock_narrative",
+            "filters": {},
+        }
+    return plan
 
 
 async def routing_decision(
@@ -100,32 +126,84 @@ async def routing_decision(
     """Map intent and slots to downstream agent route."""
     _ = (llm, rag, settings)
     intent_id = str(state.get("intent_id", "unknown"))
-    slots = state.get("slots") or {}
+    slots = enrich_slots_for_compound(
+        str(state.get("normalized_query", "")).strip(),
+        dict(state.get("slots") or {}),
+    )
     normalized_query = str(state.get("normalized_query", "")).strip()
     context_pack = state.get("context_pack") or {}
     risk_hint = str(state.get("risk_hint", ""))
+    candidate_intents = state.get("candidate_intents") or []
 
     input_data = {
         "intent_id": intent_id,
         "slots": slots,
         "context_pack": context_pack,
         "risk_hint": risk_hint,
+        "candidate_intents": candidate_intents,
     }
 
     async def _execute() -> tuple[dict[str, Any], str]:
-        route_target = resolve_route_target(intent_id)
-        if risk_hint == "prediction_boundary" and intent_id != "data_query":
+        kb_root = resolve_kb_root(settings.local_kb_path, BACKEND_ROOT)
+        route_slots = dict(slots)
+        effective_intent = intent_id
+        if intent_id == "document_qa" and is_kb_resolvable_document_query(
+            normalized_query, route_slots, kb_root
+        ):
+            route_slots = enrich_stock_slots_from_kb(normalized_query, route_slots, kb_root)
+            effective_intent = "stock_analysis"
+
+        compound_targets = resolve_compound_route_targets(
+            normalized_query,
+            intent_id=effective_intent,
+            slots=route_slots,
+            candidate_intents=candidate_intents if isinstance(candidate_intents, list) else [],
+        )
+        if compound_targets:
+            route_target = compound_targets[0]
+            route_reason = "复合意图：行业基本面走问股助手，市场热度走问数助手"
+            execution_plan = build_execution_plan(
+                route_target,
+                slots=route_slots,
+                query=normalized_query,
+            )
+            output = {
+                "route_target": route_target,
+                "route_targets": compound_targets,
+                "multi_agent_mode": True,
+                "multi_agent_stock_phase_done": False,
+                "multi_agent_data_phase_done": False,
+                "agent_summaries": {},
+                "is_multi_intent": True,
+                "route_reason": route_reason,
+                "execution_plan": execution_plan,
+                "response_kind": "compound_stock_data",
+                "slots": route_slots,
+                "langgraph_connected": True,
+            }
+            return output, f"复合路由：{' → '.join(compound_targets)}"
+
+        route_target = resolve_route_target(effective_intent)
+        if (
+            risk_hint == "prediction_boundary"
+            and effective_intent != "data_query"
+            and not is_scenario_return_query(normalized_query)
+            and not route_slots.get("scenario_return_mode")
+        ):
             route_target = "fallback_response"
         route_reason = _ROUTE_REASONS.get(route_target, "根据意图选择执行链路")
         execution_plan = build_execution_plan(
             route_target,
-            slots=slots,
+            slots=route_slots,
             query=normalized_query,
         )
         output = {
             "route_target": route_target,
             "route_reason": route_reason,
             "execution_plan": execution_plan,
+            "slots": route_slots,
+            "multi_agent_mode": False,
+            "is_multi_intent": False,
             "langgraph_connected": True,
         }
         return output, f"路由至 {route_target}"

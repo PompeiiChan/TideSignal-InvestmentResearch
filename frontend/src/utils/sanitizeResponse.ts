@@ -1,6 +1,6 @@
 import type { Message, RichBlock, Session } from '../types/api'
 
-const ALLOWED_RICH_BLOCK_TYPES = new Set(['ranking_table', 'calculator', 'sector_heatmap'])
+const ALLOWED_RICH_BLOCK_TYPES = new Set(['ranking_table', 'calculator', 'sector_heatmap', 'scenario_calculator'])
 const DEPRECATED_RICH_BLOCK_TYPES = new Set([
   'text',
   'stock_card',
@@ -67,6 +67,7 @@ export function sanitizeSession(session: Session): Session {
   return {
     ...session,
     last_message_preview: sanitizeAssistantContent('assistant', session.last_message_preview),
+    rich_block_types: Array.isArray(session.rich_block_types) ? session.rich_block_types : [],
   }
 }
 

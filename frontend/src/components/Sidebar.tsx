@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import type { PointerEvent } from 'react'
+import logoIcon from '../assets/logo-icon.png'
 import { useInvestmentStore, type ViewMode } from '../stores/useInvestmentStore'
-import { showcaseRichBlockLabel } from '../utils/showcaseRichBlocks'
+import { richBlockTypeLabels } from '../utils/richBlockLabels'
 
 export function Sidebar() {
   const handleRef = useRef<HTMLDivElement | null>(null)
@@ -45,12 +46,13 @@ export function Sidebar() {
       <div ref={handleRef} className="resize-handle" title="拖拽调整历史列宽" onPointerDown={startResize} />
       <div className="brand">
         <div className="brand-name">
-          <span className="brand-mark">投</span>
-          <span>智能投研</span>
+          <img className="brand-mark" src={logoIcon} alt="" width={28} height={28} />
+          <span className="brand-title">
+            <span className="brand-text-cn">潮声</span>
+            <span className="brand-sep" aria-hidden="true" />
+            <span className="brand-text-en">TideSignal</span>
+          </span>
         </div>
-        <button className="icon-button" type="button" title="收起侧边栏">
-          ‹
-        </button>
       </div>
 
       <div className="sidebar-actions">
@@ -78,7 +80,7 @@ export function Sidebar() {
         ) : (
           sessions.map((session) => {
             const isMenuOpen = openMenuId === session.id
-            const showcaseLabel = showcaseRichBlockLabel(session.title)
+            const richBlockLabels = richBlockTypeLabels(session.rich_block_types)
             return (
               <div
                 key={session.id}
@@ -100,9 +102,13 @@ export function Sidebar() {
                   <span className="chat-title">{session.title}</span>
                   <span className="chat-meta-row">
                     <span className="chat-meta">{session.updated_at.slice(11, 16)}</span>
-                    {showcaseLabel ? (
-                      <span className="chat-showcase-pill" title={`富组件示例：${showcaseLabel}`}>
-                        {showcaseLabel}
+                    {richBlockLabels.length > 0 ? (
+                      <span className="chat-rich-pills" aria-label="副组件">
+                        {richBlockLabels.map((label) => (
+                          <span key={label} className="chat-showcase-pill" title={`副组件：${label}`}>
+                            {label}
+                          </span>
+                        ))}
                       </span>
                     ) : null}
                     {pendingQuery?.sessionId === session.id ? (

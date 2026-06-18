@@ -126,24 +126,26 @@ cd frontend && npm run dev -- --host 127.0.0.1 --port 5199
 
 此模式下数据来自 `frontend/src/mocks/`，不调用真实后端。
 
-## 模式二：真实 API fallback（推荐联调与 E2E）
+## 模式二：真实 API + V1.1 真实 AI（推荐联调与 E2E）
 
-适用于 T-003～T-007 已闭环的真实 API 与 fallback 链路验收。
+适用于 V1.1 真实 LLM / Embedding / Rerank / LangGraph 全链路。须先配置 `backend/.env` 中硅基流动 Key 与 `LANGGRAPH_ENV=local`。
 
 1. **先启动后端**（8099）。
-2. 修改 `frontend/.env`（或启动时覆盖环境变量）：
+2. 确认 `frontend/.env`：
 
 ```env
 VITE_USE_MOCK=false
+VITE_API_BASE_URL=/api
+VITE_BACKEND_PROXY_TARGET=http://localhost:8099
 ```
 
 3. 启动前端：
 
 ```bash
-cd frontend && VITE_USE_MOCK=false npm run dev -- --host 127.0.0.1 --port 5199
+cd frontend && npm run dev -- --host 127.0.0.1 --port 5199
 ```
 
-4. 验证代理：浏览器网络面板中业务请求应为 `http://127.0.0.1:5199/api/...`，并由 Vite 转发到后端 8099。
+4. 验证：`GET /api/config/status` 中 LLM / Embedding / Rerank / LangGraph 均为 `ready`；浏览器请求走 `http://127.0.0.1:5199/api/...` 代理到 8099。
 
 ### 主要页面路由
 
@@ -161,39 +163,42 @@ cd frontend && VITE_USE_MOCK=false npm run dev -- --host 127.0.0.1 --port 5199
 
 以下字段在 `backend/.env.example` 中定义；真实值只写入 `backend/.env`。页面与 `GET /api/config/status` **只返回字段名、状态与缺失项**，不返回密钥内容。
 
-| 服务 | 配置字段 | MVP 必需 | 当前状态 |
-|------|----------|----------|----------|
-| 硅基流动 LLM / 意图识别 | `LLM_INTENT_API_KEY`, `LLM_INTENT_BASE_URL`, `LLM_INTENT_MODEL` | 否 | fallback |
-| 硅基流动 LLM / 主输出 | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` | 否 | fallback |
-| 硅基流动 Embedding / 千问 | `EMBEDDING_API_KEY`, `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL`, `EMBEDDING_DIM` | 否 | fallback |
-| 硅基流动 Rerank / 千问 | `RERANK_API_KEY`, `RERANK_BASE_URL`, `RERANK_MODEL` | 否 | fallback |
-| 本地 Markdown 知识库 | `LOCAL_KB_PATH` | V1.1 是 | 文件已就位（`backend/data/knowledge-base/`，检索待 V1.1 接入） |
-| 本地 Mock 行情 / 财务 / 公告 / 宏观 | `MOCK_DATA_PATH` | 是（有内置示例） | 已确认 |
-| LangGraph Agent 编排 | `LANGGRAPH_ENV`（须为 `local` 启用 Chat 编排） | 是（Chat 真实路径） | 未设则 Chat 503 |
+| 服务 | 配置字段 | V1.1 必需 | 当前状态（Key 已配且后端已重启时） |
+|------|----------|----------|-----------------------------------|
+| 硅基流动 LLM / 意图识别 | `LLM_INTENT_API_KEY`, `LLM_INTENT_BASE_URL`, `LLM_INTENT_MODEL` | 是 | **ready**（真实调用） |
+| 硅基流动 LLM / 主输出 | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` | 是 | **ready**（真实调用） |
+| 硅基流动 Embedding / 千问 | `EMBEDDING_API_KEY`, `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL`, `EMBEDDING_DIM` | 是 | **ready**（混合检索） |
+| 硅基流动 Rerank / 千问 | `RERANK_API_KEY`, `RERANK_BASE_URL`, `RERANK_MODEL` | 是 | **ready**（RAG 重排） |
+| 本地 Markdown 知识库 | `LOCAL_KB_PATH` | 是 | **已接入**（`data/knowledge-base/`，约 87 个 `.md`，索引 v6） |
+| 本地 Mock 行情 / 财务 / 公告 / 宏观 | `MOCK_DATA_PATH` | 是（问数/工具） | 已确认 |
+| LangGraph Agent 编排 | `LANGGRAPH_ENV=local` | 是 | **ready**（Chat 默认路径，非 fallback） |
 
-缺失外部 Key 或路径时，后端使用演示级 fallback 回答与 Trace；**不得**在验收报告中将 fallback 标记为真实服务联调通过。
+页面与 `GET /api/config/status` **只返回字段名、状态与缺失项**，不返回密钥。若某项为 `missing` 或 Chat 返回 503，按缺失字段补全 `backend/.env` 并**重启后端**。
 
-各功能首次真实 API 联调证据见对应任务报告：
+### V1.1 各能力首次真实联调证据
 
-- T-003：`.sdd/test-reports/test-T-003.md`（会话与布局）
-- T-004：`.sdd/test-reports/test-T-004.md`（Chat Query fallback）
-- T-005：`.sdd/test-reports/test-T-005.md`（Trace 详情）
-- T-006：`.sdd/test-reports/test-T-006.md`（数据源与配置状态）
-- T-007：`.sdd/test-reports/test-T-007.md`（Agent/RAG/质检 fallback）
+| 能力 | 任务 | 报告 |
+|------|------|------|
+| LLM 真实调用 | T-009 | `.sdd/test-reports/T-009-report.md` |
+| Embedding + 知识库 RAG | T-010 | `.sdd/test-reports/T-010-report.md` |
+| Rerank 重排 | T-011 | `.sdd/test-reports/test-T-011.md` |
+| LangGraph 编排 | T-012 | `.sdd/test-reports/test-T-012.md` |
+| **V1.1 全链路回归** | T-013 | `.sdd/test-reports/test-T-013.md` |
+
+MVP 阶段报告（T-001～T-008）仍保留作 UI / API 契约参考。
 
 ## 当前未完成真实联调的能力清单
 
-以下能力在 MVP 中**仅完成 fallback / 状态展示验收**，未进行真实完整联调：
+**V1.1 核心 AI 能力（LLM、Embedding、Rerank、本地知识库 RAG、LangGraph）已在 T-009～T-012 完成首次真实联调；T-013 做全系统回归收口。**
 
-1. **真实 LLM 调用**（意图识别、回答生成、质检）— 缺 Key 时使用规则化 fallback 回答。
-2. **真实 Embedding 向量检索** — 使用模拟 RAG 命中。
-3. **真实 Rerank 重排** — 使用静态排序或跳过重排。
-4. **本地 Markdown 知识库检索** — 知识库文件已置于 `backend/data/knowledge-base/`（热点、财报、研报、`structured-data/`）；`LOCAL_KB_PATH=data/knowledge-base`。V1.1 接入前后端仍可能走 fallback RAG。
-5. **LangGraph 完整 Agent 编排** — 须 `LANGGRAPH_ENV=local` 且 LLM 已配置；Trace 节点 ID 与 `docs/agent/langgraph-flow.md` 一致。
-6. **第三方真实金融数据 API** — MVP 明确不接入。
-7. **多账号登录 / SSO** — MVP 不做。
+仍属 **MVP 演示或后续版本**、不在 V1.1 收口范围：
 
-客户端与管理端**可见 UI 不展示**「Agent fallback」「真实 LLM 未接入」「LangGraph 未接入」等内部工程文案；工程边界见 Trace raw JSON 与测试报告。
+1. **第三方真实金融行情/财务 API** — 问数/问股工具仍主要使用本地 Mock 与公开页解析，非券商级实时行情。
+2. **多账号登录 / SSO** — 未做。
+3. **Query 改写、多轮记忆、Live Tool** — V1.2+ backlog（T-014～T-018）。
+4. **知识库持续扩容** — T-019 创业板 50 家入库进行中，与 V1.1 回归可并行。
+
+客户端与管理端**可见 UI 不展示**「Agent fallback」「真实 LLM 未接入」等内部工程文案；工程边界见 Trace 与 `.sdd/test-reports/`。
 
 ## 质量门禁
 
@@ -235,11 +240,12 @@ cd frontend && npm run test:e2e
 |------|------|------|
 | `E2E_BASE_URL` | `http://127.0.0.1:5199` | 前端地址 |
 | `E2E_API_BASE` | `http://127.0.0.1:5199/api` | 经 Vite 代理的 API |
+| `E2E_ASSISTANT_TIMEOUT_MS` | `180000` | 等待真实 LLM 首条回复（毫秒） |
 | `E2E_CLEANUP` | `true` | 结束后删除 E2E 创建的会话 |
 
 脚本会检查横向溢出（`scrollWidth <= viewportWidth`），并遍历客户端提问、历史搜索、管理端 Trace、数据说明与系统设置页。
 
-> E2E 只做全系统回归，**不替代** T-003～T-007 各任务内的首次真实 API 联调记录。
+> E2E 覆盖双视口布局、真实 API 代理、客户端提问与管理端 Trace/设置。全链路 AI 四类用例（热点/问数/问股/文档）见 T-013 回归报告；**不替代** T-009～T-012 各任务内的首次真实联调记录。
 
 ## 常见问题
 

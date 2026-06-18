@@ -10,7 +10,10 @@ from ...integrations.llm.service import LLMService
 from ...services.rag.service import RagService
 from ...services.system_time import resolve_system_time
 from ...settings import AppSettings
-from ..stock_tool_plan import resolve_stock_tool_names
+from ..stock_tool_plan import (
+    is_qualitative_business_query,
+    resolve_stock_tool_names,
+)
 from ._helpers import (
     call_intent_json,
     normalize_string_list,
@@ -48,7 +51,10 @@ async def stock_analysis_agent(
         agent_result = str(parsed.get("agent_result", "")).strip()
         analysis_dimensions = normalize_string_list(parsed.get("analysis_dimensions"))
         if not analysis_dimensions:
-            analysis_dimensions = ["基本面", "盈利能力", "估值水平"]
+            if is_qualitative_business_query(query=normalized_query):
+                analysis_dimensions = ["研发管线布局", "临床与商业化进度", "核心产品与适应症"]
+            else:
+                analysis_dimensions = ["基本面", "盈利能力", "估值水平"]
         tool_params = parsed.get("tool_params")
         if not isinstance(tool_params, dict):
             tool_params = {

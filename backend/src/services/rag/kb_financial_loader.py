@@ -27,9 +27,7 @@ def _parse_metrics_table(section_text: str) -> dict[str, str]:
         left, middle, right = (cell.strip() for cell in row)
         if left in {"报表", "---", "字段"} or middle in {"科目", "内容", "---"}:
             continue
-        if left == "利润表":
-            metrics[middle] = right
-        elif left == "指标":
+        if left == "利润表" or left == "指标":
             metrics[middle] = right
     return metrics
 

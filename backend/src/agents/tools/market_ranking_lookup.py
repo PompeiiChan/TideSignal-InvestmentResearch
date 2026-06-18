@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from ...integrations.market_data.eastmoney_client import (
     fetch_board_stock_ranking,
     find_board_by_keyword,
     industry_board_ranking,
 )
+from ...services.trading_calendar import resolve_default_trade_date
 from .mock_market_ranking_lookup import lookup_market_ranking as lookup_mock_market_ranking
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ _ATTRIBUTION = "third_party/a-stock-data (Apache-2.0)"
 
 
 def _trade_date_label() -> str:
-    return datetime.now(tz=ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
+    return resolve_default_trade_date()
 
 
 def _board_ticker(board_code: str) -> str:
@@ -53,6 +52,19 @@ def _board_rows_to_ranking_rows(boards: list[dict[str, Any]], *, limit: int) -> 
     return rows
 
 
+def _industry_search_terms(industry: str) -> list[str]:
+    needle = industry.strip()
+    if not needle:
+        return []
+    terms = [needle]
+    for suffix in ("行业", "概念", "板块"):
+        if needle.endswith(suffix) and len(needle) > len(suffix):
+            core = needle[: -len(suffix)].strip()
+            if core and core not in terms:
+                terms.append(core)
+    return terms
+
+
 def lookup_market_ranking(
     *,
     industry: str = "",
@@ -67,7 +79,13 @@ def lookup_market_ranking(
 
     try:
         if industry.strip():
-            board = find_board_by_keyword(industry.strip())
+            board = None
+            matched_term = industry.strip()
+            for term in _industry_search_terms(industry):
+                board = find_board_by_keyword(term)
+                if board is not None:
+                    matched_term = term
+                    break
             if board is None:
                 return {
                     "tool": "market_ranking_lookup",
@@ -90,7 +108,7 @@ def lookup_market_ranking(
             return {
                 "tool": "market_ranking_lookup",
                 "ranking_mode": "board_stocks",
-                "industry": board.get("board_name", industry),
+                "industry": board.get("board_name", matched_term),
                 "board_code": board.get("board_code"),
                 "board_kind": board.get("board_kind"),
                 "metric": metric,

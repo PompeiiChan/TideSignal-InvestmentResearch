@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 from ...integrations.langgraph.state import AgentState
-from ...services.rag.chunker import resolve_kb_root
-from ...services.rag.company_index import enrich_stock_slots_from_kb
 from ...integrations.llm.prompts.slots import slots_system_prompt
 from ...integrations.llm.service import LLMService
+from ...services.rag.chunker import resolve_kb_root
+from ...services.rag.company_index import enrich_stock_slots_from_kb
 from ...services.rag.service import RagService
+from ...services.scenario_return import enrich_scenario_return_slots
 from ...services.system_time import resolve_system_time
+from ...services.trading_calendar import enrich_trading_slots
 from ...settings import BACKEND_ROOT, AppSettings
 from ._helpers import (
     call_intent_json,
@@ -52,6 +54,13 @@ async def slot_extraction(
         if intent_id == "stock_analysis":
             kb_root = resolve_kb_root(settings.local_kb_path, BACKEND_ROOT)
             slots = enrich_stock_slots_from_kb(normalized_query, slots, kb_root)
+        slots = enrich_trading_slots(
+            normalized_query,
+            slots,
+            last_trading_day=time_ctx.last_trading_day,
+            is_trading_day=time_ctx.is_trading_day,
+        )
+        slots = enrich_scenario_return_slots(normalized_query, slots)
         slot_confidence = normalize_slot_confidence(parsed.get("slot_confidence"))
         missing_slots = normalize_string_list(parsed.get("missing_slots"))
         ambiguous_slots = normalize_string_list(parsed.get("ambiguous_slots"))

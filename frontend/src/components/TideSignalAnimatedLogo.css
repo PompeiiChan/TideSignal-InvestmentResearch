@@ -1,0 +1,180 @@
+.tidesignal-logo-wrap {
+  position: relative;
+  width: 176px;
+  height: 176px;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+}
+
+.tidesignal-logo-wrap .ambient-ring,
+.tidesignal-logo-wrap .ambient-ring::before,
+.tidesignal-logo-wrap .ambient-ring::after {
+  position: absolute;
+  content: "";
+  inset: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  transform: scale(0.72);
+  opacity: 0;
+  animation: tidesignal-ripple 4.8s ease-out infinite;
+  z-index: -2;
+}
+
+.tidesignal-logo-wrap .ambient-ring::before {
+  inset: -6px;
+  animation-delay: 1.6s;
+}
+
+.tidesignal-logo-wrap .ambient-ring::after {
+  inset: -34px;
+  animation-delay: 3.2s;
+}
+
+.tidesignal-logo-wrap .glow {
+  position: absolute;
+  width: 144px;
+  height: 144px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.28) 0%, rgba(96, 165, 250, 0.1) 46%, transparent 72%);
+  filter: blur(6px);
+  animation: tidesignal-glow-breath 4.2s ease-in-out infinite;
+  z-index: -1;
+}
+
+.tidesignal-logo-wrap svg {
+  width: 128px;
+  height: 128px;
+  overflow: visible;
+  animation: tidesignal-float-breath 4.2s ease-in-out infinite;
+  filter: drop-shadow(0 14px 18px rgba(11, 46, 94, 0.15));
+}
+
+.tidesignal-logo-wrap .wave-main {
+  transform-origin: 256px 256px;
+  animation: tidesignal-wave-breath 4.2s ease-in-out infinite;
+}
+
+.tidesignal-logo-wrap .crest-highlight {
+  stroke-dasharray: 210 70;
+  stroke-dashoffset: 0;
+  animation: tidesignal-crest-flow 3.8s ease-in-out infinite;
+}
+
+.tidesignal-logo-wrap .echo-line-1 {
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  animation: tidesignal-echo-draw 4.2s ease-in-out infinite;
+  transform-origin: 256px 384px;
+}
+
+.tidesignal-logo-wrap .echo-line-2 {
+  stroke-dasharray: 190;
+  stroke-dashoffset: 190;
+  animation: tidesignal-echo-draw 4.2s ease-in-out infinite 0.34s;
+  transform-origin: 256px 406px;
+}
+
+.tidesignal-logo-wrap .spark {
+  transform-origin: 366px 184px;
+  animation: tidesignal-spark-pulse 4.2s ease-in-out infinite;
+}
+
+@keyframes tidesignal-ripple {
+  0% {
+    transform: scale(0.66);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.54;
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+
+@keyframes tidesignal-glow-breath {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.72;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes tidesignal-float-breath {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.018);
+  }
+}
+
+@keyframes tidesignal-wave-breath {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.025) rotate(-1deg);
+  }
+}
+
+@keyframes tidesignal-crest-flow {
+  0%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.58;
+  }
+  50% {
+    stroke-dashoffset: -56;
+    opacity: 0.86;
+  }
+}
+
+@keyframes tidesignal-echo-draw {
+  0% {
+    stroke-dashoffset: 240;
+    opacity: 0;
+    transform: translateY(0);
+  }
+  24% {
+    opacity: 0.42;
+  }
+  58% {
+    stroke-dashoffset: 0;
+    opacity: 0.32;
+    transform: translateY(4px);
+  }
+  100% {
+    stroke-dashoffset: -80;
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes tidesignal-spark-pulse {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.34;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.92;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tidesignal-logo-wrap *,
+  .tidesignal-logo-wrap *::before,
+  .tidesignal-logo-wrap *::after {
+    animation: none !important;
+  }
+}

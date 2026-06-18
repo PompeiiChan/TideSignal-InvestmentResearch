@@ -873,12 +873,12 @@
         "dev-standards/backend-layers.md",
         "dev-standards/backend-plugin.md"
       ],
-      "status": "in_progress",
+      "status": "passed",
       "developer_id": "cursor-main",
-      "tester_id": null,
+      "tester_id": "cursor-tester",
       "retry_count": 0,
       "blocked": false,
-      "notes": "Developer 已完成：Trace 展示 rerank_before/after、失败 logger.warning 降级 hybrid、test_rerank.py 通过。索引 v6 2510 chunks ready。待用户验收后标 passed，再进入 T-012 LangGraph。",
+      "notes": "[PASS] T-011 Rerank 重排：真实联调 rerank_connected=true，Trace 可见重排前后 8 条候选，配置 ready。待用户门禁确认。\n详见：.sdd/test-reports/test-T-011.md",
       "user_gate": true
     },
     {
@@ -990,12 +990,12 @@
         "dev-standards/backend-layers.md",
         "dev-standards/backend-plugin.md"
       ],
-      "status": "in_progress",
+      "status": "passed",
       "developer_id": "cursor-main",
-      "tester_id": null,
-      "retry_count": 0,
+      "tester_id": "cursor-tester",
+      "retry_count": 1,
       "blocked": false,
-      "notes": "P1-P4 Developer 完成：LangGraph 全图 + chat_service 仅走 Runner；需 LANGGRAPH_ENV=local。报告见 .sdd/developer-reports/T-012-P*.md。待 Tester + 用户门禁。",
+      "notes": "[PASS] T-012 第2轮验收通过：热点/问股修复验证、4条真实联调、质量门禁全绿。待用户门禁确认。\n详见：.sdd/test-reports/test-T-012.md",
       "user_gate": true
     },
     {
@@ -1078,12 +1078,12 @@
         "dev-standards/backend-layers.md",
         "dev-standards/backend-plugin.md"
       ],
-      "status": "pending",
-      "developer_id": null,
-      "tester_id": null,
+      "status": "passed",
+      "developer_id": "cursor-main",
+      "tester_id": "cursor-tester",
       "retry_count": 0,
       "blocked": false,
-      "notes": "V1.1 收尾回归。前置：LLM/Embedding/Rerank Key 已配、知识库已就位、LangGraph 流转图已提供。httpx trust_env=False；VITE_USE_MOCK=false；Tester 必须真实调用外部服务，不得 fallback PASS；Vite 代理 /api -> 8099。",
+      "notes": "[PASS] T-013 V1.1 全链路回归通过：四类真实 Agent、双视口 E2E、startup.md 已更新。待用户门禁确认。\n详见：.sdd/test-reports/test-T-013.md",
       "user_gate": true
     },
     {

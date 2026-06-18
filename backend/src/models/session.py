@@ -29,6 +29,7 @@ class SessionRead(BaseModel):
     updated_at: str
     last_message_preview: str
     last_trace_id: str | None
+    rich_block_types: list[str] = Field(default_factory=list)
 
 
 class MessageRead(BaseModel):

@@ -8,8 +8,11 @@ from typing import Any, Literal
 from ...integrations.market_data.sina_finance_client import fetch_multi_period_profiles
 from ...integrations.market_data.stock_code_resolver import resolve_stock_code
 from ...services.rag.chunker import resolve_kb_root
-from ...services.rag.kb_financial_loader import find_financial_kb_file, load_all_profiles_from_kb_file
-from ...settings import BACKEND_ROOT, AppSettings, get_settings
+from ...services.rag.kb_financial_loader import (
+    find_financial_kb_file,
+    load_all_profiles_from_kb_file,
+)
+from ...settings import BACKEND_ROOT, get_settings
 
 logger = logging.getLogger(__name__)
 

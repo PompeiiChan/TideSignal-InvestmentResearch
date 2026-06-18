@@ -21,6 +21,8 @@ RAG_CANDIDATE_POOL = 30
 DEFAULT_TOP_K = 6
 RERANK_TOP_N = 8
 MIN_SCORE = 0.15
+HOTSPOT_MIN_SCORE = 0.40
+TARGETED_MIN_SCORE_WITHOUT_ENTITY = 0.45
 HYBRID_DENSE_WEIGHT = 0.65
 HYBRID_BM25_WEIGHT = 0.35
 
@@ -146,9 +148,7 @@ def _passes_metadata_filter(item: StoredChunk, filters: dict[str, str]) -> bool:
         return False
     if doc_type and item.chunk.doc_type and item.chunk.doc_type != doc_type:
         return False
-    if path_prefix and not item.chunk.path.startswith(path_prefix):
-        return False
-    return True
+    return not (path_prefix and not item.chunk.path.startswith(path_prefix))
 
 
 def _eligible_chunks(chunks: list[StoredChunk], filters: dict[str, str] | None) -> list[StoredChunk]:
@@ -184,6 +184,7 @@ def _hits_from_scored(
                 relevance_reason=f"{retrieval_mode} 命中 {score:.2f}，章节「{section}」",
                 breadcrumb=item.chunk.breadcrumb,
                 time_period=item.chunk.time_period,
+                publisher=item.chunk.publisher,
                 retrieval_mode=retrieval_mode,
             )
         )
@@ -194,6 +195,95 @@ def _parent_context(item: StoredChunk) -> str:
     if item.chunk.parent_text.strip():
         return item.chunk.parent_text.strip()
     return item.chunk.chunk_text
+
+
+def _hit_text_blob(hit: RagHit) -> str:
+    return " ".join([hit.title, hit.path, hit.snippet, hit.breadcrumb])
+
+
+def filter_hits_by_min_score(hits: list[RagHit], min_score: float) -> list[RagHit]:
+    """Drop low-relevance retrieval hits (hotspot / open-topic queries)."""
+    if min_score <= 0:
+        return hits
+    return [hit for hit in hits if hit.score >= min_score]
+
+
+def filter_hits_by_entity(
+    hits: list[RagHit],
+    entity_name: str,
+    *,
+    min_score_without_entity: float = TARGETED_MIN_SCORE_WITHOUT_ENTITY,
+    strict: bool = False,
+) -> list[RagHit]:
+    """Keep entity-specific hits; drop low-score unrelated chunks for supplement retrieval."""
+    needle = entity_name.strip()
+    if not needle or not hits:
+        return hits
+
+    matched = [hit for hit in hits if needle in _hit_text_blob(hit)]
+    if matched:
+        return matched
+
+    if strict:
+        return []
+
+    return [hit for hit in hits if hit.score >= min_score_without_entity]
+
+
+_NARRATIVE_TOPIC_TERMS = (
+    "创新药",
+    "医药",
+    "生物药",
+    "制药",
+    "管线",
+    "临床",
+    "适应症",
+    "仿制药",
+    "新药",
+    "研发",
+)
+
+
+def filter_stock_narrative_hits(
+    hits: list[RagHit],
+    *,
+    stock_name: str,
+    query: str = "",
+) -> list[RagHit]:
+    """Keep narrative hits: company docs must match entity; industry reports must match topic.
+
+    Prevents leaking other companies' financials (e.g. 寒武纪年报) when asking about an uncovered stock.
+    """
+    if not hits:
+        return []
+    needle = stock_name.strip()
+    topic_query = any(term in query for term in _NARRATIVE_TOPIC_TERMS) or any(
+        term in needle for term in _NARRATIVE_TOPIC_TERMS
+    )
+
+    kept: list[RagHit] = []
+    for hit in hits:
+        path = hit.path
+        blob = _hit_text_blob(hit)
+        if path.startswith(("company-reports/", "financials/")):
+            if needle and needle in blob:
+                kept.append(hit)
+            continue
+        if path.startswith("industry-reports/"):
+            if needle and needle in blob:
+                kept.append(hit)
+                continue
+            if not topic_query:
+                continue
+            if not any(term in blob for term in _NARRATIVE_TOPIC_TERMS):
+                continue
+            if "气管线" in blob or "石油天然气管线" in blob or "长输管线" in blob:
+                continue
+            kept.append(hit)
+            continue
+        if needle and needle in blob:
+            kept.append(hit)
+    return kept
 
 
 def refine_scored_hits(

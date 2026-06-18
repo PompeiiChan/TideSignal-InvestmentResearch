@@ -122,7 +122,8 @@ class TraceService:
                     "status": "success",
                     "latency_ms": 24,
                     "summary": (
-                        f"加载当前会话与本轮 Query；系统基准日 {system_time.current_date}（{system_time.source}）。"
+                        f"加载当前会话与本轮 Query；系统基准日 {system_time.current_date}（{system_time.source}），"
+                        f"上一交易日 {system_time.last_trading_day}。"
                     ),
                     "detail_sections": [
                         {
@@ -130,6 +131,8 @@ class TraceService:
                             "items": [
                                 {"label": "输入", "value": "用户 Query 与当前会话"},
                                 {"label": "系统日期", "value": system_time.current_date},
+                                {"label": "上一交易日", "value": system_time.last_trading_day},
+                                {"label": "是否交易日", "value": "是" if system_time.is_trading_day else "否"},
                                 {"label": "时区", "value": system_time.timezone},
                                 {"label": "输出", "value": "进入 LLM 意图识别"},
                             ],

@@ -24,15 +24,13 @@ export function normalizeCalculatorPayload(payload: RichBlockPayload): Calculato
   }
   const buyPrice = Number(payload.buy_price ?? 0)
   const targetPrice = Number(payload.sell_price ?? payload.target_price ?? 0)
-  const shareCount = Number(payload.share_count ?? 1000)
-  const feeRate = Number(payload.fee_rate ?? 0.03)
+  const shareCount = Number(payload.share_count ?? 100)
   const cost = buyPrice * shareCount
   return {
     fields: [
       { key: 'buy_price', label: '买入价', value: buyPrice, unit: '元' },
       { key: 'target_price', label: '情景价', value: targetPrice, unit: '元' },
       { key: 'share_count', label: '持仓数量', value: shareCount, unit: '股' },
-      { key: 'fee_rate', label: '估算费率', value: feeRate, unit: '%' },
     ],
     results: [
       {

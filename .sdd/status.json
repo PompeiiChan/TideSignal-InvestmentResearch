@@ -5,5 +5,5 @@
   "development_ready": true,
   "current_task": "T-020",
   "blocked": false,
-  "notes": "T-020 问数工具丰富度 P1（动态 tool_names + 默认 rank_limit=8）已开发，待用户按 docs/agent/tool-richness-roadmap.md §2.4 验收。验收通过后下一项：T-021 估值工具丰富度。"
+  "notes": "T-013 V1.1 全链路回归 Tester PASS，待用户门禁。下一焦点：T-020 问数工具丰富度验收（roadmap §2.4）。"
 }

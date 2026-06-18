@@ -35,8 +35,8 @@ const wait = <T>(data: T): Promise<ApiResponse<T>> =>
   })
 
 let mockLayoutPreferences: LayoutPreferences = {
-  sidebar_width: 288,
-  sidebar_width_range: { min: 240, max: 420 },
+  sidebar_width: 230,
+  sidebar_width_range: { min: 200, max: 420 },
   trace_panel_width: 488,
   trace_panel_width_range: { min: 380, max: 640 },
   updated_at: '2026-06-08T14:12:00+08:00',
@@ -119,17 +119,7 @@ export async function getSessions(keyword = '', page = 1, pageSize = 20): Promis
 export async function createSession(source: SessionSource): Promise<ApiResponse<Session>> {
   const session = createDraftSession(source)
   mockSessions.unshift(session)
-  mockMessagesBySession[session.id] = [
-    {
-      id: `msg_${Date.now()}_draft`,
-      session_id: session.id,
-      role: 'assistant',
-      content: '新对话已创建。发送首条问题后，历史标题会自动替换为该问题，并按列宽显示省略号。',
-      rich_blocks: [],
-      trace_id: null,
-      created_at: session.created_at,
-    },
-  ]
+  mockMessagesBySession[session.id] = []
   return wait(sessionDto(session))
 }
 
@@ -323,7 +313,7 @@ export async function getLayoutPreferences(): Promise<ApiResponse<LayoutPreferen
 export async function patchLayoutPreferences(sidebarWidth: number, tracePanelWidth: number): Promise<ApiResponse<LayoutPreferences>> {
   mockLayoutPreferences = {
     sidebar_width: sidebarWidth,
-    sidebar_width_range: { min: 240, max: 420 },
+    sidebar_width_range: { min: 200, max: 420 },
     trace_panel_width: tracePanelWidth,
     trace_panel_width_range: { min: 380, max: 640 },
     updated_at: '2026-06-08T14:12:00+08:00',

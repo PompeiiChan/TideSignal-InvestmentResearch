@@ -17,6 +17,7 @@ _ENV_FIELD_MAP: dict[str, str] = {
     "LLM_API_KEY": "llm_api_key",
     "LLM_BASE_URL": "llm_base_url",
     "LLM_MODEL": "llm_model",
+    "LLM_TIMEOUT": "llm_timeout",
     "LLM_INTENT_API_KEY": "llm_intent_api_key",
     "LLM_INTENT_BASE_URL": "llm_intent_base_url",
     "LLM_INTENT_MODEL": "llm_intent_model",
@@ -51,6 +52,7 @@ class AppSettings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = ""
     llm_model: str = ""
+    llm_timeout: str = "120"
     llm_intent_api_key: str = ""
     llm_intent_base_url: str = ""
     llm_intent_model: str = ""

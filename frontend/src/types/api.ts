@@ -5,7 +5,7 @@ export type SubAgent = 'hotspot_agent' | 'data_agent' | 'stock_agent' | 'chit_ch
 export type RiskLevel = 'low' | 'medium' | 'high'
 export type QualityResult = 'PASS' | 'FAIL'
 export type SourceType = 'announcement' | 'report' | 'financial' | 'market' | 'qa' | 'knowledge'
-export type RichBlockType = 'ranking_table' | 'calculator' | 'sector_heatmap'
+export type RichBlockType = 'ranking_table' | 'calculator' | 'sector_heatmap' | 'scenario_calculator'
 
 export interface ApiResponse<T> {
   code: number
@@ -30,6 +30,7 @@ export interface Session {
   updated_at: string
   last_message_preview: string
   last_trace_id: string | null
+  rich_block_types?: RichBlockType[]
 }
 
 export interface SourceRef {
@@ -74,9 +75,54 @@ export interface TextPayload {
   paragraphs: string[]
 }
 
+export interface CalculatorScenario {
+  key: string
+  label: string
+  target_price: number
+  assumption?: string
+}
+
 export interface CalculatorPayload {
   fields: CalculatorField[]
   results: CalculatorResult[]
+  assumption?: string
+}
+
+export interface ScenarioSourceRef {
+  title: string
+  time_period?: string
+  excerpt?: string
+  origin?: string
+  citation_index?: number | null
+}
+
+export interface ScenarioCalculatorScenario {
+  key: string
+  label: string
+  target_price: number
+  eps?: number
+  pe?: number
+  forecast_year?: number
+  assumption: string
+  return_pct?: number | null
+  net_profit?: number | null
+  source: ScenarioSourceRef
+}
+
+export interface ScenarioCalculatorPayload {
+  stock_name: string
+  buy_price: number
+  buy_price_source: ScenarioSourceRef
+  share_count: number
+  fee_rate: number
+  active_scenario: string
+  scenarios: ScenarioCalculatorScenario[]
+  formula?: string
+  reference_year?: number | null
+  low_coverage?: boolean | null
+  data_origin?: string
+  active_return_pct?: number | null
+  active_net_profit?: number | null
 }
 
 export interface SectorHeatmapTile {
@@ -113,6 +159,7 @@ export type RichBlockPayload =
   | StockCardPayload
   | TextPayload
   | CalculatorPayload
+  | ScenarioCalculatorPayload
   | SectorHeatmapPayload
   | CitationListPayload
   | RiskNoticePayload
@@ -240,6 +287,8 @@ export interface DataSourceStatus {
     embedding_provider: string
     rerank_provider: string
     status: 'mocked' | 'ready'
+    chunk_count?: number
+    indexed_files?: number
   }
 }
 

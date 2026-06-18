@@ -29,6 +29,7 @@ class KnowledgeChunk(BaseModel):
     doc_type: str = ""
     time_period: str = ""
     breadcrumb: str = ""
+    publisher: str = ""
     retrieval_weight: float = 1.0
 
     def text_for_embedding(self) -> str:
@@ -51,6 +52,7 @@ class RagHit(BaseModel):
     chunk_id: str = ""
     breadcrumb: str = ""
     time_period: str = ""
+    publisher: str = ""
     retrieval_mode: str = "hybrid"
 
 
@@ -71,7 +73,7 @@ class RagRetrievalResult(BaseModel):
     index_chunk_count: int = 0
     query: str = ""
     model: str = ""
-    mode: Literal["semantic", "hybrid", "bm25", "mock"] = "semantic"
+    mode: str = "semantic"
     rerank_connected: bool = False
     rerank_before: list[RerankCandidateSnapshot] = Field(default_factory=list)
     rerank_after: list[RerankCandidateSnapshot] = Field(default_factory=list)

@@ -15,8 +15,11 @@ from backend.src.integrations.market_data.stock_code_resolver import (
     normalize_stock_code,
     resolve_stock_code,
 )
-from backend.src.services.rag.kb_financial_loader import find_financial_kb_file, load_profile_from_kb_file
 from backend.src.services.rag.chunker import resolve_kb_root
+from backend.src.services.rag.kb_financial_loader import (
+    find_financial_kb_file,
+    load_profile_from_kb_file,
+)
 from backend.src.settings import BACKEND_ROOT, AppSettings
 
 

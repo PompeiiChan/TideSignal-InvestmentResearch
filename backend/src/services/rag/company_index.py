@@ -149,3 +149,36 @@ def is_kb_resolved_stock(query: str, slots: dict[str, Any], kb_root: Path) -> bo
     aliases = load_company_aliases(kb_root)
     company_id = _match_company_id(query, slots, aliases)
     return bool(company_id)
+
+
+_FINANCIAL_DOC_TERMS = (
+    "年报",
+    "一季报",
+    "第二季度",
+    "第三季度",
+    "季报",
+    "半年报",
+    "中报",
+    "财报",
+    "营业收入",
+    "净利润",
+    "营收",
+    "利润",
+    "毛利率",
+    "资产负债",
+    "现金流量",
+    "每股收益",
+    "EPS",
+)
+
+
+def is_kb_resolvable_document_query(query: str, slots: dict[str, Any], kb_root: Path) -> bool:
+    """Whether a document_qa-style query can be answered via KB RAG without an explicit document_id."""
+    aliases = load_company_aliases(kb_root)
+    filters = resolve_query_filters(query, aliases)
+    company_id = _match_company_id(query, slots, aliases) or filters.get("company_id", "")
+    if not company_id:
+        return False
+    if filters.get("doc_type"):
+        return True
+    return any(term in query for term in _FINANCIAL_DOC_TERMS)

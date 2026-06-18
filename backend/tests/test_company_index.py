@@ -7,6 +7,7 @@ from pathlib import Path
 from backend.src.services.rag.chunker import resolve_kb_root
 from backend.src.services.rag.company_index import (
     enrich_stock_slots_from_kb,
+    is_kb_resolvable_document_query,
     is_kb_resolved_stock,
     is_truly_ambiguous_stock_name,
 )
@@ -36,6 +37,20 @@ def test_is_kb_resolved_stock_for_haitian() -> None:
         {"stock_name": "海天味业"},
         kb_root,
     )
+
+
+def test_is_kb_resolvable_document_query_for_named_annual_report() -> None:
+    kb_root = _kb_root()
+    assert is_kb_resolvable_document_query(
+        "海天味业2025年年度报告营业收入是多少",
+        {},
+        kb_root,
+    )
+
+
+def test_is_kb_resolvable_document_query_false_for_vague_doc_ref() -> None:
+    kb_root = _kb_root()
+    assert not is_kb_resolvable_document_query("这份研报的风险提示章节写了什么", {}, kb_root)
 
 
 def test_is_truly_ambiguous_stock_name() -> None:

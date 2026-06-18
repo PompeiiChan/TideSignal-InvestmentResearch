@@ -7,7 +7,11 @@ from typing import Any
 from ...integrations.langgraph.state import AgentState
 from ...integrations.llm.service import LLMService
 from ...services.rag.chunker import resolve_kb_root
-from ...services.rag.company_index import is_kb_resolved_stock, is_truly_ambiguous_stock_name
+from ...services.rag.company_index import (
+    is_kb_resolvable_document_query,
+    is_kb_resolved_stock,
+    is_truly_ambiguous_stock_name,
+)
 from ...services.rag.service import RagService
 from ...settings import BACKEND_ROOT, AppSettings
 from ._helpers import normalize_string_list, run_node_with_trace
@@ -38,6 +42,9 @@ def _missing_core_slots(
     intent_id: str,
     slots: dict[str, Any],
     context_pack: dict[str, Any],
+    *,
+    normalized_query: str = "",
+    kb_root: Any = None,
 ) -> list[str]:
     missing: list[str] = []
     if intent_id == "stock_analysis" and not _has_stock_identifier(slots):
@@ -45,7 +52,10 @@ def _missing_core_slots(
     if intent_id == "data_query" and not _slot_value(slots, "metric"):
         missing.append("metric")
     if intent_id == "document_qa" and not _has_document_reference(slots, context_pack):
-        missing.append("document_id")
+        if kb_root is not None and is_kb_resolvable_document_query(normalized_query, slots, kb_root):
+            pass
+        else:
+            missing.append("document_id")
     return missing
 
 
@@ -58,9 +68,13 @@ def _normalize_slot_lists_for_clarification(
     ambiguous_slots: list[str],
     kb_root: Any,
 ) -> tuple[list[str], list[str]]:
-    """Drop optional / auto-resolvable stock slots from clarification triggers."""
+    """Drop optional / auto-resolvable slots from clarification triggers."""
     filtered_missing = list(missing_slots)
     filtered_ambiguous = list(ambiguous_slots)
+
+    if intent_id == "document_qa" and is_kb_resolvable_document_query(query, slots, kb_root):
+        filtered_missing = [name for name in filtered_missing if name != "document_id"]
+        return filtered_missing, filtered_ambiguous
 
     if intent_id != "stock_analysis":
         return filtered_missing, filtered_ambiguous
@@ -150,7 +164,13 @@ async def clarification_check(
             need_clarification = True
             reasons.append(f"意图置信度 {intent_confidence:.2f} 低于阈值 {_CONFIDENCE_THRESHOLD}")
 
-        missing_core = _missing_core_slots(intent_id, slots, context_pack)
+        missing_core = _missing_core_slots(
+            intent_id,
+            slots,
+            context_pack,
+            normalized_query=normalized_query,
+            kb_root=kb_root,
+        )
         if missing_core:
             need_clarification = True
             reasons.append(f"核心槽位缺失：{', '.join(missing_core)}")

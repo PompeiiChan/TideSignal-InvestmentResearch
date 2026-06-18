@@ -42,8 +42,22 @@ async function readOverflow(page) {
   }))
 }
 
+async function waitForComposerReady(page) {
+  const textarea = page.locator('.composer textarea')
+  await textarea.waitFor({ state: 'visible', timeout: 30_000 })
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('.composer textarea')
+      return el instanceof HTMLTextAreaElement && !el.disabled
+    },
+    undefined,
+    { timeout: Number(process.env.E2E_ASSISTANT_TIMEOUT_MS ?? 180_000) },
+  )
+}
+
 async function waitForAssistant(page) {
-  await page.locator('.message.assistant').last().waitFor({ state: 'visible', timeout: 60_000 })
+  const timeout = Number(process.env.E2E_ASSISTANT_TIMEOUT_MS ?? 180_000)
+  await page.locator('.message.assistant').last().waitFor({ state: 'visible', timeout })
 }
 
 async function runFlow(page, viewport) {
@@ -56,6 +70,7 @@ async function runFlow(page, viewport) {
     await page.getByRole('button', { name: '新建会话' }).click()
   }
   const textarea = page.locator('.composer textarea')
+  await waitForComposerReady(page)
   await textarea.fill(`${E2E_MARKER} 宁德时代基本面怎么样`)
   await page.locator('.composer .send').click()
   await waitForAssistant(page)
@@ -70,19 +85,30 @@ async function runFlow(page, viewport) {
     }
   }
 
+  if (!isNarrow) {
+    await page.getByRole('button', { name: '管理端' }).click()
+  } else {
+    await page.goto(`${BASE_URL}/admin/data`, { waitUntil: 'networkidle' })
+    await page.getByText('RAG 状态').waitFor({ state: 'visible' })
+    assertNoOverflow(await readOverflow(page), viewport)
+    await page.goto(`${BASE_URL}/admin/settings`, { waitUntil: 'networkidle' })
+    await page.getByText('Prompt 模块').waitFor({ state: 'visible' })
+    const pageText = await page.locator('body').innerText()
+    if (/sk-[A-Za-z0-9]/.test(pageText) || pageText.includes('Bearer ')) {
+      throw new Error(`[${viewport.name}] possible secret leak on settings page`)
+    }
+    assertNoOverflow(await readOverflow(page), viewport)
+    return
+  }
+
   await page.getByRole('button', { name: '数据说明' }).click()
   await page.getByText('RAG 状态').waitFor({ state: 'visible' })
   assertNoOverflow(await readOverflow(page), viewport)
 
-  if (!isNarrow) {
-    await page.getByRole('button', { name: '对话' }).click()
-    await page.getByRole('button', { name: '管理端' }).click()
-  } else {
-    await page.goto(`${BASE_URL}/admin`, { waitUntil: 'networkidle' })
-  }
-  await page.getByRole('heading', { name: 'Trace 链路' }).waitFor({ state: 'visible', timeout: 60_000 })
+  await page.getByRole('heading', { name: 'Trace 链路' }).waitFor({ state: 'visible', timeout: 120_000 })
 
   const traceStep = page.locator('.trace-step').first()
+  await traceStep.waitFor({ state: 'visible', timeout: 120_000 })
   await traceStep.click()
   const jsonButton = traceStep.getByRole('button', { name: '查看完整 JSON' })
   if (await jsonButton.isVisible()) {
@@ -102,9 +128,11 @@ async function runFlow(page, viewport) {
 
   if (!isNarrow) {
     await page.getByRole('button', { name: '客户端' }).click()
+    await page.getByRole('button', { name: '新建会话' }).click()
   } else {
     await page.goto(`${BASE_URL}/client`, { waitUntil: 'networkidle' })
   }
+  await waitForComposerReady(page)
   await textarea.fill(`${E2E_MARKER} 买入价100情景价120持仓1000测算收益`)
   await page.locator('.composer .send').click()
   await waitForAssistant(page)

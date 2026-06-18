@@ -15,7 +15,10 @@ from ...settings import AppSettings, get_settings
 from .routing import (
     AGENT_NODES,
     fanout_after_agent,
+    fanout_after_gap_planner,
     route_after_clarification,
+    route_after_evidence_gap_check,
+    route_after_evidence_merge,
     route_after_quality,
     route_after_routing,
 )
@@ -79,7 +82,25 @@ def build_graph(deps: GraphDeps) -> Any:
 
     graph.add_edge("rag_retrieval", "evidence_merge")
     graph.add_edge("tool_call", "evidence_merge")
-    graph.add_edge("evidence_merge", "quality_check")
+    graph.add_conditional_edges(
+        "evidence_merge",
+        route_after_evidence_merge,
+        {
+            "evidence_gap_check": "evidence_gap_check",
+            "multi_agent_handoff": "multi_agent_handoff",
+            "quality_check": "quality_check",
+        },
+    )
+    graph.add_edge("multi_agent_handoff", "data_query_agent")
+    graph.add_conditional_edges(
+        "evidence_gap_check",
+        route_after_evidence_gap_check,
+        {
+            "gap_planner": "gap_planner",
+            "quality_check": "quality_check",
+        },
+    )
+    graph.add_conditional_edges("gap_planner", fanout_after_gap_planner)
     graph.add_conditional_edges(
         "quality_check",
         route_after_quality,

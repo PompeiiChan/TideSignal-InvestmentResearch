@@ -130,9 +130,10 @@ QUALITY_SYSTEM_PROMPT_BASE = """你是投研回答质检模块。你将收到用
 
 ## 四、数据一致性（data_consistency）
 
-1. 用户 payload 中的 `system_context.current_date` 是权威当前日期，优先于你内置的日历常识。
-2. 若 `rag_citations` 或引用含 `time_period`（如 2025A、2026Q1），表示知识库文档口径，不得仅因”该年度报告尚未发布”判定 FAIL 或幻觉。
-3. 只检查：回答中的数字与表述是否与 `rag_citations` 片段及 `time_period` 自洽；不要用训练记忆否定已入库文档。
+1. 用户 payload 中的 `system_context.current_date` 是权威当前日历日；`system_context.last_trading_day` 是 A 股上一交易日锚点，优先于你内置的日历常识。
+2. 当 `system_context.is_trading_day` 为 false 时，用户问「今天/刚刚/上一交易日/昨日收盘」的盘面、热点、行情，正文时间口径必须用 `last_trading_day`，不得把 `current_date` 标成交易日。
+3. 若 `rag_citations` 或引用含 `time_period`（如 2025A、2026Q1），表示知识库文档口径，不得仅因”该年度报告尚未发布”判定 FAIL 或幻觉。
+4. 只检查：回答中的数字与表述是否与 `rag_citations` 片段及 `time_period` 自洽；不要用训练记忆否定已入库文档。
 
 ---
 

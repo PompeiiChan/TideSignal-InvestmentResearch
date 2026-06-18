@@ -29,13 +29,14 @@ JSON 字段：
 - 示例：「热度排名 + 带动个股」主意图为 data_query；「为什么涨 + 基本面」若强调归因则 hotspot_analysis 为主，若强调公司经营则 stock_analysis 为主。
 
 prediction_request 处理（重要）：
-- 命中「预测明天涨跌」「给目标价」「一定涨」「估值预测」「未来收益」等预测/测算类问题时，intent_id 必须为 prediction_request。
-- prediction_request 不得由模型自由生成目标价、涨跌或估值结论；后续路由将走 fallback_response。
+- 命中「预测明天涨跌」「给目标价」「一定涨」「估值预测」等**纯预测**问题时，intent_id 必须为 prediction_request。
+- **例外**：用户问「现在买 XX 预期回报率/收益率/能赚多少」且涉及具体个股时，识别为 stock_analysis（参数化情景测算，非 prediction_request）。
 - 若用户给出完整可计算参数（买入价、卖出价、份额、费率）且意图为收益率/盈亏计算，应识别为 data_query（非 prediction_request），计算仅允许经 tool_call 公式工具完成。
 
 禁止：
 - 不得输出 response_kind=calculator；已去除独立测算 Agent。
 - 不得将预测类问题识别为可模型测算意图。
+- 收益预测、目标价、未来涨跌等数字**不得由模型自由测算**；仅允许经 tool_call 固定公式工具完成计算。
 
 Few-shot 示例（用户问题 -> 输出 JSON；仅展示核心字段，missing_slots 均为 []）：
 
@@ -68,6 +69,9 @@ Few-shot 示例（用户问题 -> 输出 JSON；仅展示核心字段，missing_
 
 用户：「寒武纪当前主要风险有哪些？」
 {"intent_id":"stock_analysis","intent_name":"个股分析","intent_confidence":0.90,"candidate_intents":[{"intent_id":"stock_analysis","confidence":0.90}],"missing_slots":[]}
+
+用户：「我现在买中际旭创，预期回报率是多少？」
+{"intent_id":"stock_analysis","intent_name":"个股分析","intent_confidence":0.91,"candidate_intents":[{"intent_id":"stock_analysis","confidence":0.91}],"missing_slots":[]}
 
 【document_qa】
 用户：「这份年报里管理层对2026年业绩指引怎么说？」
@@ -117,7 +121,10 @@ Few-shot 示例（用户问题 -> 输出 JSON；仅展示核心字段，missing_
 {"intent_id":"hotspot_analysis","intent_name":"热点解读","intent_confidence":0.78,"candidate_intents":[{"intent_id":"hotspot_analysis","confidence":0.78},{"intent_id":"stock_analysis","confidence":0.74}],"missing_slots":[]}
 
 用户：「这篇研报的核心观点是什么？里面提到的标的近一个月涨跌幅多少？」
-{"intent_id":"document_qa","intent_name":"文档问答","intent_confidence":0.82,"candidate_intents":[{"intent_id":"document_qa","confidence":0.82},{"intent_id":"data_query","confidence":0.76}],"missing_slots":[]}"""
+{"intent_id":"document_qa","intent_name":"文档问答","intent_confidence":0.82,"candidate_intents":[{"intent_id":"document_qa","confidence":0.82},{"intent_id":"data_query","confidence":0.76}],"missing_slots":[]}
+
+用户：「宠物行业是否值得看好？整体的逻辑是什么？有哪些分类值得重点关注？哪些公司是可以关注的？然后最近市场的热度怎么样？」
+{"intent_id":"stock_analysis","intent_name":"个股分析","intent_confidence":0.90,"candidate_intents":[{"intent_id":"stock_analysis","confidence":0.90},{"intent_id":"data_query","confidence":0.85}],"missing_slots":[]}"""
 
 def intent_system_prompt(ctx: SystemTimeContext) -> str:
     """Build the LangGraph intent recognition system prompt."""

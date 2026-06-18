@@ -184,3 +184,13 @@
 - **决策**：后续工具增强顺序与验收标准统一维护在 `docs/agent/tool-richness-roadmap.md`；`.sdd/status.json` 的 `current_task` / `notes` 指向当前 Phase。用户说「问数验收过了」或「继续工具路线图」时，Agent 应读 roadmap 执行 **T-021 估值**。
 - **经验**：问数对齐问股方案 C：`data_query_tool_plan.py` 白名单 + `agent_tool_names`；`local_return_calculator` 槽位齐全时独占；热力图与排行可同时 `tool_names` 双工具。路由层勿再用 `wants_sector_heatmap` 硬切单工具。
 - **避坑**：`time_range` 跨日历史仍属 T-020-P2/P3，P1 勿在正文假装已查区间；验收清单见 roadmap §2.4。
+
+### 问股证据缺口补数循环（Evidence Gap Loop）
+- **决策**：问股链路在首轮 `tool_call + rag_retrieval → evidence_merge` 后增加 `evidence_gap_check → gap_planner → 定向补数 → evidence_merge(第2轮) → quality_check`；非问股路由直接跳过。
+- **经验**：缺口由 `services/evidence_gaps.py` 规则检测（无公司 RAG、单期财报、亏损、风险信号未解释、缺估值工具）；`gap_planner` 生成 `rag_queries` + 可选 `valuation_profile_lookup` / **`stock_evidence_api_lookup`（巨潮公告+东财快讯）**；`company_rag_missing` 等缺口时补数并行 `rag_retrieval` + API `tool_call`；`RagService.retrieve_targeted` 对无 KB 文档标的须 `entity_name` 过滤，避免家电/调味品误召回；`evidence_merge` 用 `accumulated_*` 累加证据；Trace 可见 `evidence_gap_check` / `gap_planner`；前端 status 为 `Enriching`。
+- **避坑**：仅允许一轮补数（`evidence_supplement_done`）；补数不能替代 T-022 财报字段扩展；`response_assembly` 仍用 state 中合并后的 `rag_hits`；API 快讯不得替代结构化财报数字。
+
+### T-012: response_assembly 超时与风险提示
+- **陷阱**：热点链路 evidence_pack 原文塞进 output prompt 易触发 LLM 超时，Trace 各节点 success 但 `assistant_message.content` 为空；问股长文经 citation retry 缓冲输出时，若在 `_emit_buffered_content` 之后才 `ensure_public_risk_notice`，流式 delta 与 `final_response` 不一致。
+- **经验**：组装前用 `_compact_evidence_for_prompt()` 截断/摘要 evidence；`LLMClientError` 必须走 `_fallback_assembly_content()` 且 `runner` 对空 `final_response` 兜底；`ensure_public_risk_notice()` 应在任何 `content_delta` / `content_done` 发出之前执行，非 citation 校验路径对新增后缀单独 `_emit_delta`。
+- **避坑**：Tester 除看 `final_response` 外，流式场景应断言 delta 拼接结果含标准免责声明；质量门禁 KB 文件计数测试应绑定 `list_markdown_files()` 而非硬编码常量。

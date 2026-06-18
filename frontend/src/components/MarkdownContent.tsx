@@ -21,6 +21,7 @@ const markdownComponents: Components = {
       <table className="data-table">{children}</table>
     </div>
   ),
+  blockquote: ({ children }) => <blockquote className="judgment-highlight">{children}</blockquote>,
 }
 
 type MarkdownContentProps = {

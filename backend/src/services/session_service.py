@@ -19,24 +19,19 @@ from ..repositories.session_repository import SessionRepository
 from ..repositories.trace_repository import TraceRepository
 from ..settings import get_settings
 from .demo_rich_blocks import (
-    CALCULATOR_DEMO,
-    CALCULATOR_DEMO_CONTENT,
+    CALCULATOR_DEMO_ASSISTANT_MESSAGE_ID,
+    CLIENT_SHOWCASE_SESSIONS,
     HEATMAP_DEMO_ASSISTANT_MESSAGE_ID,
-    HEATMAP_DEMO_CONTENT,
-    HEATMAP_DEMO_SESSION_ID,
-    HEATMAP_DEMO_TITLE,
-    HEATMAP_DEMO_USER_MESSAGE_ID,
-    RANKING_DEMO_CONTENT,
-    RANKING_TABLE_DEMO,
-    SECTOR_HEATMAP_DEMO,
+    RANKING_DEMO_ASSISTANT_MESSAGE_ID,
     SHOWCASE_ASSISTANT_MESSAGES,
 )
 from .message_sanitizer import sanitize_assistant_content, sanitize_rich_blocks
+from .rich_block_types import extract_rich_block_types
 
 _SHOWCASE_SESSION_BY_MESSAGE = {
-    "msg_20260608_001_assistant": "sess_20260608_001",
-    "msg_20260608_002_assistant": "sess_20260608_002",
-    HEATMAP_DEMO_ASSISTANT_MESSAGE_ID: HEATMAP_DEMO_SESSION_ID,
+    RANKING_DEMO_ASSISTANT_MESSAGE_ID: "sess_20260608_001",
+    CALCULATOR_DEMO_ASSISTANT_MESSAGE_ID: "sess_20260608_002",
+    HEATMAP_DEMO_ASSISTANT_MESSAGE_ID: "sess_20260608_004",
 }
 
 _id_counter = count(1)
@@ -74,44 +69,69 @@ class SessionService:
 
     async def ensure_seed_data(self) -> None:
         """Create minimal demo history for first local run."""
-        if await self.repo.count_sessions() > 0:
+        await self.ensure_client_showcase_sessions()
+        if await self.repo.count_sessions() > len(CLIENT_SHOWCASE_SESSIONS):
             return
 
-        seeds = [
-            (
-                "今天涨幅靠前的半导体股票有哪些",
-                RANKING_DEMO_CONTENT,
-                [RANKING_TABLE_DEMO],
-                "client",
-                "2026-06-08T14:05:00+08:00",
-            ),
-            (
-                "15元买入未来预期回报率怎么算",
-                CALCULATOR_DEMO_CONTENT,
-                [CALCULATOR_DEMO],
-                "client",
-                "2026-06-08T13:42:00+08:00",
-            ),
-            (
-                "管理端查看 Agent 路由过程",
-                "当前问答已同步到管理端，可在右侧查看 Trace 链路占位区。",
-                [],
-                "admin",
-                "2026-06-08T13:18:00+08:00",
-            ),
-        ]
-        for index, (title, assistant_content, rich_blocks, source, created_at_text) in enumerate(
-            seeds, start=1
-        ):
-            created_at = datetime.fromisoformat(created_at_text)
-            session_id = f"sess_20260608_{index:03d}"
+        admin_session_id = "sess_20260608_003"
+        if await self.repo.get_session(admin_session_id) is not None:
+            return
+
+        created_at = datetime.fromisoformat("2026-06-08T13:18:00+08:00")
+        title = "管理端查看 Agent 路由过程"
+        assistant_content = "当前问答已同步到管理端，可在右侧查看 Trace 链路占位区。"
+        session = SessionRecord(
+            id=admin_session_id,
+            title=title,
+            title_source="first_query",
+            is_draft=False,
+            source="admin",
+            created_at=created_at,
+            updated_at=created_at,
+            last_message_preview=assistant_content[:120],
+            last_trace_id=None,
+        )
+        await self.repo.create_session(session)
+        await self.repo.create_message(
+            MessageRecord(
+                id="msg_20260608_003_user",
+                session_id=admin_session_id,
+                role="user",
+                content=title,
+                rich_blocks=[],
+                trace_id=None,
+                created_at=created_at,
+            )
+        )
+        await self.repo.create_message(
+            MessageRecord(
+                id="msg_20260608_003_assistant",
+                session_id=admin_session_id,
+                role="assistant",
+                content=assistant_content,
+                rich_blocks=[],
+                trace_id=None,
+                created_at=created_at,
+            )
+        )
+        await self.db.commit()
+
+    async def ensure_client_showcase_sessions(self) -> None:
+        """Ensure ranking / calculator / heatmap showcase sessions exist (idempotent)."""
+        changed = False
+        for spec in CLIENT_SHOWCASE_SESSIONS:
+            session_id = str(spec["session_id"])
+            if await self.repo.get_session(session_id) is not None:
+                continue
+            created_at = datetime.fromisoformat(str(spec["created_at"]))
+            assistant_content = str(spec["assistant_content"])
             preview = assistant_content.split("\n", 1)[0].strip()[:120]
             session = SessionRecord(
                 id=session_id,
-                title=title,
+                title=str(spec["title"]),
                 title_source="first_query",
                 is_draft=False,
-                source=source,
+                source="client",
                 created_at=created_at,
                 updated_at=created_at,
                 last_message_preview=preview,
@@ -120,10 +140,10 @@ class SessionService:
             await self.repo.create_session(session)
             await self.repo.create_message(
                 MessageRecord(
-                    id=f"msg_20260608_{index:03d}_user",
+                    id=str(spec["user_message_id"]),
                     session_id=session_id,
                     role="user",
-                    content=title,
+                    content=str(spec["title"]),
                     rich_blocks=[],
                     trace_id=None,
                     created_at=created_at,
@@ -131,16 +151,22 @@ class SessionService:
             )
             await self.repo.create_message(
                 MessageRecord(
-                    id=f"msg_20260608_{index:03d}_assistant",
+                    id=str(spec["assistant_message_id"]),
                     session_id=session_id,
                     role="assistant",
                     content=assistant_content,
-                    rich_blocks=rich_blocks,
+                    rich_blocks=list(spec["rich_blocks"]),
                     trace_id=None,
                     created_at=created_at,
                 )
             )
-        await self.db.commit()
+            changed = True
+        if changed:
+            await self.db.commit()
+
+    async def ensure_heatmap_demo_session(self) -> None:
+        """Backward-compatible alias for heatmap showcase seeding."""
+        await self.ensure_client_showcase_sessions()
 
     async def ensure_showcase_rich_blocks(self) -> None:
         """Backfill demo rich_blocks on seeded showcase messages (idempotent)."""
@@ -162,48 +188,24 @@ class SessionService:
         if changed:
             await self.db.commit()
 
-    async def ensure_heatmap_demo_session(self) -> None:
-        """Create the sector heatmap showcase session if missing (idempotent)."""
-        if await self.repo.get_session(HEATMAP_DEMO_SESSION_ID) is not None:
-            return
-
-        created_at = datetime.fromisoformat("2026-06-08T11:20:00+08:00")
-        preview = HEATMAP_DEMO_CONTENT.split("\n", 1)[0].strip()[:120]
-        session = SessionRecord(
-            id=HEATMAP_DEMO_SESSION_ID,
-            title=HEATMAP_DEMO_TITLE,
-            title_source="first_query",
-            is_draft=False,
-            source="client",
-            created_at=created_at,
-            updated_at=created_at,
-            last_message_preview=preview,
-            last_trace_id=None,
-        )
-        await self.repo.create_session(session)
-        await self.repo.create_message(
-            MessageRecord(
-                id=HEATMAP_DEMO_USER_MESSAGE_ID,
-                session_id=HEATMAP_DEMO_SESSION_ID,
-                role="user",
-                content=HEATMAP_DEMO_TITLE,
-                rich_blocks=[],
-                trace_id=None,
-                created_at=created_at,
-            )
-        )
-        await self.repo.create_message(
-            MessageRecord(
-                id=HEATMAP_DEMO_ASSISTANT_MESSAGE_ID,
-                session_id=HEATMAP_DEMO_SESSION_ID,
-                role="assistant",
-                content=HEATMAP_DEMO_CONTENT,
-                rich_blocks=[SECTOR_HEATMAP_DEMO],
-                trace_id=None,
-                created_at=created_at,
-            )
-        )
-        await self.db.commit()
+    async def _pin_showcase_sessions(self, sessions: list[SessionRecord]) -> list[SessionRecord]:
+        """Keep rich-component demo sessions visible at the top of the history list."""
+        by_id = {session.id: session for session in sessions}
+        for spec in CLIENT_SHOWCASE_SESSIONS:
+            session_id = str(spec["session_id"])
+            if session_id in by_id:
+                continue
+            loaded = await self.repo.get_session(session_id)
+            if loaded is not None:
+                by_id[session_id] = loaded
+        pinned = [
+            by_id[str(spec["session_id"])]
+            for spec in CLIENT_SHOWCASE_SESSIONS
+            if str(spec["session_id"]) in by_id
+        ]
+        pinned_ids = {session.id for session in pinned}
+        rest = [session for session in sessions if session.id not in pinned_ids]
+        return [*pinned, *rest]
 
     async def list_sessions(self, keyword: str, page: int, page_size: int) -> SessionPageRead:
         """Return the contract-aligned session list."""
@@ -212,12 +214,24 @@ class SessionService:
         if page_size < 1 or page_size > 100:
             raise ValueError("page_size 必须在 1 到 100 之间")
 
-        await self.ensure_seed_data()
-        await self.ensure_heatmap_demo_session()
+        await self.ensure_client_showcase_sessions()
         await self.ensure_showcase_rich_blocks()
         sessions, total = await self.repo.list_sessions(keyword, page, page_size)
+        if not keyword.strip():
+            sessions = await self._pin_showcase_sessions(sessions)
+        rich_blocks_by_session = await self.repo.get_latest_assistant_rich_blocks_by_sessions(
+            [session.id for session in sessions]
+        )
         return SessionPageRead(
-            items=[self._to_session_read(session) for session in sessions],
+            items=[
+                self._to_session_read(
+                    session,
+                    rich_block_types=extract_rich_block_types(
+                        rich_blocks_by_session.get(session.id, [])
+                    ),
+                )
+                for session in sessions
+            ],
             total=total,
             page=page,
             page_size=page_size,
@@ -243,15 +257,23 @@ class SessionService:
 
     async def get_detail(self, session_id: str) -> SessionDetailRead:
         """Return one session and its messages."""
-        await self.ensure_seed_data()
-        await self.ensure_heatmap_demo_session()
+        await self.ensure_client_showcase_sessions()
         await self.ensure_showcase_rich_blocks()
         session = await self.repo.get_session(session_id)
         if session is None:
             raise SessionNotFoundError("会话不存在")
+        messages = list(session.messages)
+        last_assistant_blocks: list[dict] = []
+        for message in reversed(messages):
+            if message.role == "assistant":
+                last_assistant_blocks = message.rich_blocks if isinstance(message.rich_blocks, list) else []
+                break
         return SessionDetailRead(
-            session=self._to_session_read(session),
-            messages=[self._to_message_read(message) for message in session.messages],
+            session=self._to_session_read(
+                session,
+                rich_block_types=extract_rich_block_types(last_assistant_blocks),
+            ),
+            messages=[self._to_message_read(message) for message in messages],
         )
 
     async def delete_session(self, session_id: str) -> DeleteSessionRead:
@@ -280,7 +302,12 @@ class SessionService:
         await self.db.commit()
         return self._to_message_read(message)
 
-    def _to_session_read(self, session: SessionRecord) -> SessionRead:
+    def _to_session_read(
+        self,
+        session: SessionRecord,
+        *,
+        rich_block_types: list[str] | None = None,
+    ) -> SessionRead:
         return SessionRead(
             id=session.id,
             title=session.title,
@@ -291,6 +318,7 @@ class SessionService:
             updated_at=_iso(session.updated_at),
             last_message_preview=sanitize_assistant_content("assistant", session.last_message_preview),
             last_trace_id=session.last_trace_id,
+            rich_block_types=list(rich_block_types or []),
         )
 
     def _to_message_read(self, message: MessageRecord) -> MessageRead:

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -49,6 +49,41 @@ class SessionRepository:
             .limit(page_size)
         )
         return list(result.scalars().all()), total
+
+    async def get_latest_assistant_rich_blocks_by_sessions(
+        self,
+        session_ids: list[str],
+    ) -> dict[str, list[dict]]:
+        """Map session_id -> rich_blocks from the latest assistant message."""
+        if not session_ids:
+            return {}
+
+        latest_subq = (
+            select(
+                MessageRecord.session_id.label("session_id"),
+                func.max(MessageRecord.created_at).label("max_created_at"),
+            )
+            .where(
+                MessageRecord.session_id.in_(session_ids),
+                MessageRecord.role == "assistant",
+            )
+            .group_by(MessageRecord.session_id)
+            .subquery()
+        )
+        result = await self.db.execute(
+            select(MessageRecord.session_id, MessageRecord.rich_blocks).join(
+                latest_subq,
+                and_(
+                    MessageRecord.session_id == latest_subq.c.session_id,
+                    MessageRecord.created_at == latest_subq.c.max_created_at,
+                    MessageRecord.role == "assistant",
+                ),
+            )
+        )
+        blocks_by_session: dict[str, list[dict]] = {}
+        for session_id, rich_blocks in result.all():
+            blocks_by_session[str(session_id)] = rich_blocks if isinstance(rich_blocks, list) else []
+        return blocks_by_session
 
     async def get_session(self, session_id: str) -> SessionRecord | None:
         """Fetch one session with messages."""

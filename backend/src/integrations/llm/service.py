@@ -10,7 +10,7 @@ from typing import Any, cast
 from pycore.core import get_logger
 
 from ...services.rag.models import RagHit
-from ...services.rag.service import hits_to_source_refs, rag_citations_for_quality
+from ...services.rag.service import rag_citations_for_quality
 from ...services.system_time import resolve_system_time
 from ...settings import AppSettings, get_settings
 from .client import LLMClientError, SiliconFlowLLMClient
@@ -77,15 +77,23 @@ class LLMService:
         base_url: str,
         model: str,
         role: str,
+        timeout: float | None = None,
     ) -> SiliconFlowLLMClient:
         if not api_key.strip() or not base_url.strip():
             raise LLMNotConfiguredError(f"LLM {role} 配置不完整，请检查对应 API Key 与 Base URL")
         if not model.strip():
             raise LLMNotConfiguredError(f"LLM {role} 模型未配置")
+        resolved_timeout = timeout
+        if resolved_timeout is None:
+            try:
+                resolved_timeout = float(self.settings.llm_timeout.strip())
+            except (TypeError, ValueError, AttributeError):
+                resolved_timeout = 120.0
         return SiliconFlowLLMClient(
             api_key=api_key.strip(),
             base_url=base_url.strip(),
             model=model.strip(),
+            timeout=resolved_timeout,
         )
 
     def _intent_client(self) -> SiliconFlowLLMClient:
@@ -376,7 +384,7 @@ class LLMService:
             block_type = str(block.get("type", ""))
             raw_payload = block.get("payload")
             payload: dict[str, Any] = raw_payload if isinstance(raw_payload, dict) else {}
-            if block_type in {"ranking_table", "calculator", "sector_heatmap"} and payload:
+            if block_type in {"ranking_table", "calculator", "sector_heatmap", "scenario_calculator"} and payload:
                 enriched.append(block)
         return enriched
 

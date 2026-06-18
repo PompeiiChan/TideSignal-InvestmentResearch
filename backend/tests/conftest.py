@@ -414,8 +414,8 @@ def mock_llm_service() -> LLMService:
         async def chat_completion(self, messages: list[dict[str, Any]], **_kwargs: Any) -> dict[str, Any]:
             query = _extract_query_from_messages(messages)
             responses = _langgraph_responses_for_query(query)
-            index = self._owner._intent_call_count  # type: ignore[attr-defined]
-            self._owner._intent_call_count = index + 1  # type: ignore[attr-defined]
+            index = self._owner._intent_call_count
+            self._owner._intent_call_count = index + 1
             payload = responses[min(index, len(responses) - 1)]
             return {
                 "choices": [{"message": {"content": json.dumps(payload, ensure_ascii=False)}}],
@@ -439,7 +439,7 @@ def mock_llm_service() -> LLMService:
             for index in range(0, len(body), chunk_size):
                 yield body[index : index + chunk_size]
 
-    service._intent_call_count = 0  # type: ignore[attr-defined]
+    service._intent_call_count = 0
     service.is_configured = lambda: True  # type: ignore[method-assign]
     service._intent_client = lambda: MockIntentClient(service)  # type: ignore[method-assign, assignment, return-value]
     service._output_client = lambda: MockOutputClient()  # type: ignore[method-assign, assignment, return-value]
@@ -507,23 +507,53 @@ def _rag_hits_for_query(query: str) -> list[RagHit]:
     return []
 
 
+def _mock_rag_result(query: str, top_k: int) -> RagRetrievalResult:
+    hits = _rag_hits_for_query(query)[:top_k]
+    return RagRetrievalResult(
+        hits=hits,
+        latency_ms=48,
+        embedding_connected=bool(hits),
+        index_chunk_count=120,
+        query=query,
+        model="mock-embedding",
+        mode="semantic" if hits else "mock",
+    )
+
+
 @pytest.fixture
 def mock_rag_service() -> RagService:
     service = RagService()
 
     async def retrieve(query: str, top_k: int = 5) -> RagRetrievalResult:
-        hits = _rag_hits_for_query(query)[:top_k]
-        return RagRetrievalResult(
-            hits=hits,
-            latency_ms=48,
-            embedding_connected=bool(hits),
-            index_chunk_count=120,
-            query=query,
-            model="mock-embedding",
-            mode="semantic" if hits else "mock",
-        )
+        return _mock_rag_result(query, top_k)
+
+    async def retrieve_hotspot(query: str, top_k: int = 10) -> RagRetrievalResult:
+        return _mock_rag_result(query, top_k)
+
+    async def retrieve_hotspot_industry_only(query: str, top_k: int = 5) -> RagRetrievalResult:
+        return _mock_rag_result(query, top_k)
+
+    async def retrieve_targeted(
+        queries: list[str],
+        top_k: int = 4,
+        **_kwargs: Any,
+    ) -> RagRetrievalResult:
+        combined = " ".join(str(item) for item in queries if str(item).strip())
+        return _mock_rag_result(combined or "研报", top_k)
+
+    async def retrieve_stock_narrative(
+        query: str,
+        top_k: int = 8,
+        stock_name: str = "",
+    ) -> RagRetrievalResult:
+        combined = f"{stock_name} {query}".strip()
+        return _mock_rag_result(combined, top_k)
 
     service.retrieve = retrieve  # type: ignore[method-assign]
+    service.retrieve_hotspot = retrieve_hotspot  # type: ignore[method-assign]
+    service.retrieve_hotspot_industry_only = retrieve_hotspot_industry_only  # type: ignore[method-assign]
+    service.retrieve_targeted = retrieve_targeted  # type: ignore[method-assign]
+    service.retrieve_stock_narrative = retrieve_stock_narrative  # type: ignore[method-assign]
     service.is_ready = lambda: True  # type: ignore[method-assign]
     service.has_index = lambda: True  # type: ignore[method-assign]
     service.markdown_file_count = lambda: 36  # type: ignore[method-assign]

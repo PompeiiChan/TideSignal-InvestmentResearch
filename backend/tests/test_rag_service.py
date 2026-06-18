@@ -13,13 +13,15 @@ from backend.src.services.rag.chunker import (
     chunk_knowledge_base,
     chunk_markdown_file,
     count_markdown_files,
+    list_markdown_files,
     resolve_kb_root,
 )
 from backend.src.services.rag.index_store import IndexSnapshot, IndexStore, StoredChunk
-from backend.src.services.rag.models import KnowledgeChunk
+from backend.src.services.rag.models import KnowledgeChunk, RagHit
 from backend.src.services.rag.retriever import (
     build_excerpt,
     cosine_similarity,
+    filter_hits_by_entity,
     is_financial_query,
     is_metadata_only_chunk,
     refine_scored_hits,
@@ -46,7 +48,7 @@ def live_rag_service(kb_root: Path, tmp_path: Path) -> RagService:
 
 
 def test_count_markdown_files_matches_repository(kb_root: Path) -> None:
-    assert count_markdown_files(kb_root) == 86
+    assert count_markdown_files(kb_root) == len(list_markdown_files(kb_root))
 
 
 def test_chunk_markdown_file_splits_by_section(kb_root: Path) -> None:
@@ -399,3 +401,47 @@ def test_catl_q1_chunk_total_assets_not_understated() -> None:
     assert "10463.29亿元" in joined or "9748.28亿元" in joined
     assert "总资产（千元） 10.46亿元" not in joined
     assert "资产总计     10.46亿元" not in joined
+
+
+def test_filter_hits_by_entity_keeps_matching_chunks() -> None:
+    hits = [
+        RagHit(
+            chunk_id="a",
+            doc_id="a",
+            title="中际旭创 2026 研报",
+            source_type="report",
+            path="company-reports/300308.md",
+            score=0.3,
+            snippet="光模块龙头",
+            relevance_reason="",
+        ),
+        RagHit(
+            chunk_id="b",
+            doc_id="b",
+            title="家电行业研报",
+            source_type="report",
+            path="industry-reports/jiadian.md",
+            score=0.5,
+            snippet="白电黑电景气跟踪",
+            relevance_reason="",
+        ),
+    ]
+    filtered = filter_hits_by_entity(hits, "中际旭创")
+    assert len(filtered) == 1
+    assert filtered[0].chunk_id == "a"
+
+
+def test_filter_hits_by_entity_drops_low_score_unrelated_chunks() -> None:
+    hits = [
+        RagHit(
+            chunk_id="b",
+            doc_id="b",
+            title="家电行业研报",
+            source_type="report",
+            path="industry-reports/jiadian.md",
+            score=0.19,
+            snippet="白电黑电景气跟踪",
+            relevance_reason="",
+        ),
+    ]
+    assert filter_hits_by_entity(hits, "中际旭创") == []

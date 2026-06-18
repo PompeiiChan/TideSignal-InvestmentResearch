@@ -501,6 +501,7 @@ def _make_chunk(
         industry_id=meta.industry_id,
         doc_type=meta.doc_type,
         time_period=meta.time_period,
+        publisher=meta.publisher,
         breadcrumb=breadcrumb,
         retrieval_weight=retrieval_weight,
     )

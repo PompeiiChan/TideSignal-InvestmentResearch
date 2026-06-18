@@ -133,6 +133,46 @@ SHOWCASE_ASSISTANT_MESSAGES: dict[str, dict[str, Any]] = {
     },
 }
 
+RANKING_DEMO_SESSION_ID = "sess_20260608_001"
+RANKING_DEMO_USER_MESSAGE_ID = "msg_20260608_001_user"
+RANKING_DEMO_ASSISTANT_MESSAGE_ID = "msg_20260608_001_assistant"
+RANKING_DEMO_TITLE = "今天涨幅靠前的半导体股票有哪些"
+
+CALCULATOR_DEMO_SESSION_ID = "sess_20260608_002"
+CALCULATOR_DEMO_USER_MESSAGE_ID = "msg_20260608_002_user"
+CALCULATOR_DEMO_ASSISTANT_MESSAGE_ID = "msg_20260608_002_assistant"
+CALCULATOR_DEMO_TITLE = "15元买入未来预期回报率怎么算"
+
 HEATMAP_DEMO_SESSION_ID = "sess_20260608_004"
 HEATMAP_DEMO_USER_MESSAGE_ID = "msg_20260608_004_user"
 HEATMAP_DEMO_ASSISTANT_MESSAGE_ID = "msg_20260608_004_assistant"
+
+CLIENT_SHOWCASE_SESSIONS: list[dict[str, Any]] = [
+    {
+        "session_id": RANKING_DEMO_SESSION_ID,
+        "user_message_id": RANKING_DEMO_USER_MESSAGE_ID,
+        "assistant_message_id": RANKING_DEMO_ASSISTANT_MESSAGE_ID,
+        "title": RANKING_DEMO_TITLE,
+        "assistant_content": RANKING_DEMO_CONTENT,
+        "rich_blocks": [RANKING_TABLE_DEMO],
+        "created_at": "2026-06-08T14:05:00+08:00",
+    },
+    {
+        "session_id": CALCULATOR_DEMO_SESSION_ID,
+        "user_message_id": CALCULATOR_DEMO_USER_MESSAGE_ID,
+        "assistant_message_id": CALCULATOR_DEMO_ASSISTANT_MESSAGE_ID,
+        "title": CALCULATOR_DEMO_TITLE,
+        "assistant_content": CALCULATOR_DEMO_CONTENT,
+        "rich_blocks": [CALCULATOR_DEMO],
+        "created_at": "2026-06-08T13:42:00+08:00",
+    },
+    {
+        "session_id": HEATMAP_DEMO_SESSION_ID,
+        "user_message_id": HEATMAP_DEMO_USER_MESSAGE_ID,
+        "assistant_message_id": HEATMAP_DEMO_ASSISTANT_MESSAGE_ID,
+        "title": HEATMAP_DEMO_TITLE,
+        "assistant_content": HEATMAP_DEMO_CONTENT,
+        "rich_blocks": [SECTOR_HEATMAP_DEMO],
+        "created_at": "2026-06-08T11:20:00+08:00",
+    },
+]

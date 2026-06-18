@@ -5,10 +5,11 @@ Adapted from simonlin1212/a-stock-data SKILL.md §3.1 (Apache-2.0).
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
 import requests
+
+from ...services.trading_calendar import resolve_default_trade_date
 
 THS_HOT_URL_TEMPLATE = (
     "http://zx.10jqka.com.cn/event/api/getharden/"
@@ -29,6 +30,26 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
+def _keyword_variants(needle: str) -> list[str]:
+    variants: list[str] = []
+    for candidate in (needle, needle.replace("行业", ""), needle.replace("概念", ""), needle.replace("板块", "")):
+        token = candidate.strip()
+        if token and token not in variants:
+            variants.append(token)
+    return variants
+
+
+def _row_matches_keywords(row: dict[str, Any], needles: list[str]) -> bool:
+    haystack = " ".join(
+        [
+            str(row.get("reason", "")),
+            str(row.get("stock_name", "")),
+            str(row.get("market", "")),
+        ]
+    )
+    return any(token and token in haystack for token in needles)
+
+
 def fetch_ths_hot_stocks(
     *,
     trade_date: str | None = None,
@@ -36,7 +57,7 @@ def fetch_ths_hot_stocks(
     limit: int = 10,
 ) -> dict[str, Any]:
     """Fetch same-day strong stocks with editorial reason tags from THS."""
-    resolved_date = trade_date or date.today().strftime("%Y-%m-%d")
+    resolved_date = trade_date or resolve_default_trade_date()
     url = THS_HOT_URL_TEMPLATE.format(trade_date=resolved_date)
     response = requests.get(url, headers={"User-Agent": UA}, timeout=15)
     response.raise_for_status()
@@ -66,17 +87,17 @@ def fetch_ths_hot_stocks(
         )
 
     needle = keyword.strip()
+    keyword_variants = _keyword_variants(needle) if needle else []
     filtered = stocks
+    topic_matched = True
     if needle:
-        matched = [
-            row
-            for row in stocks
-            if needle in row["reason"]
-            or needle in row["stock_name"]
-            or needle in row.get("market", "")
-        ]
+        matched = [row for row in stocks if _row_matches_keywords(row, keyword_variants)]
         if matched:
             filtered = matched
+            topic_matched = True
+        else:
+            filtered = []
+            topic_matched = False
 
     filtered.sort(key=lambda row: row.get("pct_change") or 0.0, reverse=True)
     top = filtered[: max(limit, 1)]
@@ -93,6 +114,7 @@ def fetch_ths_hot_stocks(
         "trade_date": resolved_date,
         "total_available": len(stocks),
         "matched_count": len(filtered),
+        "topic_matched": topic_matched,
         "stocks": top,
         "themes": themes[:15],
         "keyword": needle,

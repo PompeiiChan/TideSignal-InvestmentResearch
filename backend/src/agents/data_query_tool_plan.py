@@ -12,9 +12,12 @@ DATA_QUERY_TOOL_WHITELIST: frozenset[str] = frozenset(
     }
 )
 
-_HEATMAP_KEYWORD_RE = re.compile(r"热力图|heatmap|板块全景|行业全景|板块地图", re.IGNORECASE)
+_HEATMAP_KEYWORD_RE = re.compile(
+    r"热力图|heatmap|板块全景|行业全景|板块地图|行业板块热|板块热力|A股行业板块",
+    re.IGNORECASE,
+)
 _RANKING_KEYWORD_RE = re.compile(
-    r"排行|涨幅|跌幅|领涨|领跌|成分股|涨了多少|跌了多少|板块表现",
+    r"排行|涨幅|跌幅|领涨|领跌|成分股|涨了多少|跌了多少|板块表现|热度|成交额|交易量|成交量",
     re.IGNORECASE,
 )
 

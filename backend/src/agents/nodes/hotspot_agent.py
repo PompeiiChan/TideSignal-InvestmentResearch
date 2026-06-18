@@ -2,15 +2,52 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from ...integrations.langgraph.state import AgentState
 from ...integrations.llm.prompts.agents.hotspot import hotspot_agent_prompt
 from ...integrations.llm.service import LLMService
 from ...services.rag.service import RagService
 from ...services.system_time import resolve_system_time
+from ...services.trading_calendar import enrich_trading_slots, query_requests_trading_day
 from ...settings import AppSettings
+from ..hotspot_tool_plan import resolve_hotspot_tool_names
 from ._helpers import call_intent_json, response_kind_for_intent, run_node_with_trace
+
+
+def _apply_hotspot_tool_trading_defaults(
+    tool_params: dict[str, Any],
+    *,
+    slots: dict[str, Any],
+    query: str,
+    last_trading_day: str,
+    is_trading_day: bool,
+) -> dict[str, Any]:
+    merged_slots = enrich_trading_slots(
+        query,
+        slots,
+        last_trading_day=last_trading_day,
+        is_trading_day=is_trading_day,
+    )
+    if (
+        query_requests_trading_day(query)
+        or str(merged_slots.get("time_range", "")) == "近一交易日"
+    ):
+        tool_params["time_range"] = "近一交易日"
+        tool_params["trade_date"] = (
+            str(tool_params.get("trade_date") or merged_slots.get("trade_date") or last_trading_day).strip()
+            or last_trading_day
+        )
+        return tool_params
+
+    time_range = str(tool_params.get("time_range") or merged_slots.get("time_range", "")).strip()
+    trade_date = str(tool_params.get("trade_date") or merged_slots.get("trade_date", "")).strip()
+    if time_range in {"近一交易日", "上一交易日", "最近一个交易日", "最近交易日", "昨日收盘", "昨天收盘"}:
+        tool_params["time_range"] = "近一交易日"
+        tool_params["trade_date"] = trade_date or last_trading_day
+    elif trade_date:
+        tool_params["trade_date"] = trade_date
+    return tool_params
 
 
 async def hotspot_agent(
@@ -24,12 +61,14 @@ async def hotspot_agent(
     _ = rag
     normalized_query = str(state.get("normalized_query", "")).strip()
     slots = state.get("slots") or {}
+    execution_plan = state.get("execution_plan") or {}
     intent_id = str(state.get("intent_id", "hotspot_analysis"))
 
     input_data = {
         "normalized_query": normalized_query,
         "slots": slots,
         "intent_id": intent_id,
+        "execution_plan": execution_plan,
     }
 
     async def _execute() -> tuple[dict[str, Any], str]:
@@ -43,9 +82,14 @@ async def hotspot_agent(
         evidence_list = parsed.get("evidence_list")
         if not isinstance(evidence_list, list):
             evidence_list = []
-        tool_params = parsed.get("tool_params")
-        if not isinstance(tool_params, dict):
-            tool_params = {
+        raw_tool_params = parsed.get("tool_params")
+        plan_defaults: dict[str, Any] = (
+            cast(dict[str, Any], execution_plan.get("tool_params_defaults"))
+            if isinstance(execution_plan.get("tool_params_defaults"), dict)
+            else {}
+        )
+        if not isinstance(raw_tool_params, dict):
+            tool_params: dict[str, Any] = {
                 "topic": slots.get("topic") or slots.get("industry") or "",
                 "industry": slots.get("industry", ""),
                 "event": slots.get("event", ""),
@@ -55,6 +99,7 @@ async def hotspot_agent(
                 "news_limit": 30,
             }
         else:
+            tool_params = cast(dict[str, Any], raw_tool_params)
             tool_params.setdefault("topic", slots.get("topic") or slots.get("industry") or "")
             tool_params.setdefault("industry", slots.get("industry", ""))
             tool_params.setdefault("event", slots.get("event", ""))
@@ -62,17 +107,31 @@ async def hotspot_agent(
             tool_params.setdefault("signal_limit", 10)
             tool_params.setdefault("stock_codes", slots.get("stock_code", "") or slots.get("stock_codes", ""))
             tool_params.setdefault("news_limit", 30)
+        for key, value in plan_defaults.items():
+            tool_params.setdefault(key, value)
+        tool_params = _apply_hotspot_tool_trading_defaults(
+            tool_params,
+            slots=slots,
+            query=normalized_query,
+            last_trading_day=time_ctx.last_trading_day,
+            is_trading_day=time_ctx.is_trading_day,
+        )
+        agent_tool_names = resolve_hotspot_tool_names(
+            None,
+            query=normalized_query,
+            slots=slots,
+            execution_plan=execution_plan,
+        )
+        data_source_default = str(
+            execution_plan.get("data_source_hint", "RAG 月报/行业研报 + 东财快讯/巨潮公告 + 同花顺当日信号")
+        )
         output = {
             "agent_result": agent_result,
             "evidence_list": evidence_list,
             "followup_need": bool(parsed.get("followup_need", False)),
             "tool_params": tool_params,
-            "data_source": str(
-                parsed.get(
-                    "data_source",
-                    "RAG 月报/行业研报 + 东财快讯/巨潮公告 + 同花顺当日信号",
-                )
-            ),
+            "agent_tool_names": agent_tool_names,
+            "data_source": str(parsed.get("data_source", data_source_default)),
             "response_kind": response_kind_for_intent(intent_id),
         }
         return output, "完成热点解读规划"

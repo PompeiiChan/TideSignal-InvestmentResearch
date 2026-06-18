@@ -77,7 +77,7 @@ async def test_search_chunks_records_rerank_before_and_after() -> None:
         [0.95, 0.05, 0.0],
         stored,
         top_k=2,
-        rerank_service=_MockRerankService(),  # type: ignore[arg-type]
+        rerank_service=_MockRerankService(),
     )
     assert rerank_connected is True
     assert len(rerank_before) >= 2
@@ -106,7 +106,7 @@ async def test_search_chunks_rerank_failure_falls_back_with_warning(mock_warning
         [0.95, 0.05, 0.0],
         stored,
         top_k=2,
-        rerank_service=_FailingRerankService(),  # type: ignore[arg-type]
+        rerank_service=_FailingRerankService(),
     )
     assert rerank_connected is False
     assert rerank_before

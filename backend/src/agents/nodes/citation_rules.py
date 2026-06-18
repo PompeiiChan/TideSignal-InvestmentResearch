@@ -69,9 +69,7 @@ def _split_paragraph_units(text: str) -> list[str]:
 def _paragraph_needs_citation(paragraph: str) -> bool:
     if paragraph.startswith(">"):
         paragraph = paragraph.lstrip(">").strip()
-    if not FACTUAL_PARAGRAPH_RE.search(paragraph):
-        return False
-    return True
+    return bool(FACTUAL_PARAGRAPH_RE.search(paragraph))
 
 
 def _paragraph_has_trailing_citation(paragraph: str) -> bool:

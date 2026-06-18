@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from backend.src.agents.nodes.citation_rules import (
     content_has_citation_markers,
     content_needs_citation_retry,
@@ -51,7 +53,7 @@ def test_content_needs_citation_retry_when_only_reference_section_has_citations(
     assert content_needs_citation_retry(body) is True
 
 
-def _kb_root():
+def _kb_root() -> Path:
     settings = AppSettings()
     return resolve_kb_root(settings.local_kb_path, BACKEND_ROOT)
 

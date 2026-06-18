@@ -33,6 +33,15 @@ def test_resolve_heatmap_only() -> None:
     assert names == ["sector_heatmap_lookup"]
 
 
+def test_resolve_heatmap_for_a_share_sector_phrase() -> None:
+    names = resolve_data_query_tool_names(
+        None,
+        query="帮我看一下今天A股行业板块热力图",
+        slots={},
+    )
+    assert names == ["sector_heatmap_lookup"]
+
+
 def test_calculator_exclusive_when_slots_complete() -> None:
     names = resolve_data_query_tool_names(
         ["market_ranking_lookup", "sector_heatmap_lookup"],
@@ -49,3 +58,12 @@ def test_respects_agent_tool_selection() -> None:
         slots={},
     )
     assert names == ["sector_heatmap_lookup"]
+
+
+def test_resolve_ranking_for_market_heat_query() -> None:
+    names = resolve_data_query_tool_names(
+        None,
+        query="宠物行业最近市场热度怎么样？",
+        slots={"industry": "宠物行业"},
+    )
+    assert names == ["market_ranking_lookup"]

@@ -28,6 +28,8 @@ class RagStatusRead(BaseModel):
     embedding_provider: str
     rerank_provider: str
     status: Literal["mocked", "ready"]
+    chunk_count: int = 0
+    indexed_files: int = 0
 
 
 class DataSourceStatusRead(BaseModel):

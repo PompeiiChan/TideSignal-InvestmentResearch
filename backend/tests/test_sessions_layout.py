@@ -245,6 +245,57 @@ async def test_chat_query_returns_ranking_fallback_and_contract_errors(tmp_path:
 
 
 @pytest.mark.asyncio
+async def test_showcase_sessions_pinned_to_top_without_keyword(tmp_path: Path) -> None:
+    async with api_client(tmp_path) as client:
+        created = await client.post("/api/sessions", json={"source": "client"})
+        assert created.status_code == 200
+
+        list_response = await client.get("/api/sessions", params={"page": 1, "page_size": 20})
+        assert list_response.status_code == 200
+        items = list_response.json()["data"]["items"]
+        assert items[0]["id"] == "sess_20260608_001"
+        assert items[1]["id"] == "sess_20260608_002"
+        assert items[2]["id"] == "sess_20260608_004"
+        assert items[2]["rich_block_types"] == ["sector_heatmap"]
+
+
+@pytest.mark.asyncio
+async def test_session_list_includes_rich_block_types(tmp_path: Path) -> None:
+    """Session list exposes rich block types from the latest assistant message."""
+    async with api_client(tmp_path) as client:
+        list_response = await client.get("/api/sessions", params={"keyword": "测算"})
+        assert list_response.status_code == 200
+        items = list_response.json()["data"]["items"]
+        calc = next(item for item in items if item["id"] == "sess_20260608_002")
+        assert calc["rich_block_types"] == ["calculator"]
+
+        heatmap_response = await client.get("/api/sessions", params={"keyword": "热力图"})
+        heatmap = heatmap_response.json()["data"]["items"][0]
+        assert heatmap["rich_block_types"] == ["sector_heatmap"]
+
+
+@pytest.mark.asyncio
+async def test_client_showcase_sessions_seed_when_db_not_empty(tmp_path: Path) -> None:
+    """Showcase sessions with rich blocks are created even if other sessions already exist."""
+    async with api_client(tmp_path) as client:
+        created = await client.post("/api/sessions", json={"source": "client"})
+        assert created.status_code == 200
+
+        list_response = await client.get("/api/sessions", params={"page": 1, "page_size": 50})
+        assert list_response.status_code == 200
+        titles = {item["title"] for item in list_response.json()["data"]["items"]}
+        assert "今天涨幅靠前的半导体股票有哪些" in titles
+        assert "15元买入未来预期回报率怎么算" in titles
+        assert "帮我看一下今天A股行业板块热力图" in titles
+
+        calc_detail = await client.get("/api/sessions/sess_20260608_002")
+        assert calc_detail.status_code == 200
+        assistant = calc_detail.json()["data"]["messages"][1]
+        rich_types = {block["type"] for block in assistant["rich_blocks"]}
+        assert rich_types == {"calculator"}
+
+
+@pytest.mark.asyncio
 async def test_heatmap_demo_session_is_seeded(tmp_path: Path) -> None:
     """Heatmap showcase session is created with sector_heatmap rich block."""
     async with api_client(tmp_path) as client:
@@ -415,7 +466,7 @@ async def test_layout_preferences_get_patch_and_persist(tmp_path: Path) -> None:
         get_response = await client.get("/api/layout/preferences")
         assert get_response.status_code == 200
         defaults = get_response.json()["data"]
-        assert defaults["sidebar_width"] == 288
+        assert defaults["sidebar_width"] == 230
         assert defaults["trace_panel_width"] == 488
 
         patch_response = await client.patch(
@@ -440,6 +491,23 @@ async def test_layout_preferences_get_patch_and_persist(tmp_path: Path) -> None:
         assert invalid_response.status_code == 422
         assert invalid_response.json() == {
             "code": 422,
-            "message": "sidebar_width 必须在 240 到 420 之间",
+            "message": "sidebar_width 必须在 200 到 420 之间",
             "data": None,
         }
+
+
+@pytest.mark.asyncio
+async def test_layout_preferences_migrate_legacy_sidebar_width(tmp_path: Path) -> None:
+    """Legacy persisted sidebar widths are migrated to the new default on read."""
+    async with api_client(tmp_path) as client:
+        for legacy_width in (288, 420):
+            patch_response = await client.patch(
+                "/api/layout/preferences",
+                json={"sidebar_width": legacy_width, "trace_panel_width": 488},
+            )
+            assert patch_response.status_code == 200
+
+            get_response = await client.get("/api/layout/preferences")
+            assert get_response.status_code == 200
+            migrated = get_response.json()["data"]
+            assert migrated["sidebar_width"] == 230

@@ -14,6 +14,8 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+from ...services.trading_calendar import resolve_default_trade_date
+
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 CLIST_URL = "https://push2.eastmoney.com/api/qt/clist/get"
 
@@ -138,7 +140,7 @@ def fetch_board_stock_ranking(
     }
     response = em_get(CLIST_URL, params=params, headers={"User-Agent": UA}, timeout=15)
     response.raise_for_status()
-    trade_date = _shanghai_now().strftime("%Y-%m-%d")
+    trade_date = resolve_default_trade_date()
     rows: list[dict[str, Any]] = []
     for index, item in enumerate(_parse_clist_items(response.json())[:limit], start=1):
         code = str(item.get("f12", "")).zfill(6)

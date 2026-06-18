@@ -24,6 +24,8 @@ def test_resolve_system_time_from_reference_date() -> None:
     settings = AppSettings(reference_date="2026-06-12", timezone="Asia/Shanghai")
     ctx = resolve_system_time(settings)
     assert ctx.current_date == "2026-06-12"
+    assert ctx.last_trading_day == "2026-06-12"
+    assert ctx.is_trading_day is True
     assert ctx.source == "REFERENCE_DATE"
     assert "2026-06-12" in ctx.prompt_block()
 
@@ -129,6 +131,7 @@ async def test_quality_check_payload_includes_system_context_and_rag_citations()
     assert isinstance(messages, list)
     user_payload = json.loads(messages[1]["content"])
     assert user_payload["system_context"]["current_date"] == "2026-06-12"
+    assert user_payload["system_context"]["last_trading_day"] == "2026-06-12"
     assert user_payload["rag_citations"][0]["time_period"] == "2025A"
     assert "2026-06-12" in messages[0]["content"]
 

@@ -47,8 +47,14 @@ class AgentState(TypedDict, total=False):
 
     # --- routing_decision output ---
     route_target: str
+    route_targets: list[str]
     route_reason: str
     execution_plan: dict[str, Any]
+    multi_agent_mode: bool
+    multi_agent_stock_phase_done: bool
+    multi_agent_data_phase_done: bool
+    agent_summaries: dict[str, str]
+    is_multi_intent: bool
 
     # --- Sub-agent output ---
     agent_result: str
@@ -81,6 +87,18 @@ class AgentState(TypedDict, total=False):
     evidence_pack: dict[str, Any]
     citation_map: dict[str, Any]
     conflict_points: list[str]
+    accumulated_rag_hits: list[dict[str, Any]]
+    accumulated_tool_result: dict[str, Any]
+    evidence_supplement_done: bool
+
+    # --- evidence gap loop ---
+    should_enrich_evidence: bool
+    evidence_gaps: list[dict[str, Any]]
+    gap_enrichment_plan: dict[str, Any]
+    supplement_mode: bool
+    supplement_rag_queries: list[str]
+    supplement_rag_filters: dict[str, str]
+    supplement_tool_names: list[str]
 
     # --- quality_check output ---
     quality_status: Literal["pass", "revise", "reject"]

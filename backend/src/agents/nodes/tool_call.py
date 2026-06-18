@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, cast
 
 from ...integrations.langgraph.state import AgentState
 from ...integrations.langgraph.status_phases import emit_node_entry_status
@@ -11,25 +11,41 @@ from ...integrations.llm.service import LLMService
 from ...services.rag.service import RagService
 from ...settings import AppSettings
 from ..data_query_tool_plan import resolve_data_query_tool_names
+from ..hotspot_tool_plan import ranking_industry_param, resolve_hotspot_tool_names
 from ..stock_tool_plan import resolve_stock_tool_names
 from ..tools import TOOL_REGISTRY
 from ._helpers import build_parallel_trace_update, normalize_slots
 
 
 def _resolve_tool_names(state: AgentState) -> list[str]:
+    if state.get("supplement_mode"):
+        supplement_names = state.get("supplement_tool_names") or []
+        return [str(name) for name in supplement_names if str(name).strip()]
     plan = state.get("execution_plan") or {}
     default_names = [str(name) for name in (plan.get("tool_names") or [])]
     if state.get("route_target") == "stock_analysis_agent":
+        execution_plan = state.get("execution_plan") or {}
+        slots = state.get("slots") or {}
         return resolve_stock_tool_names(
             state.get("agent_tool_names"),
             query=str(state.get("normalized_query", "")),
             analysis_dimensions=state.get("analysis_dimensions"),
+            scenario_return_mode=bool(
+                execution_plan.get("scenario_return_mode") or slots.get("scenario_return_mode")
+            ),
         )
     if state.get("route_target") == "data_query_agent":
         return resolve_data_query_tool_names(
             state.get("agent_tool_names"),
             query=str(state.get("normalized_query", "")),
             slots=state.get("slots") or {},
+        )
+    if state.get("route_target") == "hotspot_agent":
+        return resolve_hotspot_tool_names(
+            state.get("agent_tool_names"),
+            query=str(state.get("normalized_query", "")),
+            slots=state.get("slots") or {},
+            execution_plan=state.get("execution_plan") or {},
         )
     return default_names
 
@@ -49,8 +65,25 @@ async def tool_call(
     tool_params = state.get("tool_params") or {}
     if not isinstance(tool_params, dict):
         tool_params = {}
-    if not tool_params:
+    if state.get("supplement_mode"):
+        plan = state.get("gap_enrichment_plan") or {}
+        raw_plan_params = plan.get("tool_params")
+        plan_params: dict[str, Any] = (
+            cast(dict[str, Any], raw_plan_params) if isinstance(raw_plan_params, dict) else {}
+        )
+        tool_params = {**normalize_slots(state.get("slots") or {}), **plan_params}
+    elif not tool_params:
         tool_params = normalize_slots(state.get("slots") or {})
+
+    query = str(state.get("normalized_query", ""))
+    if state.get("route_target") == "hotspot_agent":
+        ranking_slots = {**(state.get("slots") or {}), **tool_params}
+        ranking_industry = ranking_industry_param(query=query, slots=ranking_slots)
+        if ranking_industry:
+            tool_params.setdefault("industry", ranking_industry)
+        tool_params.setdefault("metric", "涨幅排行")
+        tool_params.setdefault("time_range", tool_params.get("time_range") or "近一交易日")
+        tool_params.setdefault("rank_limit", 10)
 
     input_data = {
         "tool_names": tool_names,
@@ -83,7 +116,11 @@ async def tool_call(
             )
             continue
         try:
-            result = tool_fn(**tool_params)
+            call_params = dict(tool_params)
+            if tool_name == "consensus_valuation_lookup":
+                call_params["valuation_tool"] = merged_result.get("valuation_profile_lookup")
+                call_params["rag_hits"] = state.get("rag_hits") or []
+            result = tool_fn(**call_params)
             merged_result["tools"].append(
                 {"tool_name": tool_name, "status": "success", "result": result}
             )
