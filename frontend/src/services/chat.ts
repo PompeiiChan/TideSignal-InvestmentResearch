@@ -64,10 +64,48 @@ async function consumeSseResponse(response: Response, handlers: ChatStreamHandle
 }
 
 async function simulateQueryStream(response: ApiResponse<ChatQueryResponse>, handlers: ChatStreamHandlers): Promise<void> {
+  const emitStep = (stepId: string, label: string, parentId?: string) => {
+    handlers.onEvent('step_start', {
+      step: {
+        step_id: stepId,
+        status: 'running',
+        label,
+        ...(parentId ? { parent_id: parentId } : {}),
+      },
+    })
+  }
+  const completeStep = (stepId: string) => {
+    handlers.onEvent('step_complete', { step_id: stepId })
+  }
+
   handlers.onEvent('user_message', response.data.user_message)
   handlers.onEvent('session', response.data.session)
-  handlers.onEvent('status', { phase: 'thinking', label: 'Thinking' })
-  handlers.onEvent('status', { phase: 'writing', label: 'Writing' })
+
+  emitStep('understand_query', '正在理解您的问题')
+  await new Promise((resolve) => setTimeout(resolve, 120))
+  completeStep('understand_query')
+
+  emitStep('recognize_intent', '正在识别问题类型')
+  await new Promise((resolve) => setTimeout(resolve, 120))
+  completeStep('recognize_intent')
+
+  emitStep('match_expert', '正在匹配投研专家 · 问股分析')
+  completeStep('match_expert')
+
+  emitStep('fetch_materials', '正在获取相关资料')
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  completeStep('fetch_materials')
+
+  emitStep('quality_review', '正在审核回答质量')
+  await new Promise((resolve) => setTimeout(resolve, 80))
+  completeStep('quality_review')
+
+  emitStep('generate_answer', '正在生成回答')
+  await new Promise((resolve) => setTimeout(resolve, 80))
+
+  handlers.onEvent('response_stream_start', { summary: '问股分析 · 2 项资料' })
+  completeStep('generate_answer')
+
   const content = response.data.assistant_message.content
   const chunkSize = Math.max(4, Math.ceil(content.length / 24))
   for (let index = 0; index < content.length; index += chunkSize) {

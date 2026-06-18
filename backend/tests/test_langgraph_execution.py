@@ -82,7 +82,6 @@ def _sample_rag_result(query: str = "测试") -> RagRetrievalResult:
     "tool_name",
     [
         "market_ranking_lookup",
-        "mock_market_ranking_lookup",
         "mock_financial_profile_lookup",
         "valuation_profile_lookup",
         "hotspot_signal_lookup",
@@ -102,16 +101,20 @@ def test_return_calculator_snapshot() -> None:
 
 
 @pytest.mark.asyncio
-async def test_tool_call_node_invokes_mock_tools() -> None:
+async def test_tool_call_node_invokes_market_ranking_tool() -> None:
     llm, rag, settings = _llm_deps()
     state: AgentState = {
-        "execution_plan": {"tool_names": ["mock_market_ranking_lookup"]},
+        "execution_plan": {"tool_names": ["market_ranking_lookup"]},
         "tool_params": {"industry": "半导体", "metric": "涨幅排行"},
         "trace_steps": [],
     }
-    result = await tool_call(state, llm=llm, rag=rag, settings=settings)
+    with patch(
+        "src.agents.tools.market_ranking_lookup.industry_board_ranking",
+        return_value={"top": [], "bottom": []},
+    ):
+        result = await tool_call(state, llm=llm, rag=rag, settings=settings)
     assert result["tool_status"] == "success"
-    assert "mock_market_ranking_lookup" in result["tool_result"]
+    assert "market_ranking_lookup" in result["tool_result"]
     assert result["trace_steps"][0]["node"] == "tool_call"
 
 

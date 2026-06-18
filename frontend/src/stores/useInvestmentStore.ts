@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { investmentService } from '../services/investmentService'
+import { withBackendRetry } from '../utils/backendRetry'
 import type {
   ChatQueryResponse,
   ConfigStatus,
@@ -13,7 +14,15 @@ import type {
 } from '../types/api'
 import { clamp } from '../utils/format'
 import { extractRichBlockTypes } from '../utils/richBlockLabels'
+import {
+  applyResponseStreamStart,
+  applyStepComplete,
+  applyStepStart,
+  createEmptyProgressTimeline,
+  toggleProgressExpanded,
+} from '../utils/progressTimeline'
 import { sanitizeMessage, sanitizeMessages, sanitizeSession } from '../utils/sanitizeResponse'
+import type { ProgressStep, ProgressTimeline } from '../types/api'
 
 export type ViewMode = 'client' | 'admin'
 export type AppView = 'chat' | 'data' | 'settings'
@@ -114,6 +123,23 @@ function applyChatQueryResult(
       (message) => message.id === assistantMessage.id || message.id === options?.pendingAssistantId,
     )
 
+    const pendingTimeline =
+      options?.pendingAssistantId &&
+      withoutPending.find((message) => message.id === options.pendingAssistantId)?.progress_timeline
+
+    const nextAssistant = {
+      ...assistantMessage,
+      streaming: false,
+      status_label: undefined,
+      progress_timeline: pendingTimeline
+        ? {
+            ...pendingTimeline,
+            collapsed: true,
+            expandedByUser: false,
+          }
+        : assistantMessage.progress_timeline,
+    }
+
     const nextMessages = [...withoutPending]
     if (userIndex >= 0) {
       nextMessages[userIndex] = userMessage
@@ -121,9 +147,9 @@ function applyChatQueryResult(
       nextMessages.push(userMessage)
     }
     if (assistantIndex >= 0) {
-      nextMessages[assistantIndex] = assistantMessage
+      nextMessages[assistantIndex] = nextAssistant
     } else {
-      nextMessages.push(assistantMessage)
+      nextMessages.push(nextAssistant)
     }
 
     const clearPending = current.pendingQuery?.sessionId === session.id
@@ -210,6 +236,14 @@ function handleChatStreamEvent(
     return
   }
 
+  const updateAssistantTimeline = (updater: (timeline: ProgressTimeline) => ProgressTimeline) => {
+    const currentAssistant = get().messagesBySession[sessionId]?.find(
+      (message) => message.id === pendingAssistantId,
+    )
+    const base = currentAssistant?.progress_timeline ?? createEmptyProgressTimeline()
+    updateAssistant({ progress_timeline: updater(base) })
+  }
+
   if (event === 'user_message') {
     if (!pendingUserId) return
     const userMessage = sanitizeMessage(data as Message)
@@ -221,8 +255,12 @@ function handleChatStreamEvent(
         ),
       },
     }))
-    setQueryStatus('Thinking')
-    updateAssistant({ status_label: 'Thinking', streaming: true })
+    setQueryStatus('')
+    updateAssistant({
+      status_label: undefined,
+      streaming: true,
+      progress_timeline: createEmptyProgressTimeline(),
+    })
     return
   }
 
@@ -240,10 +278,30 @@ function handleChatStreamEvent(
   }
 
   if (event === 'status') {
-    const status = data as { label?: string; phase?: string }
-    const label = status.label ?? 'Thinking'
-    setQueryStatus(label)
-    updateAssistant({ status_label: label, streaming: true })
+    return
+  }
+
+  if (event === 'step_start') {
+    const payload = data as { step?: ProgressStep }
+    if (payload.step) {
+      updateAssistantTimeline((timeline) => applyStepStart(timeline, payload.step!))
+    }
+    updateAssistant({ streaming: true, status_label: undefined })
+    return
+  }
+
+  if (event === 'step_complete') {
+    const payload = data as { step_id?: string }
+    if (payload.step_id) {
+      updateAssistantTimeline((timeline) => applyStepComplete(timeline, payload.step_id!))
+    }
+    return
+  }
+
+  if (event === 'response_stream_start') {
+    const payload = data as { summary?: string }
+    updateAssistantTimeline((timeline) => applyResponseStreamStart(timeline, payload.summary))
+    clearPendingQuery()
     return
   }
 
@@ -252,23 +310,23 @@ function handleChatStreamEvent(
     const currentAssistant = get().messagesBySession[sessionId]?.find(
       (message) => message.id === pendingAssistantId,
     )
-    const label = 'Writing'
+    const label = ''
     setQueryStatus(label)
     updateAssistant({
       content: `${currentAssistant?.content ?? ''}${delta}`,
       streaming: true,
-      status_label: label,
+      status_label: undefined,
       content_complete: false,
     })
     return
   }
 
   if (event === 'content_reset') {
-    setQueryStatus('Rewriting')
+    setQueryStatus('')
     updateAssistant({
       content: '',
       streaming: true,
-      status_label: 'Rewriting',
+      status_label: undefined,
       content_complete: false,
     })
     return
@@ -279,6 +337,11 @@ function handleChatStreamEvent(
     const currentAssistant = get().messagesBySession[sessionId]?.find(
       (message) => message.id === pendingAssistantId,
     )
+    const timeline = currentAssistant?.progress_timeline
+    if (timeline && timeline.steps.length > 0 && !timeline.collapsed) {
+      updateAssistantTimeline((current) => applyResponseStreamStart(current, current.summary))
+      clearPendingQuery()
+    }
     updateAssistant({
       content: doneContent ?? currentAssistant?.content ?? '',
       content_complete: true,
@@ -453,6 +516,7 @@ interface InvestmentState {
   setTracePanelWidth: (width: number) => void
   persistLayout: () => Promise<void>
   toggleStep: (stepId: string) => void
+  toggleMessageProgressTimeline: (sessionId: string, messageId: string) => void
   openJson: (traceId: string, stepId: string, title: string) => Promise<void>
   closeJson: () => void
 }
@@ -478,10 +542,9 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
     set({ mode, view: resolvedView })
     if (get().initialized) return
     set({ messagesBySession: {} })
-    const [sessionsResponse, layoutResponse] = await Promise.all([
-      investmentService.getSessions(''),
-      investmentService.getLayoutPreferences(),
-    ])
+    const [sessionsResponse, layoutResponse] = await withBackendRetry(() =>
+      Promise.all([investmentService.getSessions(''), investmentService.getLayoutPreferences()]),
+    )
     const sessions = sessionsResponse.data.items.map(sanitizeSession)
     const firstSession = sessions[0]
     const detailResponse = firstSession ? await investmentService.getSessionDetail(firstSession.id) : null
@@ -637,7 +700,7 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
     const now = new Date().toISOString()
     const pendingUserId = `pending_user_${Date.now()}`
     const pendingAssistantId = `pending_assistant_${Date.now()}`
-    const initialStatus = 'Thinking'
+    const initialStatus = ''
     const optimisticUser: Message = {
       id: pendingUserId,
       session_id: activeSessionId,
@@ -656,7 +719,8 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
       trace_id: null,
       created_at: now,
       streaming: true,
-      status_label: initialStatus,
+      status_label: undefined,
+      progress_timeline: createEmptyProgressTimeline(),
     }
 
     set((current) => ({
@@ -699,7 +763,7 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
 
     const now = new Date().toISOString()
     const pendingAssistantId = `pending_assistant_${Date.now()}`
-    const initialStatus = 'Thinking'
+    const initialStatus = ''
     const optimisticAssistant: Message = {
       id: pendingAssistantId,
       session_id: activeSessionId,
@@ -709,7 +773,8 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
       trace_id: null,
       created_at: now,
       streaming: true,
-      status_label: initialStatus,
+      status_label: undefined,
+      progress_timeline: createEmptyProgressTimeline(),
     }
 
     set((current) => ({
@@ -778,6 +843,20 @@ export const useInvestmentStore = create<InvestmentState>((set, get) => ({
       expandedStepIds: state.expandedStepIds.includes(stepId)
         ? state.expandedStepIds.filter((id) => id !== stepId)
         : [...state.expandedStepIds, stepId],
+    }))
+  },
+  toggleMessageProgressTimeline(sessionId, messageId) {
+    set((state) => ({
+      messagesBySession: {
+        ...state.messagesBySession,
+        [sessionId]: (state.messagesBySession[sessionId] ?? []).map((message) => {
+          if (message.id !== messageId || !message.progress_timeline) return message
+          return {
+            ...message,
+            progress_timeline: toggleProgressExpanded(message.progress_timeline),
+          }
+        }),
+      },
     }))
   },
   async openJson(traceId, stepId, title) {

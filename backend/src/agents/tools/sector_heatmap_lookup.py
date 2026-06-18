@@ -13,19 +13,6 @@ logger = logging.getLogger(__name__)
 _SOURCE = "东方财富 push2（a-stock-data 适配）"
 _ATTRIBUTION = "third_party/a-stock-data (Apache-2.0)"
 
-_MOCK_TILES: list[dict[str, Any]] = [
-    {"board_name": "半导体", "pct_change": 3.42, "turnover_amount": 84200000000, "leader": "寒武纪", "leader_change": 8.76},
-    {"board_name": "白酒", "pct_change": -0.85, "turnover_amount": 62100000000, "leader": "贵州茅台", "leader_change": -0.42},
-    {"board_name": "电池", "pct_change": 1.28, "turnover_amount": 59800000000, "leader": "宁德时代", "leader_change": 2.18},
-    {"board_name": "光学光电子", "pct_change": 2.91, "turnover_amount": 45600000000, "leader": "京东方A", "leader_change": 3.55},
-    {"board_name": "证券", "pct_change": 0.64, "turnover_amount": 43200000000, "leader": "中信证券", "leader_change": 0.88},
-    {"board_name": "医疗器械", "pct_change": -1.12, "turnover_amount": 38900000000, "leader": "迈瑞医疗", "leader_change": -0.95},
-    {"board_name": "汽车零部件", "pct_change": 1.76, "turnover_amount": 36500000000, "leader": "比亚迪", "leader_change": 1.44},
-    {"board_name": "通信设备", "pct_change": 2.35, "turnover_amount": 34100000000, "leader": "中兴通讯", "leader_change": 2.02},
-    {"board_name": "电力", "pct_change": 0.22, "turnover_amount": 31800000000, "leader": "长江电力", "leader_change": 0.15},
-    {"board_name": "银行", "pct_change": -0.31, "turnover_amount": 30500000000, "leader": "招商银行", "leader_change": -0.28},
-]
-
 
 def _trade_date_label() -> str:
     return resolve_default_trade_date()
@@ -58,7 +45,7 @@ def lookup_sector_heatmap(
     board_limit: int = 30,
     **_extra: Any,
 ) -> dict[str, Any]:
-    """Return industry-board heatmap tiles sized by turnover (demo fallback on failure)."""
+    """Return industry-board heatmap tiles sized by turnover from Eastmoney push2."""
     limit = max(min(int(board_limit or 30), 50), 5)
     if board_kind.strip() and board_kind.strip() != "industry":
         return {
@@ -94,30 +81,18 @@ def lookup_sector_heatmap(
             "attribution": _ATTRIBUTION,
         }
     except Exception as exc:
-        logger.warning("sector_heatmap_lookup failed, using mock fallback: %s", exc)
-        mock_tiles = _normalize_tiles(
-            [
-                {
-                    "board_name": item["board_name"],
-                    "change_pct": item["pct_change"],
-                    "turnover_amount": item["turnover_amount"],
-                    "leader": item["leader"],
-                    "leader_change": item["leader_change"],
-                }
-                for item in _MOCK_TILES[:limit]
-            ]
-        )
+        logger.warning("sector_heatmap_lookup failed: %s", exc)
         return {
             "tool": "sector_heatmap_lookup",
             "board_kind": "industry",
             "board_limit": limit,
             "trade_date": _trade_date_label(),
-            "tiles": mock_tiles,
-            "tile_count": len(mock_tiles),
-            "source": "本地 demo 行业板块截面",
-            "is_mock": True,
-            "fallback_used": True,
-            "fallback_reason": str(exc),
-            "notes": "行业板块热力图（降级 demo）；方块面积按成交额缩放",
+            "tiles": [],
+            "tile_count": 0,
+            "source": _SOURCE,
+            "is_mock": False,
+            "fallback_used": False,
+            "error": str(exc),
+            "notes": f"东财行业板块接口调用失败：{exc}",
             "attribution": _ATTRIBUTION,
         }

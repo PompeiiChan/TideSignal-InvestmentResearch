@@ -174,6 +174,23 @@ export interface RichBlock {
   risk_notice: string
 }
 
+export type ProgressStepStatus = 'running' | 'completed'
+
+export interface ProgressStep {
+  step_id: string
+  status: ProgressStepStatus
+  label: string
+  parent_id?: string
+  children?: ProgressStep[]
+}
+
+export interface ProgressTimeline {
+  steps: ProgressStep[]
+  collapsed: boolean
+  summary?: string
+  expandedByUser?: boolean
+}
+
 export interface Message {
   id: string
   session_id: string
@@ -187,6 +204,8 @@ export interface Message {
   status_label?: string
   /** Set when SSE content_done arrives; flushes the last streaming line into markdown. */
   content_complete?: boolean
+  /** Client-only progress timeline during / after generation. */
+  progress_timeline?: ProgressTimeline
 }
 
 export interface SessionDetail {

@@ -19,14 +19,7 @@ from ..settings import BACKEND_ROOT, get_settings
 from .rag.chunker import count_markdown_files, resolve_kb_root
 from .rag.service import RagService
 
-MARKET_TABLE_FILES = (
-    "stock_daily_quotes_mock.md",
-    "industry_daily_quotes_mock.md",
-    "index_daily_quotes_mock.md",
-    "interval_performance_mock.md",
-    "valuation_metrics_mock_completion.md",
-    "valuation_metrics_choice_demo.md",
-)
+MARKET_DATA_API_PATH = "integrations/market_data/eastmoney_client.py (东财 push2)"
 
 PROMPTS = [
     ("master_agent", "总控 Agent"),
@@ -54,7 +47,7 @@ class ConfigStatusService:
         company_reports_dir = kb_root / "company-reports"
         industry_reports_dir = kb_root / "industry-reports"
 
-        market_count = sum(1 for name in MARKET_TABLE_FILES if (structured_dir / name).exists())
+        market_count = 0
         financial_count = self._count_md_files(financials_dir)
         report_count = self._count_md_files(company_reports_dir) + self._count_md_files(industry_reports_dir)
         knowledge_count = count_markdown_files(kb_root)
@@ -63,8 +56,8 @@ class ConfigStatusService:
             MockDataSourceRead(
                 type="market",
                 name="行情数据",
-                path=self._kb_display_path("structured-data"),
-                status=self._status_from_count(market_count),
+                path=MARKET_DATA_API_PATH,
+                status="ready",
                 sample_count=market_count,
             ),
             MockDataSourceRead(

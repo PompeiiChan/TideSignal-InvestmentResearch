@@ -3,7 +3,7 @@
   "mode": "new",
   "design_ready": false,
   "development_ready": true,
-  "current_task": "T-020",
+  "current_task": "roadmap-T-020",
   "blocked": false,
-  "notes": "T-013 V1.1 全链路回归 Tester PASS，待用户门禁。下一焦点：T-020 问数工具丰富度验收（roadmap §2.4）。"
+  "notes": "T-013（V1.1 全链路）、T-020（过程时间线）用户门禁均已通过（2026-06-18）。下一焦点：docs/agent/tool-richness-roadmap.md 问数工具丰富度 P1 用户验收（§2.4）；并行 T-019 创业板财报 KB 扩容。"
 }

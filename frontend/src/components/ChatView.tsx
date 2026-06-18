@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { AssistantMessageActions } from './AssistantMessageActions'
 import { MarkdownContent } from './MarkdownContent'
+import { ProgressTimelineView } from './ProgressTimeline'
 import { RichBlockRenderer } from './RichBlockRenderer'
 import { TideSignalAnimatedLogo } from './TideSignalAnimatedLogo'
 import { useEmptyClientChat } from '../hooks/useEmptyClientChat'
 import { useMarketGreeting } from '../hooks/useMarketGreeting'
 import { useInvestmentStore } from '../stores/useInvestmentStore'
 import { sanitizeMessage } from '../utils/sanitizeResponse'
+import { isTimelineVisible } from '../utils/progressTimeline'
 
 const EMPTY_MESSAGES: ReturnType<typeof sanitizeMessage>[] = []
 
@@ -78,6 +80,7 @@ export function ChatView() {
   const messages = activeSessionId ? (messagesBySession[activeSessionId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES
   const sendQuery = useInvestmentStore((state) => state.sendQuery)
   const regenerateMessage = useInvestmentStore((state) => state.regenerateMessage)
+  const toggleMessageProgressTimeline = useInvestmentStore((state) => state.toggleMessageProgressTimeline)
 
   useEffect(() => {
     if (isEmptyClientChat) return
@@ -142,11 +145,15 @@ export function ChatView() {
           {messages.map((rawMessage) => {
             const message = sanitizeMessage(rawMessage)
             const isStreaming = Boolean(message.streaming)
-            const showThinking = message.role === 'assistant' && isStreaming && !message.content.trim()
             const visibleBlocks = message.rich_blocks
+            const primaryRichBlocks = visibleBlocks.filter(
+              (block) => block.type === 'sector_heatmap' || block.type === 'ranking_table',
+            )
+            const secondaryRichBlocks = visibleBlocks.filter(
+              (block) => block.type !== 'sector_heatmap' && block.type !== 'ranking_table',
+            )
             const hasAnswerBody = Boolean(message.content.trim()) || visibleBlocks.length > 0
-            const showPhaseLabel =
-              message.role === 'assistant' && isStreaming && Boolean(message.status_label) && !hasAnswerBody
+            const showProgressTimeline = message.role === 'assistant' && isTimelineVisible(message.progress_timeline)
             const showInlineContent = Boolean(message.content.trim())
             const isPendingId = message.id.startsWith('pending_')
             const showActions =
@@ -160,20 +167,18 @@ export function ChatView() {
               <div key={message.id} className={`message ${message.role}`}>
                 {message.role === 'assistant' ? (
                   <div className="assistant-block assistant-bubble">
-                    {showThinking ? (
-                      <div className="thinking-indicator" aria-live="polite">
-                        <span className="thinking-label">{message.status_label ?? 'Thinking'}</span>
-                        <span className="thinking-dots" aria-hidden="true">
-                          <span />
-                          <span />
-                          <span />
-                        </span>
-                      </div>
-                    ) : showPhaseLabel ? (
-                      <div className="assistant-phase" aria-live="polite">
-                        {message.status_label}
-                      </div>
+                    {showProgressTimeline && message.progress_timeline ? (
+                      <ProgressTimelineView
+                        timeline={message.progress_timeline}
+                        onToggle={() => {
+                          if (!activeSessionId) return
+                          toggleMessageProgressTimeline(activeSessionId, message.id)
+                        }}
+                      />
                     ) : null}
+                    {primaryRichBlocks.map((block) => (
+                      <RichBlockRenderer key={block.id} block={block} />
+                    ))}
                     {showInlineContent ? (
                       <MarkdownContent
                         content={message.content}
@@ -182,7 +187,7 @@ export function ChatView() {
                         showCursor={isStreaming && !message.content_complete}
                       />
                     ) : null}
-                    {visibleBlocks.map((block) => (
+                    {secondaryRichBlocks.map((block) => (
                       <RichBlockRenderer key={block.id} block={block} />
                     ))}
                     {showActions ? (

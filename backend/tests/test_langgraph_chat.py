@@ -4,6 +4,7 @@ import json
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -12,7 +13,21 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from backend.src.api.deps import get_session
 from backend.src.db.models import Base
+from backend.src.integrations.llm.service import LLMService
 from backend.src.main import app
+
+
+def _mock_llm_json_responses(responses: list[dict[str, Any]]) -> Any:
+    queue = list(responses)
+
+    async def _chat_completion(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        payload = queue.pop(0)
+        return {
+            "choices": [{"message": {"content": json.dumps(payload, ensure_ascii=False)}}],
+            "usage": {},
+        }
+
+    return _chat_completion
 
 
 @asynccontextmanager
@@ -90,6 +105,101 @@ async def test_chat_stream_returns_done_when_langgraph_enabled(tmp_path: Path) -
         trace_response = await client.get(f"/api/traces/{done_payload['trace']['id']}")
         trace_steps = trace_response.json()["data"]["steps"]
         assert trace_steps[0]["node"] == "context_preprocess"
+
+
+@pytest.mark.asyncio
+async def test_clarification_stream_emits_response_stream_start_before_content_done(
+    tmp_path: Path,
+    mock_llm_service: LLMService,
+) -> None:
+    """Clarification non-streaming path must fold timeline before content_done."""
+    mock_responses: list[dict[str, Any]] = [
+        {
+            "intent_id": "unknown",
+            "intent_confidence": 0.4,
+            "candidate_intents": [{"intent_id": "unknown", "confidence": 0.4}],
+            "missing_slots": [],
+        },
+        {"slots": {}, "slot_confidence": {}, "missing_slots": [], "ambiguous_slots": []},
+        {
+            "final_response": "请说明您想查询的热点、个股还是数据指标？",
+            "next_expected_slots": ["intent_scope"],
+            "clarification_questions": ["您想了解哪类投研问题？"],
+        },
+    ]
+    mock_llm_service._intent_call_count = 0
+    mock_llm_service._intent_client = lambda: type(  # type: ignore[method-assign]
+        "MockClient",
+        (),
+        {
+            "chat_completion": _mock_llm_json_responses(mock_responses),
+            "extract_message_content": staticmethod(
+                lambda body: body["choices"][0]["message"]["content"]
+            ),
+        },
+    )()
+    async with api_client(tmp_path) as client:
+        create_response = await client.post("/api/sessions", json={"source": "client"})
+        session_id = create_response.json()["data"]["id"]
+
+        stream_response = await client.post(
+            "/api/chat/query/stream",
+            json={"session_id": session_id, "source": "client", "query": "那个怎么样"},
+        )
+        assert stream_response.status_code == 200
+        events = _parse_sse_events(stream_response.text)
+        event_names = [name for name, _ in events]
+        assert "response_stream_start" in event_names
+        assert "content_done" in event_names
+        assert "content_delta" not in event_names
+        assert event_names.index("response_stream_start") < event_names.index("content_done")
+
+
+@pytest.mark.asyncio
+async def test_fallback_stream_emits_response_stream_start_before_content_done(
+    tmp_path: Path,
+    mock_llm_service: LLMService,
+) -> None:
+    """Fallback non-streaming path must fold timeline before content_done."""
+    mock_responses: list[dict[str, Any]] = [
+        {
+            "intent_id": "prediction_request",
+            "intent_confidence": 0.9,
+            "candidate_intents": [{"intent_id": "prediction_request", "confidence": 0.9}],
+            "missing_slots": [],
+        },
+        {"slots": {}, "slot_confidence": {}, "missing_slots": [], "ambiguous_slots": []},
+    ]
+    mock_llm_service._intent_call_count = 0
+    mock_llm_service._intent_client = lambda: type(  # type: ignore[method-assign]
+        "MockClient",
+        (),
+        {
+            "chat_completion": _mock_llm_json_responses(mock_responses),
+            "extract_message_content": staticmethod(
+                lambda body: body["choices"][0]["message"]["content"]
+            ),
+        },
+    )()
+    async with api_client(tmp_path) as client:
+        create_response = await client.post("/api/sessions", json={"source": "client"})
+        session_id = create_response.json()["data"]["id"]
+
+        stream_response = await client.post(
+            "/api/chat/query/stream",
+            json={
+                "session_id": session_id,
+                "source": "client",
+                "query": "预测明天泸州老窖会涨到多少目标价？",
+            },
+        )
+        assert stream_response.status_code == 200
+        events = _parse_sse_events(stream_response.text)
+        event_names = [name for name, _ in events]
+        assert "response_stream_start" in event_names
+        assert "content_done" in event_names
+        assert "content_delta" not in event_names
+        assert event_names.index("response_stream_start") < event_names.index("content_done")
 
 
 @pytest.mark.asyncio

@@ -119,3 +119,4 @@ class AgentState(TypedDict, total=False):
     current_node: str
     error: str | None
     stream_callback: Any
+    progress_tracker: Any

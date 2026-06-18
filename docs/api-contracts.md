@@ -588,7 +588,9 @@ RAG 检索节点 `node=rag_retrieval` 的 `raw_json` 除 `rag_hits` 外，还应
 | `user_message` | 原 user 消息（`MessageRead`） |
 | `session` | 更新后的会话（`SessionRead`） |
 | `message_removed` | `{ "assistant_message_id": "msg_004" }` |
-| `status` | `{ "phase": "...", "label": "..." }` |
+| `step_start` | `{ "step": { "step_id": "...", "status": "running", "label": "...", "parent_id?": "fetch_materials" } }` |
+| `step_complete` | `{ "step_id": "..." }` |
+| `response_stream_start` | `{ "summary?": "问股分析 · 3 项资料" }`（首包正文前触发折叠） |
 | `content_delta` | `{ "delta": "..." }` |
 | `content_done` | `{ "content": "..." }` |
 | `rich_blocks` | `{ "rich_blocks": [...] }` |

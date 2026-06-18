@@ -65,11 +65,13 @@ def test_lookup_sector_stock_ranking(mock_em_get: MagicMock) -> None:
 
 
 @patch("src.integrations.market_data.eastmoney_client.em_get")
-def test_lookup_falls_back_to_mock_on_api_error(mock_em_get: MagicMock) -> None:
+def test_lookup_returns_empty_on_api_error(mock_em_get: MagicMock) -> None:
     mock_em_get.side_effect = RuntimeError("network down")
 
     result = lookup_market_ranking(industry="半导体", rank_limit=3)
 
-    assert result["fallback_used"] is True
-    assert result["is_mock"] is True
-    assert result["row_count"] >= 1
+    assert result["tool"] == "market_ranking_lookup"
+    assert result["row_count"] == 0
+    assert result["rows"] == []
+    assert result["is_mock"] is False
+    assert result.get("error")

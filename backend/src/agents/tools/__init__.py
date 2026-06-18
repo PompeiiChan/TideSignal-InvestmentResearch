@@ -12,7 +12,6 @@ from .hotspot_signal_lookup import lookup_hotspot_signal
 from .market_ranking_lookup import lookup_market_ranking as lookup_live_market_ranking
 from .mock_financial_profile_lookup import lookup_financial_profile
 from .mock_hotspot_material_lookup import lookup_hotspot_material
-from .mock_market_ranking_lookup import lookup_market_ranking as lookup_mock_market_ranking
 from .return_calculator import compute_return
 from .sector_heatmap_lookup import lookup_sector_heatmap
 from .stock_evidence_api_lookup import lookup_stock_evidence_api
@@ -24,7 +23,6 @@ TOOL_REGISTRY: dict[str, ToolCallable] = {
     "hotspot_fact_lookup": lookup_hotspot_facts,
     "hotspot_signal_lookup": lookup_hotspot_signal,
     "market_ranking_lookup": lookup_live_market_ranking,
-    "mock_market_ranking_lookup": lookup_mock_market_ranking,
     "mock_financial_profile_lookup": lookup_financial_profile,
     "valuation_profile_lookup": lookup_valuation_profile,
     "mock_hotspot_material_lookup": lookup_hotspot_material,
@@ -44,7 +42,6 @@ __all__ = [
     "lookup_hotspot_facts",
     "lookup_hotspot_signal",
     "lookup_live_market_ranking",
-    "lookup_mock_market_ranking",
     "lookup_sector_heatmap",
     "lookup_stock_evidence_api",
     "lookup_valuation_profile",

@@ -7,7 +7,10 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Literal, TypeVar
 
 from ...integrations.langgraph.state import AgentState
-from ...integrations.langgraph.status_phases import emit_node_entry_status
+from ...integrations.langgraph.status_phases import (
+    emit_node_complete_status,
+    emit_node_entry_status,
+)
 from ...integrations.langgraph.trace_recorder import TraceRecorder
 from ...integrations.llm.client import LLMClientError
 from ...integrations.llm.service import LLMService
@@ -120,7 +123,9 @@ async def run_node_with_trace(
             status="success",
             latency_ms=latency_ms,
         )
-        return {**output_data, **trace_update}
+        merged = {**output_data, **trace_update}
+        emit_node_complete_status(state, node, merged)
+        return merged
     except Exception as exc:
         latency_ms = int((time.perf_counter() - started) * 1000)
         error_msg = str(exc)

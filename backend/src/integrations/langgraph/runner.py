@@ -22,14 +22,14 @@ from ...services.message_sanitizer import (
     sanitize_assistant_content,
     sanitize_rich_blocks,
 )
-from ...services.rich_block_types import extract_rich_block_types
 from ...services.rag.service import RagService
+from ...services.rich_block_types import extract_rich_block_types
 from ...services.session_service import _iso, _now
 from ...services.trace_service import TraceService
 from ...settings import AppSettings, get_settings
 from .graph import GraphDeps, build_graph
 from .state import AgentState
-from .status_phases import build_status_event
+from .status_phases import ProgressTimelineTracker, attach_progress_tracker
 from .trace_recorder import TraceRecorder
 
 _runner_id_counter = count(1)
@@ -210,16 +210,17 @@ class LangGraphRunner:
         """Stream SSE events while executing the LangGraph workflow."""
         event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         streamed_content = False
-        writing_status_emitted = False
+        progress_tracker: ProgressTimelineTracker
 
         def stream_callback(event: dict[str, Any]) -> None:
-            nonlocal streamed_content, writing_status_emitted
+            nonlocal streamed_content
             if event.get("event") == "content_delta":
+                if not streamed_content:
+                    progress_tracker.on_response_stream_start()
                 streamed_content = True
-                if not writing_status_emitted:
-                    event_queue.put_nowait(build_status_event("writing", "Writing"))
-                    writing_status_emitted = True
             event_queue.put_nowait(event)
+
+        progress_tracker = ProgressTimelineTracker(stream_callback)
 
         if hasattr(self.llm, "_intent_call_count"):
             self.llm._intent_call_count = 0
@@ -238,8 +239,7 @@ class LangGraphRunner:
             "stream_callback": stream_callback,
             "trace_steps": [],
         }
-
-        event_queue.put_nowait(build_status_event("thinking", "Thinking"))
+        attach_progress_tracker(initial_state, progress_tracker)
 
         graph_task = asyncio.create_task(
             self._run_graph_loop(
@@ -289,8 +289,11 @@ class LangGraphRunner:
         )
 
         if not streamed_content and content:
+            progress_tracker.on_response_stream_start()
+            for event in self._drain_stream_queue(event_queue):
+                yield event
             yield {"event": "content_done", "data": {"content": content}}
-        if rich_blocks:
+        if rich_blocks and not final_state.get("rich_blocks_streamed"):
             yield {"event": "rich_blocks", "data": {"rich_blocks": rich_blocks}}
 
         assistant_created_at = _now()

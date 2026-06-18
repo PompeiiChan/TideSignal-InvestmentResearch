@@ -15,7 +15,7 @@ export function formatDataSourceStatus(status: DataSourceItem['status']): string
 export function getDataSourceSummary(item: DataSourceItem): string {
   switch (item.type) {
     case 'market':
-      return `问数链路读取 structured-data 中的模拟行情 / 估值表；路径：${item.path}。`
+      return `问数链路实时调用东财 push2 行情接口；路径：${item.path}。`
     case 'financial':
       return `问股与 RAG 共用的本地财报 Markdown（含新浪 API 入库创业板批次）；路径：${item.path}。`
     case 'report':
@@ -30,7 +30,7 @@ export function getDataSourceSummary(item: DataSourceItem): string {
 }
 
 export function formatSampleCount(item: DataSourceItem): string {
-  if (item.type === 'announcement') {
+  if (item.type === 'announcement' || item.type === 'market') {
     return '按需在线拉取'
   }
   return `${item.sample_count} 份 Markdown`

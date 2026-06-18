@@ -1,4 +1,4 @@
-"""Live market ranking via Eastmoney push2 (with mock fallback)."""
+"""Live market ranking via Eastmoney push2."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from ...integrations.market_data.eastmoney_client import (
     industry_board_ranking,
 )
 from ...services.trading_calendar import resolve_default_trade_date
-from .mock_market_ranking_lookup import lookup_market_ranking as lookup_mock_market_ranking
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +72,7 @@ def lookup_market_ranking(
     rank_limit: int = 5,
     **_extra: Any,
 ) -> dict[str, Any]:
-    """Query live board/stock rankings; fall back to embedded mock on failure."""
+    """Query live board/stock rankings from Eastmoney push2."""
     limit = max(int(rank_limit or 5), 1)
     descending = "跌" not in metric
 
@@ -140,15 +139,18 @@ def lookup_market_ranking(
             "attribution": _ATTRIBUTION,
         }
     except Exception as exc:
-        logger.warning("market_ranking_lookup failed, using mock fallback: %s", exc)
-        mock = lookup_mock_market_ranking(
-            industry=industry,
-            metric=metric,
-            time_range=time_range,
-            rank_limit=rank_limit,
-        )
-        mock["tool"] = "market_ranking_lookup"
-        mock["fallback_used"] = True
-        mock["fallback_reason"] = str(exc)
-        mock["attribution"] = _ATTRIBUTION
-        return mock
+        logger.warning("market_ranking_lookup failed: %s", exc)
+        return {
+            "tool": "market_ranking_lookup",
+            "industry": industry or "全行业",
+            "metric": metric,
+            "time_range": time_range,
+            "rows": [],
+            "row_count": 0,
+            "source": _SOURCE,
+            "is_mock": False,
+            "fallback_used": False,
+            "error": str(exc),
+            "notes": f"东财行情接口调用失败：{exc}",
+            "attribution": _ATTRIBUTION,
+        }

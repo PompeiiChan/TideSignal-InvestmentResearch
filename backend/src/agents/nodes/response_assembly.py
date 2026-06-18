@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import Any, cast
+from uuid import uuid4
 
 from ...integrations.langgraph.state import AgentState
 from ...integrations.langgraph.status_phases import emit_stream_phase
@@ -24,11 +25,12 @@ from ...services.citation_catalog import (
     normalize_assembly_citations,
     strip_unusable_financial_tool,
 )
-from ...services.message_sanitizer import ensure_public_risk_notice
+from ...services.message_sanitizer import ensure_public_risk_notice, sanitize_rich_blocks
 from ...services.rag.models import RagHit
 from ...services.rag.service import RagService
 from ...services.system_time import resolve_system_time
 from ...settings import AppSettings
+from ..heatmap_intent import wants_sector_heatmap
 from ._helpers import run_node_with_trace
 from .citation_rules import (
     content_needs_citation_retry,
@@ -114,8 +116,6 @@ def _append_market_data_rich_blocks(
     heatmap_tool = tool_result.get("sector_heatmap_lookup")
     if isinstance(heatmap_tool, dict) and heatmap_tool.get("tiles"):
         source_label = str(heatmap_tool.get("source", "行情数据"))
-        if heatmap_tool.get("is_mock"):
-            source_label = "本地 demo 行业板块（降级）"
         blocks.append(
             {
                 "type": "sector_heatmap",
@@ -127,17 +127,13 @@ def _append_market_data_rich_blocks(
         )
 
     ranking_tool: dict[str, Any] = {}
-    for tool_key in ("market_ranking_lookup", "mock_market_ranking_lookup"):
-        candidate = tool_result.get(tool_key)
-        if isinstance(candidate, dict) and candidate.get("rows"):
-            ranking_tool = candidate
-            break
+    candidate = tool_result.get("market_ranking_lookup")
+    if isinstance(candidate, dict) and candidate.get("rows"):
+        ranking_tool = candidate
     rows = ranking_tool.get("rows") if isinstance(ranking_tool, dict) else None
     if not isinstance(rows, list) or not rows:
         return
     source_label = str(ranking_tool.get("source", "行情数据"))
-    if ranking_tool.get("is_mock"):
-        source_label = "本地 demo 行情（降级）"
     columns = ["rank", "stock_name", "pct_change", "close_price"]
     slim_rows = [{col: row.get(col) for col in columns} for row in rows if isinstance(row, dict)]
     ranking_mode = str(ranking_tool.get("ranking_mode", ""))
@@ -159,6 +155,57 @@ def _append_market_data_rich_blocks(
     )
 
 
+def _prepare_rich_blocks_for_stream(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    prepared: list[dict[str, Any]] = []
+    for index, block in enumerate(blocks):
+        if not isinstance(block, dict):
+            continue
+        normalized = dict(block)
+        normalized.setdefault("id", f"block_{uuid4().hex[:10]}_{index:03d}")
+        normalized.setdefault("title", "回答内容")
+        normalized.setdefault("payload", {})
+        normalized.setdefault("sources", [])
+        normalized.setdefault(
+            "risk_notice",
+            "以上内容仅为信息整理，不构成投资建议。",
+        )
+        prepared.append(normalized)
+    return sanitize_rich_blocks("assistant", prepared)
+
+
+def _emit_stream_rich_blocks(
+    stream_callback: Any,
+    blocks: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Push rich blocks to the client as soon as tool evidence is ready."""
+    if not callable(stream_callback) or not blocks:
+        return []
+    prepared = _prepare_rich_blocks_for_stream(blocks)
+    if prepared:
+        stream_callback({"event": "rich_blocks", "data": {"rich_blocks": prepared}})
+    return prepared
+
+
+def _heatmap_tool_has_tiles(tool_result: dict[str, Any]) -> bool:
+    heatmap_tool = tool_result.get("sector_heatmap_lookup")
+    return isinstance(heatmap_tool, dict) and bool(heatmap_tool.get("tiles"))
+
+
+def _is_heatmap_primary_query(query: str, tool_result: dict[str, Any]) -> bool:
+    return wants_sector_heatmap(query) and _heatmap_tool_has_tiles(tool_result)
+
+
+def _build_market_rich_blocks(
+    *,
+    response_kind: str,
+    tool_result: dict[str, Any],
+) -> list[dict[str, Any]]:
+    blocks: list[dict[str, Any]] = []
+    if response_kind in {"data", "hotspot", "compound_stock_data"}:
+        _append_market_data_rich_blocks(blocks, tool_result)
+    return blocks
+
+
 def _build_rich_blocks_from_evidence(
     llm: LLMService,
     *,
@@ -169,10 +216,8 @@ def _build_rich_blocks_from_evidence(
     catalog: CitationCatalog | None = None,
 ) -> list[dict[str, Any]]:
     """Attach only interactive rich blocks; citations and risk live in Markdown content."""
-    blocks: list[dict[str, Any]] = []
-    tool_result = evidence_pack.get("tool_result") or {}
-    if response_kind in {"data", "hotspot", "compound_stock_data"} and isinstance(tool_result, dict):
-        _append_market_data_rich_blocks(blocks, tool_result)
+    tool_result = evidence_pack.get("tool_result") if isinstance(evidence_pack.get("tool_result"), dict) else {}
+    blocks = _build_market_rich_blocks(response_kind=response_kind, tool_result=tool_result)
     if response_kind == "data" and isinstance(tool_result, dict):
         calc_tool = tool_result.get("local_return_calculator") or {}
         if isinstance(calc_tool, dict) and "net_profit" in calc_tool:
@@ -255,6 +300,21 @@ async def response_assembly(
         cleaned_tool_result = strip_unusable_financial_tool(tool_result or {})
         assembly_evidence = {**evidence_pack, "tool_result": cleaned_tool_result}
         response_kind_str = str(state.get("response_kind", "data"))
+        callback = stream_callback if callable(stream_callback) else None
+        can_stream = callback is not None
+        heatmap_primary = _is_heatmap_primary_query(normalized_query, cleaned_tool_result)
+        streamed_rich_blocks = (
+            _emit_stream_rich_blocks(
+                callback,
+                _build_market_rich_blocks(
+                    response_kind=response_kind_str,
+                    tool_result=cleaned_tool_result,
+                ),
+            )
+            if can_stream
+            else []
+        )
+        rich_blocks_streamed = bool(streamed_rich_blocks)
         catalog = build_citation_catalog(
             rag_hits,
             cleaned_tool_result,
@@ -282,6 +342,12 @@ async def response_assembly(
                 "【强制约束】本地未收录该公司券商深度研报或本轮未命中 company-reports/industry-reports 片段。"
                 "不得编造具体药品、靶点或管线品种名称；须先声明证据不足。\n\n"
             )
+        if heatmap_primary:
+            user_prompt += (
+                "【热力图优先】用户核心是查看行业板块热力图交互组件。正文控制在 3～6 行："
+                "说明统计口径（交易日）并点出 1～2 个成交或涨跌突出的板块即可；"
+                "勿逐块复述热力图全部数据，热力图由前端组件展示。\n\n"
+            )
         user_prompt += "请直接输出 Markdown 正文。"
 
         system_prompt = assembly_system_prompt(
@@ -295,18 +361,22 @@ async def response_assembly(
             rag_hits=rag_hits,
             evidence_pack=assembly_evidence,
         )
-        can_stream = callable(stream_callback)
+        # Hybrid streaming (plan A):
+        # - first draft is buffered when citations are required;
+        # - citation retry streams live to the client;
+        # - a first-pass pass emits via buffered typewriter only.
+        buffer_first_draft = requires_citation_validation
         streamed_to_client = False
 
         def _emit_delta(delta: str) -> None:
             nonlocal streamed_to_client
-            if can_stream and delta:
+            if can_stream and delta and callback is not None:
                 streamed_to_client = True
-                stream_callback({"event": "content_delta", "data": {"delta": delta}})
+                callback({"event": "content_delta", "data": {"delta": delta}})
 
         def _emit_content_replace(content: str) -> None:
-            if can_stream:
-                stream_callback({"event": "content_done", "data": {"content": content}})
+            if can_stream and callback is not None:
+                callback({"event": "content_done", "data": {"content": content}})
 
         async def _emit_buffered_content(content: str, *, chunk_size: int = 64) -> None:
             """Reveal buffered text with a typewriter effect when LLM output was not streamed."""
@@ -340,18 +410,15 @@ async def response_assembly(
             content = await _stream_completion(
                 user_prompt,
                 temperature=0.4,
-                stream_to_client=can_stream,
+                stream_to_client=can_stream and not buffer_first_draft,
             )
         except LLMClientError:
             content = _fallback_assembly_content(assembly_evidence, normalized_query)
         content = content or _fallback_assembly_content(assembly_evidence, normalized_query)
         content = normalize_assembly_citations(content, catalog)
         draft_content = content
-        if requires_citation_validation and content_needs_citation_retry(content):
+        if buffer_first_draft and content_needs_citation_retry(content):
             emit_stream_phase(stream_callback, "rewriting")
-            if can_stream and streamed_to_client:
-                stream_callback({"event": "content_reset", "data": {}})
-                streamed_to_client = False
             missing = paragraphs_missing_trailing_citations(content)
             missing_hint = ""
             if missing:
@@ -407,6 +474,7 @@ async def response_assembly(
             "final_response": content,
             "response_kind": response_kind_str,
             "rich_blocks": rich_blocks,
+            "rich_blocks_streamed": rich_blocks_streamed,
             "response_meta": {"assembly": True, "citation_catalog": catalog.to_quality_payload()},
         }
         return output, "完成回答组装"

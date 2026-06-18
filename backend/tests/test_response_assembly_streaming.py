@@ -47,7 +47,8 @@ _BAD_DRAFT = "公司营收 100 亿元，利润 20 亿元。\n\n### 参考来源\
 
 
 @pytest.mark.asyncio
-async def test_citation_retry_resets_stream_and_restreams_revised_draft() -> None:
+async def test_citation_retry_live_streams_revised_draft() -> None:
+    """First non-compliant draft is buffered; revision pass streams live to the client."""
     events: list[dict[str, Any]] = []
 
     def stream_callback(event: dict[str, Any]) -> None:
@@ -101,13 +102,16 @@ async def test_citation_retry_resets_stream_and_restreams_revised_draft() -> Non
         result = await response_assembly(state, llm=llm, rag=MagicMock(), settings=MagicMock())
 
     event_names = [event["event"] for event in events]
-    assert "content_reset" in event_names
-    assert event_names.count("content_delta") >= 2
+    assert "content_reset" not in event_names
+    streamed = "".join(event["data"]["delta"] for event in events if event["event"] == "content_delta")
+    assert _BAD_DRAFT not in streamed
+    assert ensure_public_risk_notice(good_draft) in streamed
     assert result["final_response"] == ensure_public_risk_notice(good_draft)
 
 
 @pytest.mark.asyncio
-async def test_citation_retry_timeout_falls_back_to_draft() -> None:
+async def test_citation_retry_fallback_buffers_draft_when_revision_fails() -> None:
+    """When revision fails, fall back to buffered first draft without content_reset."""
     events: list[dict[str, Any]] = []
 
     def stream_callback(event: dict[str, Any]) -> None:
@@ -160,11 +164,14 @@ async def test_citation_retry_timeout_falls_back_to_draft() -> None:
         result = await response_assembly(state, llm=llm, rag=MagicMock(), settings=MagicMock())
 
     assert result["final_response"] == ensure_public_risk_notice(bad_draft)
+    assert "content_reset" not in {event["event"] for event in events}
+    streamed = "".join(event["data"]["delta"] for event in events if event["event"] == "content_delta")
+    assert _BAD_DRAFT in streamed or ensure_public_risk_notice(bad_draft) in streamed
     assert any(event["event"] == "content_done" for event in events)
 
 
 @pytest.mark.asyncio
-async def test_valid_buffered_draft_revealed_without_prior_deltas() -> None:
+async def test_first_pass_compliant_uses_buffered_typewriter() -> None:
     events: list[dict[str, Any]] = []
 
     def stream_callback(event: dict[str, Any]) -> None:
@@ -214,3 +221,77 @@ async def test_valid_buffered_draft_revealed_without_prior_deltas() -> None:
     assert len(delta_events) >= 1
     assert "".join(event["data"]["delta"] for event in delta_events) == ensure_public_risk_notice(good_draft)
     assert result["final_response"] == ensure_public_risk_notice(good_draft)
+
+
+@pytest.mark.asyncio
+async def test_heatmap_rich_blocks_stream_before_content_delta() -> None:
+    events: list[dict[str, Any]] = []
+
+    def stream_callback(event: dict[str, Any]) -> None:
+        events.append(event)
+
+    async def _fake_stream(*_args: Any, **_kwargs: Any) -> AsyncIterator[str]:
+        yield "半导体板块成交居前，白酒板块涨幅靠前。[citation:1]"
+
+    stream_mock = MagicMock()
+    stream_mock.chat_completion_stream = _fake_stream
+
+    heatmap_block = {
+        "type": "sector_heatmap",
+        "title": "行业板块热力图",
+        "payload": {"board_kind": "industry", "trade_date": "2026-06-18", "tiles": [], "size_by": "turnover_amount"},
+        "sources": [],
+        "risk_notice": "以上内容仅为信息整理，不构成投资建议。",
+    }
+
+    llm = MagicMock()
+    llm._output_client.return_value = stream_mock
+    llm.enrich_rich_blocks.return_value = [heatmap_block]
+
+    state: AgentState = {
+        "normalized_query": "帮我看一下今天A股行业板块热力图",
+        "response_kind": "data",
+        "evidence_pack": {
+            "agent_summary": "热力图",
+            "tool_result": {
+                "sector_heatmap_lookup": {
+                    "tiles": [
+                        {
+                            "board_name": "半导体",
+                            "board_code": "BK1036",
+                            "pct_change": 2.1,
+                            "turnover_amount": 120.0,
+                        }
+                    ],
+                    "source": "东财",
+                    "trade_date": "2026-06-18",
+                }
+            },
+        },
+        "rag_hits": [],
+        "stream_callback": stream_callback,
+        "trace_steps": [],
+    }
+
+    with patch(
+        "backend.src.agents.nodes.response_assembly.resolve_system_time",
+        return_value=_time_ctx(),
+    ), patch(
+        "backend.src.agents.nodes.response_assembly.build_citation_catalog",
+        return_value=MagicMock(entries=[], to_quality_payload=lambda: {}),
+    ), patch(
+        "backend.src.agents.nodes.response_assembly.format_citation_context",
+        return_value="",
+    ), patch(
+        "backend.src.agents.nodes.response_assembly.normalize_assembly_citations",
+        side_effect=lambda content, _catalog: content,
+    ):
+        result = await response_assembly(state, llm=llm, rag=MagicMock(), settings=MagicMock())
+
+    event_names = [event["event"] for event in events]
+    assert "rich_blocks" in event_names
+    assert "content_delta" in event_names
+    assert event_names.index("rich_blocks") < event_names.index("content_delta")
+    assert result.get("rich_blocks_streamed") is True
+    rich_payload = next(event for event in events if event["event"] == "rich_blocks")["data"]["rich_blocks"]
+    assert rich_payload[0]["type"] == "sector_heatmap"

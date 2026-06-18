@@ -1083,7 +1083,7 @@
       "tester_id": "cursor-tester",
       "retry_count": 0,
       "blocked": false,
-      "notes": "[PASS] T-013 V1.1 全链路回归通过：四类真实 Agent、双视口 E2E、startup.md 已更新。待用户门禁确认。\n详见：.sdd/test-reports/test-T-013.md",
+      "notes": "[PASS] T-013 V1.1 全链路回归通过：四类真实 Agent、双视口 E2E、startup.md 已更新。用户门禁确认通过（2026-06-18）。\n详见：.sdd/test-reports/test-T-013.md",
       "user_gate": true
     },
     {
@@ -1383,6 +1383,55 @@
       "retry_count": 0,
       "blocked": false,
       "notes": "用户确认：RAG 从 5 家扩至约 55 家（含原样本）；创业板随机 50 家，新浪三表入库。",
+      "user_gate": true
+    },
+    {
+      "id": "T-020",
+      "title": "回答生成过程状态时间线（展开/折叠）",
+      "type": "integration",
+      "description": "依据 docs/agent/progress-status-requirements.md，在对话页实现回答生成前的过程状态纵向时间线（理解问题→识别意图→匹配专家→获取资料→审核→生成回答）；第3、4步含动态文案；澄清/兜底走独立分支。response 开始流式输出时过程区自动折叠为可回看入口（▸ 执行过程），数据保留不销毁。需改造后端 SSE 事件（step_start/step_complete/response_stream_start）与前端 ChatView/store。受影响范围：backend/src/integrations/langgraph/status_phases.py、runner、相关 nodes、backend/tests、frontend ChatView、useInvestmentStore、chat.ts、样式。",
+      "source_feature": "F01 对话 / 过程可见性",
+      "acceptanceCriteria": [
+        "用户提问后，对话页按顺序展示 6 步主链路文案（理解问题、识别问题类型、匹配投研专家、获取相关资料、审核回答质量、生成回答）；第 3 步展示专家类型动态后缀，第 4 步展示实际 tool/RAG 子项且完成后有完成标记。",
+        "response 开始流式输出（content_delta 首包）时，过程区自动折叠为单行回看入口（如 ▸ 执行过程 · 问股分析 · N 项资料），正文成为主视觉；用户点击可展开完整时间线（只读）。",
+        "流式输出完成后过程区默认保持折叠；历史消息各自保留独立过程时间线状态。",
+        "澄清场景展示「正在确认关键信息 · …」且不展示后续主链路步骤；兜底场景展示「正在准备说明 · …」且不假装获取资料；澄清/兜底正文开始输出时同样触发折叠+可回看。",
+        "未执行的步骤与子项不出现；过程区折叠/展开有过渡，布局无明显跳动。",
+        "VITE_USE_MOCK=false 时 POST /api/chat/query/stream 真实联调可见过程时间线与折叠行为。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests 通过（含 status_phases / stream 相关测试）",
+        "cd frontend && npm run type-check && npm run lint 通过",
+        "SSE 事件与 docs/agent/progress-status-requirements.md §7 对齐；不暴露 LangGraph 节点 ID 给用户",
+        "保留 regenerate/stream 链路的过程展示一致性",
+        "frontend/.env 保持 VITE_API_BASE_URL=/api"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": ["P01"],
+        "services": ["frontend/src/services/chat.ts"],
+        "realApiEndpoints": ["POST /api/chat/query/stream", "POST /api/chat/regenerate/stream"],
+        "mockExitCriteria": [
+          "Mock 模式下 simulateQueryStream 须模拟 step 事件与折叠触发",
+          "不得仅用静态 Thinking/Writing 英文 phase 替代中文时间线"
+        ]
+      },
+      "externalServices": ["LangGraph", "硅基流动 LLM / DeepSeek"],
+      "dependencies": ["T-012"],
+      "priority": 20,
+      "rules_files": [
+        "dev-standards/frontend.md",
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": "cursor-developer",
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "[PASS] 回答生成过程状态时间线：Tester PASS + 用户门禁确认通过（2026-06-18）。\n详见：.sdd/test-reports/test-T-020.md",
       "user_gate": true
     }
   ]

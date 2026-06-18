@@ -142,11 +142,6 @@ def _market_ranking_tool_payload(tool_result: dict[str, Any]) -> dict[str, Any] 
     payload = tool_result.get(_MARKET_RANKING_TOOL_KEY)
     if isinstance(payload, dict) and payload.get("tool") == _MARKET_RANKING_TOOL_KEY:
         return payload
-    mock = tool_result.get("mock_market_ranking_lookup")
-    if isinstance(mock, dict) and mock.get("rows"):
-        merged = dict(mock)
-        merged.setdefault("tool", _MARKET_RANKING_TOOL_KEY)
-        return merged
     return None
 
 

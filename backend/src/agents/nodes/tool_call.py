@@ -6,7 +6,7 @@ import time
 from typing import Any, cast
 
 from ...integrations.langgraph.state import AgentState
-from ...integrations.langgraph.status_phases import emit_node_entry_status
+from ...integrations.langgraph.status_phases import emit_tool_progress_end, emit_tool_progress_start
 from ...integrations.llm.service import LLMService
 from ...services.rag.service import RagService
 from ...settings import AppSettings
@@ -58,7 +58,6 @@ async def tool_call(
     settings: AppSettings,
 ) -> dict[str, Any]:
     """Dispatch mock tools per execution_plan.tool_names."""
-    emit_node_entry_status(state, "tool_call")
     _ = (llm, rag, settings)
     plan = state.get("execution_plan") or {}
     tool_names = _resolve_tool_names(state)
@@ -74,6 +73,11 @@ async def tool_call(
         tool_params = {**normalize_slots(state.get("slots") or {}), **plan_params}
     elif not tool_params:
         tool_params = normalize_slots(state.get("slots") or {})
+
+    slots = state.get("slots") or {}
+    if not isinstance(slots, dict):
+        slots = {}
+    emit_tool_progress_start(state, tool_names, slots)
 
     query = str(state.get("normalized_query", ""))
     if state.get("route_target") == "hotspot_agent":
@@ -99,7 +103,9 @@ async def tool_call(
             summary="无需工具调用，已跳过",
             latency_ms=0,
         )
-        return {**trace, "tool_status": "skipped", "tool_latency": 0, "tool_error": None}
+        result = {**trace, "tool_status": "skipped", "tool_latency": 0, "tool_error": None}
+        emit_tool_progress_end(state, [])
+        return result
 
     started = time.perf_counter()
     merged_result: dict[str, Any] = {"tools": []}
@@ -156,11 +162,14 @@ async def tool_call(
         latency_ms=latency_ms,
         error=last_error,
     )
-    return {
+    result = {
         **trace,
         "tool_params": tool_params,
         "tool_result": merged_result,
         "tool_status": tool_status,
         "tool_latency": latency_ms,
         "tool_error": last_error,
+        "tool_names": tool_names,
     }
+    emit_tool_progress_end(state, tool_names)
+    return result

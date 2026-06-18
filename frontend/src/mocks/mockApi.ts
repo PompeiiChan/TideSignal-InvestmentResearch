@@ -280,7 +280,34 @@ export async function postChatRegenerateStream(
     },
   }
 
-  handlers.onEvent('status', { phase: 'writing', label: 'Writing' })
+  const emitStep = (stepId: string, label: string, parentId?: string) => {
+    handlers.onEvent('step_start', {
+      step: {
+        step_id: stepId,
+        status: 'running',
+        label,
+        ...(parentId ? { parent_id: parentId } : {}),
+      },
+    })
+  }
+  const completeStep = (stepId: string) => {
+    handlers.onEvent('step_complete', { step_id: stepId })
+  }
+
+  emitStep('understand_query', '正在理解您的问题')
+  completeStep('understand_query')
+  emitStep('recognize_intent', '正在识别问题类型')
+  completeStep('recognize_intent')
+  emitStep('match_expert', '正在匹配投研专家 · 问股分析')
+  completeStep('match_expert')
+  emitStep('fetch_materials', '正在获取相关资料')
+  completeStep('fetch_materials')
+  emitStep('quality_review', '正在审核回答质量')
+  completeStep('quality_review')
+  emitStep('generate_answer', '正在生成回答')
+  handlers.onEvent('response_stream_start', { summary: '问股分析' })
+  completeStep('generate_answer')
+
   const content = assistantMessage.content
   const chunkSize = Math.max(4, Math.ceil(content.length / 24))
   for (let index = 0; index < content.length; index += chunkSize) {

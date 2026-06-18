@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from ...integrations.langgraph.state import AgentState
-from ...integrations.langgraph.status_phases import emit_node_entry_status
+from ...integrations.langgraph.status_phases import (
+    emit_node_complete_status,
+    emit_node_entry_status,
+)
 from ...integrations.llm.service import LLMService
 from ...services.rag.models import RagHit, RagRetrievalResult
 from ...services.rag.retriever import filter_stock_narrative_hits
@@ -259,7 +262,7 @@ async def rag_retrieval(
         latency_ms=rag_result.latency_ms,
         detail_sections=_build_rag_detail_sections(rag_result, rag_hits),
     )
-    return {
+    result = {
         **trace,
         "retrieval_config": retrieval_config,
         "retrieved_chunks": retrieved_chunks,
@@ -268,3 +271,5 @@ async def rag_retrieval(
         "low_confidence_flag": low_confidence_flag,
         "rag_hits": rag_hits,
     }
+    emit_node_complete_status(state, "rag_retrieval", result)
+    return result

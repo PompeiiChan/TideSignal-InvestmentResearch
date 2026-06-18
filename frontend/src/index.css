@@ -778,6 +778,136 @@ body.is-trace-resizing .trace-resize-handle::after {
   animation-delay: 0.3s;
 }
 
+.progress-timeline {
+  margin-bottom: 8px;
+}
+
+.progress-timeline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 2px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0;
+  animation: progress-fade-in 0.32s ease forwards;
+}
+
+.progress-timeline-toggle:hover {
+  color: var(--text);
+}
+
+.progress-timeline-chevron {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.progress-timeline-title {
+  font-weight: 500;
+  color: #475569;
+}
+
+.progress-timeline-summary {
+  color: var(--muted);
+}
+
+.progress-timeline-body {
+  overflow: hidden;
+  transition: max-height 0.32s ease, opacity 0.28s ease;
+}
+
+.progress-timeline.is-collapsed .progress-timeline-body {
+  max-height: 0;
+  opacity: 0;
+}
+
+.progress-timeline.is-expanded .progress-timeline-body {
+  max-height: 280px;
+  opacity: 1;
+}
+
+.progress-timeline-steps {
+  list-style: none;
+  margin: 4px 0 0 10px;
+  padding: 0 0 0 14px;
+  display: grid;
+  gap: 2px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.progress-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(4px);
+  animation: progress-step-in 0.42s ease forwards;
+}
+
+.progress-step-marker {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  transition: background-color 0.28s ease, box-shadow 0.28s ease;
+}
+
+.progress-step.is-running .progress-step-marker {
+  background: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+}
+
+.progress-step.is-completed .progress-step-marker {
+  background: #22c55e;
+  box-shadow: none;
+}
+
+.progress-step-label {
+  color: #64748b;
+  transition: color 0.28s ease, opacity 0.28s ease;
+}
+
+.progress-step.is-running .progress-step-label {
+  color: #334155;
+}
+
+.progress-step.is-completed .progress-step-label {
+  color: #94a3b8;
+}
+
+@keyframes progress-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes progress-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes thinking-bounce {
   0%,
   80%,

@@ -10,7 +10,10 @@ from ...integrations.llm.service import LLMService
 from ...services.compound_routing import enrich_slots_for_compound, resolve_compound_route_targets
 from ...services.hotspot_recency import build_hotspot_execution_plan
 from ...services.rag.chunker import resolve_kb_root
-from ...services.rag.company_index import enrich_stock_slots_from_kb, is_kb_resolvable_document_query
+from ...services.rag.company_index import (
+    enrich_stock_slots_from_kb,
+    is_kb_resolvable_document_query,
+)
 from ...services.rag.service import RagService
 from ...services.scenario_return import is_scenario_return_query
 from ...services.system_time import resolve_system_time
