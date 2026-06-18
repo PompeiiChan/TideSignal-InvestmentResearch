@@ -3,7 +3,7 @@
   "mode": "new",
   "design_ready": false,
   "development_ready": true,
-  "current_task": "roadmap-T-020",
+  "current_task": "roadmap-T-021",
   "blocked": false,
-  "notes": "T-013、T-020（时间线）用户门禁已通过（2026-06-18）。V1.2 检查点 7485f74。问数 P1 用户验收清单：.sdd/test-reports/acceptance-roadmap-T-020-P1.md"
+  "notes": "路线图 T-020-P1 问数工具丰富度用户验收通过（2026-06-18）。当前焦点 T-021 估值；问数 P2/P3 为 backlog。报告：.sdd/test-reports/acceptance-roadmap-T-020-P1-result.md"
 }

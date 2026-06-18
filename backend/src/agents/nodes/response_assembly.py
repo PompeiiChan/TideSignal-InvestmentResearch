@@ -31,6 +31,49 @@ from ...services.rag.service import RagService
 from ...services.system_time import resolve_system_time
 from ...settings import AppSettings
 from ..heatmap_intent import wants_sector_heatmap
+
+
+def _format_ranking_cell(field: str, value: Any) -> Any:
+    if value is None or value == "":
+        return None
+    if field == "pct_change":
+        try:
+            pct = float(value)
+        except (TypeError, ValueError):
+            return value
+        return f"{pct:+.2f}%"
+    if field == "close_price":
+        try:
+            return f"{float(value):.2f}"
+        except (TypeError, ValueError):
+            return value
+    return value
+
+
+def _build_ranking_table_payload(
+    rows: list[dict[str, Any]],
+    *,
+    ranking_mode: str,
+) -> dict[str, Any]:
+    name_label = "板块" if ranking_mode == "industry_boards" else "股票"
+    field_specs: tuple[tuple[str, str], ...] = (
+        ("rank", "排名"),
+        ("stock_name", name_label),
+        ("pct_change", "涨跌幅"),
+        ("close_price", "收盘价"),
+    )
+    columns = [label for _, label in field_specs]
+    slim_rows: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        formatted: dict[str, Any] = {}
+        for field, label in field_specs:
+            formatted[label] = _format_ranking_cell(field, row.get(field))
+        slim_rows.append(formatted)
+    return {"columns": columns, "rows": slim_rows}
+
+
 from ._helpers import run_node_with_trace
 from .citation_rules import (
     content_needs_citation_retry,
@@ -134,9 +177,8 @@ def _append_market_data_rich_blocks(
     if not isinstance(rows, list) or not rows:
         return
     source_label = str(ranking_tool.get("source", "行情数据"))
-    columns = ["rank", "stock_name", "pct_change", "close_price"]
-    slim_rows = [{col: row.get(col) for col in columns} for row in rows if isinstance(row, dict)]
     ranking_mode = str(ranking_tool.get("ranking_mode", ""))
+    table_payload = _build_ranking_table_payload(rows, ranking_mode=ranking_mode)
     industry_label = str(ranking_tool.get("industry", "")).strip()
     if ranking_mode == "board_stocks" and industry_label:
         title = f"{industry_label}成分股涨幅"
@@ -148,7 +190,7 @@ def _append_market_data_rich_blocks(
         {
             "type": "ranking_table",
             "title": title,
-            "payload": {"columns": columns, "rows": slim_rows},
+            "payload": table_payload,
             "sources": [{"type": "market", "label": source_label}],
             "risk_notice": "以上内容仅为信息整理，不构成投资建议。",
         }

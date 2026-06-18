@@ -12,17 +12,22 @@
 
 | Phase | 名称 | 链路 | 状态 | 验收人 |
 |-------|------|------|------|--------|
-| **T-020** | 问数工具丰富度 | 问数 `data_query` | 🟡 **进行中** | 待用户 |
-| **T-021** | 估值工具丰富度 | 问股 `valuation_profile_lookup` | ⏳ 待 T-020 验收后 | — |
+| **T-020** | 问数工具丰富度 | 问数 `data_query` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-18 |
+| **T-021** | 估值工具丰富度 | 问股 `valuation_profile_lookup` | 🟡 **进行中** | 待用户 |
 | **T-022** | 问股财报深化 | 问股 `mock_financial_profile_lookup` + RAG | ⏳ 待 T-021 验收后 | — |
 | **T-023** | 热点工具丰富度 | 热点 `hotspot_*` + RAG | ⏳ 待 T-022 验收后 | — |
 | **T-024** | 离线 KB 与入库扩展 | 脚本 `ingest_*` + financials | ⏳ 待 T-023 验收后 | — |
 
 ---
 
-## 二、当前活动 Phase：T-020 问数工具丰富度
+## 二、当前活动 Phase：T-021 估值工具丰富度
 
-### 2.1 问题摘要（审计结论）
+> **T-020-P1** 已于 2026-06-18 用户验收通过（报告：`.sdd/test-reports/acceptance-roadmap-T-020-P1-result.md`）。  
+> **T-020-P2/P3**（指数/单股报价、历史区间）仍属问数 backlog，不阻塞 T-021。
+
+### T-020 归档摘要（P1）
+
+#### 2.1 问题摘要（审计结论）
 
 | 问题 | 现状 | 用户体感 |
 |------|------|----------|
@@ -35,8 +40,8 @@
 
 | 子阶段 | 内容 | 状态 |
 |--------|------|------|
-| **T-020-P1** | 动态 `tool_names` 编排（对齐问股方案 C）；支持一次调用排行+热力图；提高默认 `rank_limit` | 🟡 **待用户验收**（清单：`.sdd/test-reports/acceptance-roadmap-T-020-P1.md`） |
-| **T-020-P2** | 指数 / 单股实时报价工具（东财或腾讯）；`index_quote_lookup` / `stock_quote_lookup` | ⏳ P1 验收后 |
+| **T-020-P1** | 动态 `tool_names` 编排（对齐问股方案 C）；支持一次调用排行+热力图；提高默认 `rank_limit` | ✅ **已验收**（2026-06-18） |
+| **T-020-P2** | 指数 / 单股实时报价工具（东财或腾讯）；`index_quote_lookup` / `stock_quote_lookup` | ⏳ backlog（问数） |
 | **T-020-P3** | `time_range` 真正接入（近 5/20 交易日涨跌幅、区间表现）；需新行情历史接口 | ⏳ P2 验收后 |
 
 ### 2.3 T-020-P1 技术要点
@@ -58,9 +63,10 @@
 4. **榜单长度**：默认 `rank_limit` ≥ 8（`tool_call` 默认 10；Agent 规划建议 8–10）。
 5. **失败透明（已去 Mock）**：东财 API 失败时返回空结果 + `error`/`notes`；正文与 Trace **不得**编造行情，**不得**回落 demo 数据。
 
-**用户验收清单**：`.sdd/test-reports/acceptance-roadmap-T-020-P1.md`（检查点 `7485f74`）
+**用户验收清单**：`.sdd/test-reports/acceptance-roadmap-T-020-P1.md`（检查点 `7485f74`）  
+**验收结果**：`.sdd/test-reports/acceptance-roadmap-T-020-P1-result.md`（用户 PASS，2026-06-18）
 
-**通过后**：将本文 §一 中 T-020 标为 ✅，§二 切换为 **T-021**，并更新 `.sdd/status.json`。
+**通过后**：§一 T-020 标 P1 已验收；§二 切换 **T-021**（已完成）。
 
 ---
 

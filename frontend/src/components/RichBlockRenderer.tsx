@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { CalculatorPayload, RankingTablePayload, RichBlock, ScenarioCalculatorPayload, SectorHeatmapPayload } from '../types/api'
-import { formatYuan } from '../utils/format'
+import { resolveRankingColumns } from '../utils/rankingTableLabels'
 import { normalizeCalculatorPayload } from '../utils/richBlockPayload'
 import { computeBuyPriceFromReturn, computeGrossProfit, computeReturnRate, roundPrice, roundReturnRate } from '../utils/returnCalc'
 import { ScenarioCalculator } from './ScenarioCalculator'
@@ -23,23 +23,26 @@ function isScenarioCalculatorPayload(payload: RichBlock['payload']): payload is 
 }
 
 function DataTable({ payload }: { payload: RankingTablePayload }) {
+  const columnDefs = resolveRankingColumns(payload.columns)
+
   return (
     <table className="data-table">
       <thead>
         <tr>
-          {payload.columns.map((column) => (
-            <th key={column}>{column}</th>
+          {columnDefs.map((column) => (
+            <th key={column.key}>{column.label}</th>
           ))}
         </tr>
       </thead>
       <tbody>
         {payload.rows.map((row, index) => (
           <tr key={index}>
-            {payload.columns.map((column) => {
-              const value = row[column]
+            {columnDefs.map((column) => {
+              const value = row[column.key]
+              const display = value == null || value === '' ? '—' : String(value)
               return (
-                <td key={`${index}-${column}`} className={String(value ?? '').startsWith('+') ? 'up' : undefined}>
-                  {value ?? '—'}
+                <td key={`${index}-${column.key}`} className={display.startsWith('+') ? 'up' : undefined}>
+                  {display}
                 </td>
               )
             })}
