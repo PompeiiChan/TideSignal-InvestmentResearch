@@ -53,6 +53,7 @@ class AgentState(TypedDict, total=False):
 
     # --- query_rewrite output (T-014) ---
     retrieval_query: str
+    retrieval_queries: list[str]
     rewrite_method: str
     retrieval_query_changed: bool
 

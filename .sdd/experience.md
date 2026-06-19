@@ -165,6 +165,11 @@
 - **经验**：图边为 `clarification_check` 通过 → `query_rewrite` → `routing_decision`；澄清链路不经过改写；`rag_retrieval` 主路径用 `effective_query = retrieval_query or normalized_query`，`supplement_mode` 仍用 `supplement_rag_queries`。
 - **避坑**：`route_after_clarification` 返回目标改为 `query_rewrite` 后，图回归测试须断言节点序列含 `query_rewrite`；`filter_hits_by_entity` 长度判断改用 `effective_query` 而非短 `normalized_query`。
 
+### [T-014-P2]: Query 改写 passthrough 与维度多路检索
+- **陷阱**：`_is_short_or_deictic_query` 按长度 ≤12 会把「海天味业基本面」当续问；`_build_stock_retrieval_query` 无条件 append「财报」会把宽维度问句收成财报检索。
+- **经验**：`_query_has_stock_and_dimension` + `_needs_follow_up_rewrite` 分离显性问句与续问；`RetrievalQueryPlan` 同时承载主 query 与 `retrieval_queries[]`；`rag_retrieval` 主路径 `len(retrieval_queries)>=2` 走 `retrieve_targeted`。
+- **避坑**：显性期别问句（如「罗莱生活 2026 年一季报」）仍走 `_query_already_rich` passthrough，不拆多路；续问「它一季报怎么样」须保留公司+期别拼接逻辑。
+
 ### 短期对话记忆（T-015～T-017 backlog，2026-06-12 补入）
 - **决策**：PRD 短期记忆为同会话最近 5 轮 QA；长期记忆 V2+ 延后。实施顺序 T-015（窗口）→ T-016（pending_slots）→ T-017（下游注入）→ T-014（Query 改写）。
 - **现状**：`runner` 已读 10 条消息、`history_summary`  mainly 供意图识别；槽位不跨轮、`response_assembly` 不看历史。

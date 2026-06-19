@@ -1131,12 +1131,48 @@
         "dev-standards/backend-dev.md",
         "dev-standards/backend-layers.md"
       ],
+      "status": "passed",
+      "developer_id": null,
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "Phase ① 技术验收 PASS（2026-06-20）。P2 见 T-014-P2。",
+      "user_gate": true
+    },
+    {
+      "id": "T-014-P2",
+      "title": "Query 改写规则优化 + 维度多 Query（F18 续）",
+      "type": "integration",
+      "description": "T-014 续：Phase ① 修补（显性问句 passthrough、去掉默认财报、收紧短句）+ 规则化 retrieval_queries[] 按维度多路检索。Bad Case：海天味业基本面被收成财报。",
+      "source_feature": "F18",
+      "acceptanceCriteria": [
+        "「海天味业基本面」Trace 中 retrieval_query 语义不退化为仅财报；retrieval_queries 含多路子 query。",
+        "「它一季报怎么样」多轮续问改写仍有效。",
+        "显性问句「罗莱生活 2026 年一季报」保持 passthrough。",
+        "Embedding 不可用时多 query 检索不阻断 BM25 降级。"
+      ],
+      "technicalChecks": [
+        "build_retrieval_query / build_dimension_retrieval_queries 单测覆盖 BC-009",
+        "rag_retrieval 在 retrieval_queries>=2 时调用 retrieve_targeted",
+        "$PY -m pytest backend/tests/test_retrieval_query.py backend/tests/test_rag_retrieval_query.py -q"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": ["P04"],
+        "services": ["frontend/src/services/traces.ts"],
+        "realApiEndpoints": ["GET /api/traces/{trace_id}"],
+        "mockExitCriteria": []
+      },
+      "externalServices": ["本地 Markdown 知识库"],
+      "dependencies": ["T-014"],
+      "priority": 18,
+      "rules_files": ["dev-standards/backend-dev.md", "dev-standards/backend-layers.md"],
       "status": "testing",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "2026-06-12 用户确认：Query 改写优先级排到 V1.1 之后。T-015～T-017 已完成。方案：.sdd/developer-reports/T-014-plan.md",
+      "notes": "方案：.sdd/developer-reports/T-014-P2-plan.md",
       "user_gate": true
     },
     {

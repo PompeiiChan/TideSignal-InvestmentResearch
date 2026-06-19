@@ -37,19 +37,29 @@ async def query_rewrite(
     }
 
     async def _execute() -> tuple[dict[str, Any], str]:
-        retrieval_query, method, changed = build_retrieval_query(
+        plan = build_retrieval_query(
             normalized_query,
             intent_id=str(state.get("intent_id", "")),
             slots=slots,
             conversation_context=state.get("conversation_context"),
         )
         output = {
-            "retrieval_query": retrieval_query,
-            "rewrite_method": method,
-            "retrieval_query_changed": changed,
+            "retrieval_query": plan.retrieval_query,
+            "retrieval_queries": plan.retrieval_queries,
+            "rewrite_method": plan.rewrite_method,
+            "retrieval_query_changed": plan.changed,
         }
-        if changed:
-            summary = f"检索问句已改写（{method}）：{normalized_query} → {retrieval_query}"
+        if plan.changed:
+            if len(plan.retrieval_queries) >= 2:
+                summary = (
+                    f"检索问句保持原样，按维度拆分为 {len(plan.retrieval_queries)} 路子 query"
+                    f"（{plan.rewrite_method}）"
+                )
+            else:
+                summary = (
+                    f"检索问句已改写（{plan.rewrite_method}）："
+                    f"{normalized_query} → {plan.retrieval_query}"
+                )
         else:
             summary = "检索问句保持原样（passthrough）"
         return output, summary

@@ -336,10 +336,48 @@ Trace 示例：`trace_20260619_230935_017_local`。
 
 ---
 
+## BC-009 海天味业基本面被收成「海天味业 财报」
+
+### 用户问题（示例）
+
+> 海天味业基本面
+
+### 现象
+
+- `query_rewrite` 将 `retrieval_query` 改写为「海天味业 财报」或「海天味业 基本面 财报」，丢失用户关注的「基本面」宽维度语义。
+- RAG 仅按财报类关键词检索，研报、盈利能力、竞争力等证据召回不足。
+
+### 理想态
+
+- 显性问句（公司名 + 分析维度）主 `retrieval_query` **passthrough** 原句。
+- 宽维度问股输出 `retrieval_queries[]`（财务 / 盈利 / 研报等多路），`rag_retrieval` 走 `retrieve_targeted` 合并。
+- 续问「它一季报怎么样」仍拼公司 + 期别，不受 passthrough 影响。
+
+### 归因
+
+1. **`_is_short_or_deictic_query` 过宽**：「海天味业基本面」长度 ≤12 被当短句续问。
+2. **`_build_stock_retrieval_query` 无条件 append「财报」**：非财报类宽问也被收成财报检索。
+3. **`f"{stock_name} {dimension} 财报"` 硬拼**：维度问句被强制加财报词。
+
+### 修复（摘要）
+
+- T-014-P2：`_query_has_stock_and_dimension` + `_needs_follow_up_rewrite` 收紧改写条件；显性问句 passthrough。
+- `build_dimension_retrieval_queries` 按维度映射 2～4 条子 query；`rewrite_method=rule_dimension_split`。
+- `rag_retrieval` 主路径：`retrieval_queries` ≥2 时 `retrieve_targeted`。
+
+### 回归要点
+
+- 「海天味业基本面」：Trace `retrieval_query` 保持原句，`retrieval_queries` ≥2，RAG 走多路检索。
+- 「它一季报怎么样」+ `stock_name`：仍含公司名与一季报。
+- 「罗莱生活 2026 年一季报」：passthrough，不拆多路。
+
+---
+
 ## 变更日志
 
 | 日期 | 说明 |
 |------|------|
+| 2026-06-20 | BC-009：海天味业基本面过度收敛为财报（T-014-P2 passthrough + 维度多 Query） |
 | 2026-06-19 | BC-008：宁德时代续问一季报 stock_name 误澄清（pending_slots 继承） |
 | 2026-06-16 | BC-007：海天 2025 年报营收 document_id 误澄清 |
 | 2026-06-14 | BC-006：恒瑞管线 PD-1 幻觉 + 寒武纪年报误检索；叙事 RAG 严格过滤 |

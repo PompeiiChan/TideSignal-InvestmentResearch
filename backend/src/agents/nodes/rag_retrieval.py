@@ -117,9 +117,15 @@ async def rag_retrieval(
         slots = {}
     stock_name = str(slots.get("stock_name", "")).strip()
 
+    extra_queries = state.get("retrieval_queries") or []
+    if not isinstance(extra_queries, list):
+        extra_queries = []
+    extra_queries = [str(item).strip() for item in extra_queries if str(item).strip()]
+
     input_data = {
         "normalized_query": normalized_query,
         "retrieval_query": retrieval_query,
+        "retrieval_queries": extra_queries,
         "retrieval_query_changed": state.get("retrieval_query_changed", False),
         "rewrite_method": state.get("rewrite_method", "passthrough"),
         "query": effective_query,
@@ -227,8 +233,17 @@ async def rag_retrieval(
         rag_result.query = effective_query
         rag_result.mode = "stock_narrative"
     else:
-        rag_result = await rag.retrieve(effective_query, top_k=top_k)
-        if stock_name and len(effective_query) <= 12:
+        if len(extra_queries) >= 2:
+            rag_result = await rag.retrieve_targeted(
+                extra_queries,
+                top_k=top_k,
+                entity_name=stock_name,
+            )
+        elif len(extra_queries) == 1:
+            rag_result = await rag.retrieve(extra_queries[0], top_k=top_k)
+        else:
+            rag_result = await rag.retrieve(effective_query, top_k=top_k)
+        if stock_name and len(effective_query) <= 12 and len(extra_queries) < 2:
             rag_result.hits = filter_hits_by_entity(rag_result.hits, stock_name)
         if state.get("route_target") == "stock_analysis_agent":
             rag_result.hits = diversify_hits_by_time_period(rag_result.hits, top_k=top_k)

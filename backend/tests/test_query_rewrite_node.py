@@ -29,6 +29,7 @@ async def test_query_rewrite_node_outputs_retrieval_query() -> None:
     assert "一季报" in result["retrieval_query"]
     assert result["retrieval_query_changed"] is True
     assert result["rewrite_method"] in {"rule_slots", "rule_multiturn"}
+    assert result["retrieval_queries"] == []
     assert result["current_node"] == "query_rewrite"
     trace = result["trace_steps"][-1]
     assert trace["node"] == "query_rewrite"
@@ -50,3 +51,21 @@ async def test_query_rewrite_node_passthrough_for_rich_query() -> None:
     assert result["retrieval_query"] == query
     assert result["retrieval_query_changed"] is False
     assert result["rewrite_method"] == "passthrough"
+    assert result.get("retrieval_queries", []) == []
+
+
+@pytest.mark.asyncio
+async def test_query_rewrite_node_outputs_dimension_queries() -> None:
+    llm, rag, settings = _deps()
+    state = {
+        "normalized_query": "海天味业基本面",
+        "intent_id": "stock_analysis",
+        "slots": {"stock_name": "海天味业", "analysis_dimension": "基本面"},
+        "trace_steps": [],
+    }
+    result = await query_rewrite(state, llm=llm, rag=rag, settings=settings)
+    assert result["retrieval_query"] == "海天味业基本面"
+    assert len(result["retrieval_queries"]) >= 2
+    assert result["rewrite_method"] == "rule_dimension_split"
+    trace = result["trace_steps"][-1]
+    assert trace["raw_json"]["output"]["retrieval_queries"] == result["retrieval_queries"]
