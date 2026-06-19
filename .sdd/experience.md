@@ -258,3 +258,8 @@
 ### 路线图 T-024：离线 KB 用户验收（2026-06-19）
 - **经验**：用户确认「索引重建完了、验收通过」后，T-020～T-024 主 Phase 闭环；`status.json` → `roadmap-complete`。
 - **经验**：首次问股验收前须等 `knowledge-base/.index/` 的 `build_in_progress=false`，否则长时间停在「获取相关资料」。
+
+### [T-017]: 多轮上下文注入下游节点（F20）
+- **经验**：`conversation_context.py` 集中构建 `has_context` / `carryover_hint`；`history_summary` 非空且（关键槽位或 `inherited_slot_keys`）才视为多轮，首轮行为不变。
+- **经验**：`response_assembly` 仅在 `has_context=true` 时追加 `【多轮对话上下文】` user 块；`evidence_pack.conversation_context` 供 trace 与组装层共用。
+- **避坑**：RAG 默认路径仍用 `normalized_query`；短续问（≤12 字）且继承 `stock_name` 时须 `filter_hits_by_entity`，避免「一季报呢」误召回无关公司片段。

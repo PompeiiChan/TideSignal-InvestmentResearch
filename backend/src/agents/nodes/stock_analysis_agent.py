@@ -7,6 +7,7 @@ from typing import Any
 from ...integrations.langgraph.state import AgentState
 from ...integrations.llm.prompts.agents.stock_analysis import stock_analysis_agent_prompt
 from ...integrations.llm.service import LLMService
+from ...services.conversation_context import build_conversation_context
 from ...services.rag.service import RagService
 from ...services.system_time import resolve_system_time
 from ...settings import AppSettings
@@ -33,11 +34,23 @@ async def stock_analysis_agent(
     _ = rag
     normalized_query = str(state.get("normalized_query", "")).strip()
     slots = state.get("slots") or {}
+    active_slots = state.get("active_slots") or slots
+    history_summary = str(state.get("history_summary", "")).strip()
+    inherited_slot_keys = state.get("inherited_slot_keys") or []
     intent_id = str(state.get("intent_id", "stock_analysis"))
+    conversation_context = build_conversation_context(
+        history_summary=history_summary,
+        active_slots=active_slots,
+        inherited_slot_keys=inherited_slot_keys,
+        normalized_query=normalized_query,
+    )
 
     input_data = {
         "normalized_query": normalized_query,
         "slots": slots,
+        "active_slots": active_slots,
+        "history_summary": history_summary,
+        "conversation_context": conversation_context,
         "intent_id": intent_id,
     }
 

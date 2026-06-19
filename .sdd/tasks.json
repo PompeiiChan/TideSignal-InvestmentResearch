@@ -1181,12 +1181,12 @@
         "dev-standards/backend-dev.md",
         "dev-standards/backend-layers.md"
       ],
-      "status": "passed",
+      "status": "done",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "[PASS] T-015 - 五轮短期记忆窗口技术验收通过\n详见：.sdd/test-reports/test-T-015.md",
+      "notes": "[DONE] T-015 - 用户门禁通过（2026-06-19）。技术：.sdd/test-reports/test-T-015.md",
       "user_gate": true
     },
     {
@@ -1230,12 +1230,12 @@
         "dev-standards/backend-dev.md",
         "dev-standards/backend-layers.md"
       ],
-      "status": "testing",
+      "status": "done",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "多轮指代核心依赖本任务；须在 T-014 Query 改写之前完成。方案：.sdd/developer-reports/T-016-plan.md",
+      "notes": "[DONE] T-016 - 用户门禁通过（2026-06-19）。技术：.sdd/test-reports/test-T-016.md；用户：.sdd/test-reports/acceptance-roadmap-T-016-result.md",
       "user_gate": true
     },
     {
@@ -1283,12 +1283,12 @@
         "dev-standards/backend-dev.md",
         "dev-standards/backend-layers.md"
       ],
-      "status": "backlog",
+      "status": "testing",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "完成本任务后多轮「能聊下去」；检索侧口语改写仍由 T-014 负责。",
+      "notes": "完成本任务后多轮「能聊下去」；检索侧口语改写仍由 T-014 负责。方案：.sdd/developer-reports/T-017-plan.md",
       "user_gate": true
     },
     {

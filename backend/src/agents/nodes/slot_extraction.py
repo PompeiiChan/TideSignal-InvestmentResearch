@@ -7,6 +7,7 @@ from typing import Any
 from ...integrations.langgraph.state import AgentState
 from ...integrations.llm.prompts.slots import slots_system_prompt
 from ...integrations.llm.service import LLMService
+from ...services.conversation_context import build_conversation_context
 from ...services.rag.chunker import resolve_kb_root
 from ...services.rag.company_index import enrich_stock_slots_from_kb
 from ...services.rag.service import RagService
@@ -88,6 +89,12 @@ async def slot_extraction(
             remaining = [name for name in prior_missing if name not in merged_slots]
             missing_slots = remaining
 
+        conversation_context = build_conversation_context(
+            history_summary=history_summary,
+            active_slots=merged_slots,
+            inherited_slot_keys=inherited_keys,
+            normalized_query=normalized_query,
+        )
         output = {
             "extracted_slots": extracted_slots,
             "pending_slots": pending_slots,
@@ -98,6 +105,12 @@ async def slot_extraction(
             "ambiguous_slots": ambiguous_slots,
             "inherited_slot_keys": inherited_keys,
             "overridden_slot_keys": overridden_keys,
+            "conversation_context": conversation_context,
+            "conversation_context_preview": {
+                "has_context": conversation_context.get("has_context", False),
+                "active_slot_keys": sorted(merged_slots.keys()),
+                "inherited_slot_keys": inherited_keys,
+            },
         }
         return output, "完成槽位抽取"
 

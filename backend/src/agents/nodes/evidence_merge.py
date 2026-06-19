@@ -7,6 +7,7 @@ from typing import Any, cast
 from ...integrations.langgraph.state import AgentState
 from ...integrations.llm.service import LLMService
 from ...services.consensus_valuation import lookup_consensus_valuation
+from ...services.conversation_context import build_conversation_context
 from ...services.evidence_gaps import merge_rag_hits, merge_tool_results
 from ...services.rag.chunker import resolve_kb_root
 from ...services.rag.company_index import is_kb_resolved_stock
@@ -52,12 +53,20 @@ async def evidence_merge(
     data_table = state.get("data_table") or []
     supplement_mode = bool(state.get("supplement_mode"))
     force_supplement_done = bool(state.get("evidence_supplement_done"))
+    active_slots = state.get("active_slots") or state.get("slots") or {}
+    conversation_context = build_conversation_context(
+        history_summary=str(state.get("history_summary", "")),
+        active_slots=active_slots,
+        inherited_slot_keys=state.get("inherited_slot_keys") or [],
+        normalized_query=str(state.get("normalized_query", "")),
+    )
 
     input_data = {
         "has_agent_result": bool(agent_result),
         "has_tool_result": bool(incoming_tool_result),
         "rag_chunk_count": len(retrieved_chunks),
         "supplement_mode": supplement_mode,
+        "has_conversation_context": bool(conversation_context.get("has_context")),
     }
 
     async def _execute() -> tuple[dict[str, Any], str]:
@@ -129,7 +138,7 @@ async def evidence_merge(
             citation_map[f"rag_{index}"] = hit
 
         execution_plan = state.get("execution_plan") or {}
-        slots = state.get("slots") or {}
+        slots = active_slots
         scenario_mode = bool(
             execution_plan.get("scenario_return_mode")
             or slots.get("scenario_return_mode")
@@ -221,6 +230,8 @@ async def evidence_merge(
             "stock_narrative_mode": narrative_mode,
             "stock_kb_uncovered": narrative_mode and not kb_resolved,
             "stock_narrative_evidence_missing": narrative_mode and not report_hits,
+            "conversation_context": conversation_context,
+            "active_slots": slots,
         }
         output = {
             "evidence_pack": evidence_pack,

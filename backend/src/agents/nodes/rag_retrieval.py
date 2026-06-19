@@ -10,8 +10,9 @@ from ...integrations.langgraph.status_phases import (
     emit_node_entry_status,
 )
 from ...integrations.llm.service import LLMService
+from ...services.hotspot_recency import extract_hotspot_month_keys
 from ...services.rag.models import RagHit, RagRetrievalResult
-from ...services.rag.retriever import filter_stock_narrative_hits
+from ...services.rag.retriever import filter_hits_by_entity, filter_stock_narrative_hits
 from ...services.rag.service import (
     RagService,
     diversify_hits_by_time_period,
@@ -19,7 +20,6 @@ from ...services.rag.service import (
     hits_to_source_refs,
     merge_rag_hit_lists,
 )
-from ...services.hotspot_recency import extract_hotspot_month_keys
 from ...settings import AppSettings
 from ..stock_tool_plan import build_stock_narrative_rag_queries, is_qualitative_business_query
 from ._helpers import build_parallel_trace_update
@@ -110,15 +110,21 @@ async def rag_retrieval(
     if not isinstance(supplement_filters, dict):
         supplement_filters = {}
 
+    slots = state.get("active_slots") or state.get("slots") or {}
+    if not isinstance(slots, dict):
+        slots = {}
+    stock_name = str(slots.get("stock_name", "")).strip()
+
     input_data = {
         "query": normalized_query,
         "retrieval_config": retrieval_config,
         "supplement_mode": supplement_mode,
         "supplement_queries": supplement_queries,
         "hotspot_evidence_mode": (plan.get("hotspot_evidence_mode") if isinstance(plan, dict) else ""),
+        "active_slots": slots,
+        "stock_name": stock_name,
     }
 
-    stock_name = str((state.get("slots") or {}).get("stock_name", "")).strip()
     stock_narrative_mode = bool(plan.get("stock_narrative_mode")) or retrieval_strategy == "stock_narrative"
     if supplement_mode and supplement_queries:
         if stock_narrative_mode:
@@ -216,6 +222,8 @@ async def rag_retrieval(
         rag_result.mode = "stock_narrative"
     else:
         rag_result = await rag.retrieve(normalized_query, top_k=top_k)
+        if stock_name and len(normalized_query) <= 12:
+            rag_result.hits = filter_hits_by_entity(rag_result.hits, stock_name)
         if state.get("route_target") == "stock_analysis_agent":
             rag_result.hits = diversify_hits_by_time_period(rag_result.hits, top_k=top_k)
     rag_hits = _hits_to_chunks(rag_result.hits)

@@ -44,6 +44,7 @@ class AgentState(TypedDict, total=False):
     ambiguous_slots: list[str]
     inherited_slot_keys: list[str]
     overridden_slot_keys: list[str]
+    conversation_context: dict[str, Any]
 
     # --- clarification_check output ---
     need_clarification: bool

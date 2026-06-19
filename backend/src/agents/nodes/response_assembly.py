@@ -25,6 +25,10 @@ from ...services.citation_catalog import (
     normalize_assembly_citations,
     strip_unusable_financial_tool,
 )
+from ...services.conversation_context import (
+    build_conversation_context,
+    format_conversation_context_for_prompt,
+)
 from ...services.message_sanitizer import ensure_public_risk_notice, sanitize_rich_blocks
 from ...services.rag.models import RagHit
 from ...services.rag.service import RagService
@@ -330,9 +334,20 @@ async def response_assembly(
     intent_stub = _build_intent_stub(state)
     rag_hits = _rag_hits_from_state(state)
     time_ctx = resolve_system_time(settings)
+    active_slots = state.get("active_slots") or state.get("slots") or {}
+    history_summary = str(state.get("history_summary", "")).strip()
+    conversation_context = build_conversation_context(
+        history_summary=history_summary,
+        active_slots=active_slots,
+        inherited_slot_keys=state.get("inherited_slot_keys") or [],
+        normalized_query=normalized_query,
+    )
 
     input_data = {
         "query": normalized_query,
+        "history_summary": history_summary,
+        "active_slots": active_slots,
+        "conversation_context": conversation_context,
         "response_kind": state.get("response_kind", "data"),
         "revision_suggestions": revision_suggestions,
     }
@@ -373,6 +388,13 @@ async def response_assembly(
             f"用户问题：{normalized_query}\n\n"
             f"evidence_pack：\n{evidence_text}\n\n"
         )
+        if conversation_context.get("has_context"):
+            context_block = format_conversation_context_for_prompt(conversation_context)
+            user_prompt += (
+                "【多轮对话上下文】\n"
+                f"{context_block}\n\n"
+                "须延续上述标的与时间口径作答，不得要求用户重复提供公司名称。\n\n"
+            )
         if revision_suggestions:
             user_prompt += f"质检修订建议：{'; '.join(revision_suggestions)}\n\n"
         if citation_context:
