@@ -194,12 +194,20 @@ def _period_date(period_key: str) -> str:
     return f"{period_key[:4]}-{period_key[4:6]}-{period_key[6:8]}"
 
 
-def _pick_periods(report_lists: dict[str, dict[str, Any]]) -> tuple[str | None, str | None]:
-    """Return (annual_period_key, q1_period_key) from merged report_list keys."""
+def _pick_periods(report_lists: dict[str, dict[str, Any]]) -> list[str]:
+    """Return latest interim plus up to three annual report keys."""
     keys = sorted(report_lists.keys(), reverse=True)
-    annual = next((k for k in keys if k.endswith("1231")), None)
-    q1 = next((k for k in keys if k.endswith("0331")), None)
-    return annual, q1
+    annuals = [key for key in keys if key.endswith("1231")][:3]
+    interim = next((key for key in keys if not key.endswith("1231")), None)
+    selected: list[str] = []
+    if interim:
+        selected.append(interim)
+    for annual in annuals:
+        if annual not in selected:
+            selected.append(annual)
+    if not selected and keys:
+        selected.append(keys[0])
+    return selected
 
 
 def _extract_items(report_obj: dict[str, Any]) -> dict[str, str]:
@@ -229,10 +237,9 @@ def fetch_period_reports(code: str) -> dict[str, PeriodReport]:
     fzb_list = sina_fetch_report_list(code, "fzb")
     llb_list = sina_fetch_report_list(code, "llb")
     all_keys = set(lrb_list) | set(fzb_list) | set(llb_list)
-    annual_key, q1_key = _pick_periods({k: {} for k in all_keys})
-    selected = [k for k in (annual_key, q1_key) if k]
+    selected_keys = _pick_periods({key: {} for key in all_keys})
     reports: dict[str, PeriodReport] = {}
-    for key in selected:
+    for key in selected_keys:
         reports[key] = PeriodReport(
             period_key=key,
             period_date=_period_date(key),
@@ -380,10 +387,18 @@ def _financial_tables(report: PeriodReport) -> str:
 
 
 def _sorted_period_keys(reports: dict[str, PeriodReport]) -> list[str]:
-    """Annual (12-31) first, then Q1 (03-31), matching existing KB naming."""
-    annual = next((k for k in reports if k.endswith("1231")), None)
-    q1 = next((k for k in reports if k.endswith("0331")), None)
-    return [k for k in (annual, q1) if k]
+    """Interim reports first, then annuals newest-to-oldest."""
+    keys = list(reports.keys())
+    interim = [key for key in keys if not key.endswith("1231")]
+    annuals = sorted([key for key in keys if key.endswith("1231")], reverse=True)
+    ordered: list[str] = []
+    for key in interim:
+        if key not in ordered:
+            ordered.append(key)
+    for key in annuals:
+        if key not in ordered:
+            ordered.append(key)
+    return ordered
 
 
 def _periods_label(reports: dict[str, PeriodReport]) -> str:

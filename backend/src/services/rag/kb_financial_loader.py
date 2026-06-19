@@ -27,9 +27,31 @@ def _parse_metrics_table(section_text: str) -> dict[str, str]:
         left, middle, right = (cell.strip() for cell in row)
         if left in {"报表", "---", "字段"} or middle in {"科目", "内容", "---"}:
             continue
-        if left == "利润表" or left == "指标":
-            metrics[middle] = right
+        metrics[middle] = right
     return metrics
+
+
+def _parse_metric_number(raw: str) -> float | None:
+    text = (raw or "").strip()
+    if not text or text in {"—", "N/A"}:
+        return None
+    token = text.split()[0].replace(",", "")
+    try:
+        return float(token)
+    except ValueError:
+        return None
+
+
+def _compute_debt_ratio_from_metrics(metrics: dict[str, str]) -> str | None:
+    assets = _parse_metric_number(metrics.get("资产总计", ""))
+    equity = _parse_metric_number(
+        metrics.get("归属于母公司所有者权益合计")
+        or metrics.get("所有者权益(或股东权益)合计")
+        or ""
+    )
+    if assets is None or equity is None or assets <= 0:
+        return None
+    return f"{(assets - equity) / assets * 100:.2f}%"
 
 
 def _all_metrics_sections(text: str) -> list[str]:
@@ -72,6 +94,17 @@ def _profile_from_metrics_section(
     time_period = _time_period_from_section(section_text) or "未知"
     gross_margin = metrics.get("毛利率（推算）", "N/A")
     roe = metrics.get("净资产收益率 ROE（推算）", "N/A")
+    operating_cash_flow = metrics.get("经营活动产生的现金流量净额", "N/A")
+    debt_ratio = _compute_debt_ratio_from_metrics(metrics) or "N/A"
+    highlights = [
+        f"{time_period} 营收 {revenue}",
+        f"归母净利润 {profit}",
+        source_note,
+    ]
+    if operating_cash_flow != "N/A":
+        highlights.append(f"经营现金流 {operating_cash_flow}")
+    if debt_ratio != "N/A":
+        highlights.append(f"资产负债率 {debt_ratio}")
     return {
         "company_id": f"company_{stock_code}",
         "ticker": format_ticker(stock_code),
@@ -82,12 +115,10 @@ def _profile_from_metrics_section(
         "net_profit": profit,
         "gross_margin": gross_margin,
         "roe": roe,
+        "operating_cash_flow": operating_cash_flow,
+        "debt_ratio": debt_ratio,
         "pe_ttm": "N/A",
-        "highlights": [
-            f"{time_period} 营收 {revenue}",
-            f"归母净利润 {profit}",
-            source_note,
-        ],
+        "highlights": highlights,
     }
 
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import requests
@@ -21,8 +21,15 @@ LRB_KEYS = [
     "归属于母公司所有者的净利润",
 ]
 FZB_KEYS = [
+    "资产总计",
     "归属于母公司所有者权益合计",
     "所有者权益(或股东权益)合计",
+]
+FZB_EQUITY_KEYS = FZB_KEYS[1:]
+LLB_KEYS = [
+    "经营活动产生的现金流量净额",
+    "投资活动产生的现金流量净额",
+    "筹资活动产生的现金流量净额",
 ]
 
 _SESSION = requests.Session()
@@ -38,6 +45,7 @@ class PeriodSnapshot:
     period_key: str
     lrb: dict[str, str]
     fzb: dict[str, str]
+    llb: dict[str, str] = field(default_factory=dict)
 
 
 def paper_code_for(stock_code: str) -> str:
@@ -123,15 +131,17 @@ def fetch_multi_period_snapshots(
 ) -> list[PeriodSnapshot]:
     lrb_list = fetch_report_list(stock_code, "lrb")
     fzb_list = fetch_report_list(stock_code, "fzb")
-    all_keys = set(lrb_list) | set(fzb_list)
+    llb_list = fetch_report_list(stock_code, "llb")
+    all_keys = set(lrb_list) | set(fzb_list) | set(llb_list)
     period_keys = select_multi_period_keys({key: {} for key in all_keys}, max_annual=max_annual)
     snapshots: list[PeriodSnapshot] = []
     for period_key in period_keys:
         lrb = _extract_items(lrb_list.get(period_key, {}))
         fzb = _extract_items(fzb_list.get(period_key, {}))
-        if not lrb and not fzb:
+        llb = _extract_items(llb_list.get(period_key, {}))
+        if not lrb and not fzb and not llb:
             continue
-        snapshots.append(PeriodSnapshot(period_key=period_key, lrb=lrb, fzb=fzb))
+        snapshots.append(PeriodSnapshot(period_key=period_key, lrb=lrb, fzb=fzb, llb=llb))
     return snapshots
 
 
@@ -172,7 +182,7 @@ def _compute_gross_margin(lrb: dict[str, str]) -> str | None:
 
 def _compute_roe(lrb: dict[str, str], fzb: dict[str, str]) -> str | None:
     profit = _first_value(lrb, ["归属于母公司所有者的净利润", "净利润"])
-    equity = _first_value(fzb, FZB_KEYS)
+    equity = _first_value(fzb, FZB_EQUITY_KEYS)
     if not profit or not equity:
         return None
     try:
@@ -212,6 +222,20 @@ def sort_profiles_by_period(profiles: list[dict[str, Any]]) -> list[dict[str, An
     )
 
 
+def _compute_debt_ratio(fzb: dict[str, str]) -> str | None:
+    assets_raw = _first_value(fzb, ["资产总计"])
+    equity_raw = _first_value(fzb, FZB_EQUITY_KEYS)
+    if not assets_raw or not equity_raw:
+        return None
+    try:
+        assets, equity = float(assets_raw), float(equity_raw)
+        if assets <= 0:
+            return None
+        return f"{(assets - equity) / assets * 100:.2f}%"
+    except ValueError:
+        return None
+
+
 def build_profile_from_snapshot(
     snapshot: PeriodSnapshot,
     *,
@@ -225,6 +249,8 @@ def build_profile_from_snapshot(
 
     gross_margin = _compute_gross_margin(snapshot.lrb) or "N/A"
     roe = _compute_roe(snapshot.lrb, snapshot.fzb) or "N/A"
+    operating_cash_flow_raw = _first_value(snapshot.llb, LLB_KEYS[:1])
+    debt_ratio = _compute_debt_ratio(snapshot.fzb) or "N/A"
     time_period = _time_period_label(snapshot.period_key)
     from .stock_code_resolver import format_ticker
 
@@ -233,6 +259,10 @@ def build_profile_from_snapshot(
         f"归母净利润 {_fmt_amount(profit_raw)}",
         "数据来源：新浪财经公开 API",
     ]
+    if operating_cash_flow_raw:
+        highlights.append(f"经营现金流 {_fmt_amount(operating_cash_flow_raw)}")
+    if debt_ratio != "N/A":
+        highlights.append(f"资产负债率 {debt_ratio}")
     return {
         "company_id": f"company_{stock_code}",
         "ticker": format_ticker(stock_code),
@@ -244,6 +274,8 @@ def build_profile_from_snapshot(
         "net_profit": _fmt_amount(profit_raw),
         "gross_margin": gross_margin,
         "roe": roe,
+        "operating_cash_flow": _fmt_amount(operating_cash_flow_raw),
+        "debt_ratio": debt_ratio,
         "pe_ttm": "N/A",
         "highlights": highlights,
     }

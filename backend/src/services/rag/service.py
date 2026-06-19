@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 
 from pycore.core import get_logger
@@ -47,6 +48,50 @@ def merge_rag_hit_lists(hit_groups: list[list[RagHit]], *, top_k: int) -> list[R
             if existing is None or hit.score > existing.score:
                 merged[hit.chunk_id] = hit
     return sorted(merged.values(), key=lambda item: item.score, reverse=True)[: max(top_k, 1)]
+
+
+def _company_key_from_hit(hit: RagHit) -> str:
+    doc_id = hit.doc_id.strip()
+    match = re.match(r"(?:ann|q1|q)_(\d{6})_", doc_id)
+    if match:
+        return match.group(1)
+    path_match = re.search(r"(\d{6})", hit.path)
+    if path_match:
+        return path_match.group(1)
+    return doc_id or hit.path
+
+
+def _is_financial_hit(hit: RagHit) -> bool:
+    normalized_path = hit.path.replace("\\", "/")
+    return hit.source_type == "financial" or "/financials/" in normalized_path
+
+
+def diversify_hits_by_time_period(hits: list[RagHit], *, top_k: int) -> list[RagHit]:
+    """Prefer one high-score chunk per (company, time_period) for financial evidence."""
+    if len(hits) <= 1:
+        return hits[:top_k]
+
+    ranked = sorted(hits, key=lambda item: item.score, reverse=True)
+    financial_hits = [hit for hit in ranked if _is_financial_hit(hit)]
+    if len(financial_hits) < 2:
+        return ranked[:top_k]
+
+    best_by_period: dict[tuple[str, str], RagHit] = {}
+    for hit in financial_hits:
+        period = hit.time_period.strip() or hit.doc_id or hit.chunk_id
+        company_key = _company_key_from_hit(hit)
+        bucket = (company_key, period)
+        existing = best_by_period.get(bucket)
+        if existing is None or hit.score > existing.score:
+            best_by_period[bucket] = hit
+
+    if len(best_by_period) < 2:
+        return ranked[:top_k]
+
+    diversified = sorted(best_by_period.values(), key=lambda item: item.score, reverse=True)
+    selected_ids = {hit.chunk_id for hit in diversified}
+    merged = diversified + [hit for hit in ranked if hit.chunk_id not in selected_ids]
+    return merged[:top_k]
 
 
 class RagNotReadyError(RuntimeError):
@@ -371,6 +416,7 @@ class RagService:
                 )
             else:
                 final_hits = filter_hits_by_entity(final_hits, entity_name.strip())
+        final_hits = diversify_hits_by_time_period(final_hits, top_k=max(top_k, 4))
         latency_ms = int((time.perf_counter() - started) * 1000)
         return RagRetrievalResult(
             hits=final_hits,

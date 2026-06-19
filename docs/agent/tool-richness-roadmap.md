@@ -95,11 +95,18 @@
 
 ### 目标
 
-| 子项 | 内容 |
-|------|------|
-| P1 | 运行期财报工具带出现金流、资产负债等（与入库脚本字段对齐） |
-| P2 | RAG 问股检索：同 `company_id` 按 `time_period` 去重，保证多期 chunk 进 evidence |
-| P3 | `ingest_chinext_sina_financials.py` 扩展为 3 年年报 + 多季报写入 KB |
+| 子项 | 内容 | 状态 |
+|------|------|------|
+| P1 | 运行期财报工具带出现金流、资产负债等（与入库脚本字段对齐） | 🟡 **已开发，待用户验收** |
+| P2 | RAG 问股检索：同 `company_id` 按 `time_period` 去重，保证多期 chunk 进 evidence | 🟡 **已开发，待用户验收** |
+| P3 | `ingest_chinext_sina_financials.py` 扩展为 3 年年报 + 多季报写入 KB | 🟡 **已开发，待重跑入库** |
+
+### P1–P3 技术要点（2026-06-19）
+
+- `sina_finance_client` / `kb_financial_loader`：`periods[]` 增加 `operating_cash_flow`、`debt_ratio`
+- `diversify_hits_by_time_period`：`retrieve_targeted` 与问股 `rag_retrieval` 保证多期财报片段
+- `ingest_chinext_sina_financials.py`：`_pick_periods` 支持最新季报 + 至多 3 个年报
+- 验收清单：`.sdd/test-reports/acceptance-roadmap-T-022-P1.md`
 
 ### 验收标准
 

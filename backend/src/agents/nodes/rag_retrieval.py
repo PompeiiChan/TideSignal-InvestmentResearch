@@ -12,7 +12,12 @@ from ...integrations.langgraph.status_phases import (
 from ...integrations.llm.service import LLMService
 from ...services.rag.models import RagHit, RagRetrievalResult
 from ...services.rag.retriever import filter_stock_narrative_hits
-from ...services.rag.service import RagService, hits_to_source_refs, merge_rag_hit_lists
+from ...services.rag.service import (
+    RagService,
+    diversify_hits_by_time_period,
+    hits_to_source_refs,
+    merge_rag_hit_lists,
+)
 from ...settings import AppSettings
 from ..stock_tool_plan import build_stock_narrative_rag_queries, is_qualitative_business_query
 from ._helpers import build_parallel_trace_update
@@ -185,6 +190,8 @@ async def rag_retrieval(
         rag_result.mode = "stock_narrative"
     else:
         rag_result = await rag.retrieve(normalized_query, top_k=top_k)
+        if state.get("route_target") == "stock_analysis_agent":
+            rag_result.hits = diversify_hits_by_time_period(rag_result.hits, top_k=top_k)
     rag_hits = _hits_to_chunks(rag_result.hits)
     retrieved_chunks = [
         {

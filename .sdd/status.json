@@ -5,5 +5,5 @@
   "development_ready": true,
   "current_task": "roadmap-T-022",
   "blocked": false,
-  "notes": "路线图 T-021-P1 估值历史分位用户验收通过（2026-06-19）。当前焦点 T-022 问股财报深化；估值 P2/P3、问数 P2/P3 为 backlog。报告：.sdd/test-reports/acceptance-roadmap-T-021-P1-result.md"
+  "notes": "路线图 T-022 P1–P3 已开发（财报现金流/负债、RAG 多期去重、入库 3 年报），待用户验收。清单：.sdd/test-reports/acceptance-roadmap-T-022-P1.md"
 }

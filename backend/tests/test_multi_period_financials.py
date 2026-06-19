@@ -73,9 +73,24 @@ def test_fetch_multi_period_profiles_builds_multiple_snapshots(mock_fetch: objec
                     ]
                 },
             }
+        if report_type == "llb":
+            return {
+                "20260331": {"data": [{"item_title": "经营活动产生的现金流量净额", "item_value": "15000000"}]},
+                "20251231": {"data": [{"item_title": "经营活动产生的现金流量净额", "item_value": "90000000"}]},
+            }
         return {
-            "20260331": {"data": [{"item_title": "归属于母公司所有者权益合计", "item_value": "500000000"}]},
-            "20251231": {"data": [{"item_title": "归属于母公司所有者权益合计", "item_value": "480000000"}]},
+            "20260331": {
+                "data": [
+                    {"item_title": "资产总计", "item_value": "800000000"},
+                    {"item_title": "归属于母公司所有者权益合计", "item_value": "500000000"},
+                ]
+            },
+            "20251231": {
+                "data": [
+                    {"item_title": "资产总计", "item_value": "750000000"},
+                    {"item_title": "归属于母公司所有者权益合计", "item_value": "480000000"},
+                ]
+            },
         }
 
     mock_fetch.side_effect = _side_effect
@@ -83,6 +98,8 @@ def test_fetch_multi_period_profiles_builds_multiple_snapshots(mock_fetch: objec
     assert len(profiles) == 2
     assert profiles[0]["time_period"] == "2026Q1"
     assert profiles[1]["time_period"] == "2025A"
+    assert profiles[0]["operating_cash_flow"] != "N/A"
+    assert profiles[0]["debt_ratio"] == "37.50%"
 
 
 def test_kb_loader_reads_multiple_period_sections() -> None:
@@ -95,6 +112,8 @@ def test_kb_loader_reads_multiple_period_sections() -> None:
     assert "2026Q1" in periods
     assert "2025A" in periods
     assert profiles[0]["time_period"] == "2026Q1"
+    assert profiles[0]["operating_cash_flow"] != "N/A"
+    assert profiles[0]["debt_ratio"] != "N/A"
 
 
 def test_build_profile_from_snapshot_includes_period_key() -> None:
