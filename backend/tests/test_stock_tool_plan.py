@@ -69,11 +69,13 @@ def test_is_qualitative_business_query_detects_pipeline() -> None:
     assert is_qualitative_business_query(query="分析一下千禾味业2026Q1财报业绩") is False
 
 
+@patch("backend.src.agents.tools.valuation_profile_lookup.fetch_valuation_history")
 @patch("backend.src.agents.tools.valuation_profile_lookup.fetch_quote_snapshot")
 @patch("backend.src.agents.tools.valuation_profile_lookup.resolve_stock_code")
 def test_lookup_valuation_profile_success(
     mock_resolve: object,
     mock_fetch: object,
+    mock_history: object,
 ) -> None:
     mock_resolve.return_value = ("000661", "长春高新")
     mock_fetch.return_value = {
@@ -85,7 +87,17 @@ def test_lookup_valuation_profile_success(
         "change_pct": 1.2,
         "source": "https://qt.gtimg.cn/",
     }
+    mock_history.return_value = {
+        "found": True,
+        "secu_code": "000661.SZ",
+        "lookback_years": 3,
+        "pe_ttm": {"current": 18.2, "percentile": 72.5, "p50": 15.0},
+        "pb": {"current": 3.1, "percentile": 80.0, "p50": 2.5},
+        "data_origin": "eastmoney_valuation_history",
+    }
     result = lookup_valuation_profile(stock_name="长春高新", stock_code="000661.SZ")
     assert result["found"] is True
     assert result["data_origin"] == "tencent_quote_api"
     assert result["valuation"]["pe_ttm"] == "18.2"
+    assert result["valuation_history"]["found"] is True
+    assert result["valuation_history"]["pe_ttm"]["percentile"] == 72.5

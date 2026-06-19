@@ -79,8 +79,10 @@ def valuation_tool_is_usable(tool_result: dict[str, Any]) -> bool:
     return bool(present) and not all(value.upper() == "N/A" for value in present)
 
 
-def valuation_reference_title(snapshot: dict[str, Any]) -> str:
+def valuation_reference_title(snapshot: dict[str, Any], *, has_history: bool = False) -> str:
     name = str(snapshot.get("stock_name", "")).strip() or "未知公司"
+    if has_history:
+        return f"{name} 估值画像（腾讯实时 + 东财历史分位）"
     return f"{name} 实时估值（腾讯行情）"
 
 
@@ -307,10 +309,11 @@ def build_citation_catalog(
     if valuation_tool_is_usable(tool_result):
         payload = _valuation_tool_payload(tool_result) or {}
         snapshot = _valuation_snapshot(payload) or {}
+        has_history = bool((payload.get("valuation_history") or {}).get("found"))
         catalog.entries.append(
             CitationEntry(
                 index=next_index,
-                title=valuation_reference_title(snapshot),
+                title=valuation_reference_title(snapshot, has_history=has_history),
                 source_type="market",
                 doc_id=str(snapshot.get("ticker", "")),
                 origin="tencent_quote_api",
@@ -522,6 +525,15 @@ def format_citation_context(
                 json.dumps(valuation_snapshot, ensure_ascii=False, indent=2),
             ]
         )
+        valuation_history = (valuation_payload or {}).get("valuation_history")
+        if isinstance(valuation_history, dict) and valuation_history.get("found"):
+            lines.extend(
+                [
+                    "",
+                    f"### 估值历史分位（同引用编号 {valuation_index}，解读「贵不贵」须结合本节）",
+                    json.dumps(valuation_history, ensure_ascii=False, indent=2),
+                ]
+            )
 
     stock_api_payload = _stock_api_tool_payload(tool_result)
     stock_api_index = catalog.doc_index.get("__stock_api_tool__")

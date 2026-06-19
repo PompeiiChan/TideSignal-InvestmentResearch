@@ -53,7 +53,7 @@
 ### V1.2+  backlog（V1.1 之后，不阻塞当前迭代）
 
 > **工具数据丰富度（当前迭代）**：见 [`docs/agent/tool-richness-roadmap.md`](agent/tool-richness-roadmap.md)。  
-> **当前活动**：T-020 问数动态工具编排（P1 已开发，待用户验收）→ 验收后自动进入 T-021 估值。
+> **当前活动**：T-022 问股财报深化（T-021-P1 估值历史分位已于 2026-06-19 验收）。路线图见 [`tool-richness-roadmap.md`](agent/tool-richness-roadmap.md) §二。
 
 | 序号 | 功能名称 | 一句话描述 | 依赖 | 优先级 | 状态 |
 |------|----------|------------|------|--------|------|

@@ -1,10 +1,11 @@
-"""Runtime valuation profile lookup via Tencent realtime quotes."""
+"""Runtime valuation profile lookup via Tencent realtime quotes + Eastmoney history."""
 
 from __future__ import annotations
 
 import logging
 from typing import Any
 
+from ...integrations.market_data.em_valuation_history_client import fetch_valuation_history
 from ...integrations.market_data.stock_code_resolver import format_ticker, resolve_stock_code
 from ...integrations.market_data.tencent_quote_client import fetch_quote_snapshot
 
@@ -69,13 +70,33 @@ def lookup_valuation_profile(
         "change_pct": _fmt_metric(snapshot.get("change_pct"), suffix="%"),
         "as_of": "实时行情",
     }
+
+    valuation_history: dict[str, Any] | None = None
+    history_notes = ""
+    try:
+        history_payload = fetch_valuation_history(resolved_code)
+        if history_payload.get("found"):
+            valuation_history = history_payload
+        else:
+            history_notes = str(history_payload.get("notes", "历史估值暂不可用"))
+    except Exception as exc:
+        logger.warning("Valuation history lookup failed for %s: %s", resolved_code, exc)
+        history_notes = f"历史估值拉取失败: {exc}"
+
+    notes = "结构化估值画像：腾讯实时行情"
+    if valuation_history:
+        notes += " + 东财近 3 年 PE/PB 历史分位"
+    elif history_notes:
+        notes += f"；{history_notes}"
+
     return {
         "tool": "valuation_profile_lookup",
         "found": True,
         "analysis_dimension": analysis_dimension,
         "valuation": valuation,
+        "valuation_history": valuation_history,
         "source": str(snapshot.get("source", "https://qt.gtimg.cn/")),
         "data_origin": "tencent_quote_api",
         "is_mock": False,
-        "notes": "结构化估值画像，源自腾讯财经实时行情",
+        "notes": notes,
     }

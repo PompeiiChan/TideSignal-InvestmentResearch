@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { CalculatorPayload, RankingTablePayload, RichBlock, ScenarioCalculatorPayload, SectorHeatmapPayload } from '../types/api'
+import { formatYuan } from '../utils/format'
 import { resolveRankingColumns } from '../utils/rankingTableLabels'
 import { normalizeCalculatorPayload } from '../utils/richBlockPayload'
 import { computeBuyPriceFromReturn, computeGrossProfit, computeReturnRate, roundPrice, roundReturnRate } from '../utils/returnCalc'

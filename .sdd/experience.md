@@ -211,3 +211,11 @@
 ### 路线图 T-020-P1：问数工具丰富度用户验收（2026-06-18）
 - **经验**：P1 通过后 `status.json` → `roadmap-T-021`；T-020 在路线图 §一 标为「P1 已验收、P2/P3 待办」，勿与 tasks.json 的 T-020（过程时间线）混淆。
 - **经验**：排行表 `ranking_table` 富组件须用中文表头（`排名/股票/板块/涨跌幅/收盘价`），字段 key 仅作行数据键，不可直接渲染为表头。
+
+### 路线图 T-021-P1：估值历史分位（2026-06-15）
+- **经验**：`valuation_profile_lookup` 实时估值仍走腾讯 `qt.gtimg.cn`；近 3 年 PE/PB 分位走东财 `datacenter-web` `RPT_VALUEANALYSIS_DET`，输出 `valuation_history`（`pe_ttm`/`pb` 分位 + `quarterly_series`）。PE 分位仅统计 PE>0 盈利期样本；亏损期当前 PE 可能为负，须在 `notes` 与正文说明。
+- **避坑**：历史接口失败时须降级为仅实时估值，不得编造分位；`citation_catalog` 组装上下文须附带 `valuation_history` JSON，否则 assembly 易退回单点 PE 解读。
+
+### 路线图 T-021-P1：估值工具丰富度用户验收（2026-06-19）
+- **经验**：P1 通过后 `status.json` → `roadmap-T-022`；T-021 在路线图 §一 标为「P1 已验收、P2/P3 待办」，勿与 tasks.json 任务 ID 混淆。
+- **经验**：用户说「估值 P1 验收通过」或「继续工具路线图」时，下一项为 **T-022 问股财报深化**（现金流/负债、RAG 多期、KB 扩容）。
