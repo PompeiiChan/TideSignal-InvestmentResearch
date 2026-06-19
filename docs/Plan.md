@@ -53,7 +53,7 @@
 ### V1.2+  backlog（V1.1 之后，不阻塞当前迭代）
 
 > **工具数据丰富度（当前迭代）**：见 [`docs/agent/tool-richness-roadmap.md`](agent/tool-richness-roadmap.md)。  
-> **当前活动**：T-023 热点工具丰富度（T-022-P1/P2 财报深化已于 2026-06-19 验收）。路线图见 [`tool-richness-roadmap.md`](agent/tool-richness-roadmap.md) §二。
+> **当前活动**：T-024 离线 KB 与入库扩展（T-023 热点已于 2026-06-19 验收）。路线图见 [`tool-richness-roadmap.md`](agent/tool-richness-roadmap.md) §二。
 
 | 序号 | 功能名称 | 一句话描述 | 依赖 | 优先级 | 状态 |
 |------|----------|------------|------|--------|------|

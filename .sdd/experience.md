@@ -234,3 +234,7 @@
 - **经验**：复盘/多月演变用 `is_hotspot_replay_query`（放 `hotspot_recency.py`）跳过 `hotspot_signal_lookup`；勿与 `hotspot_tool_plan` 循环 import。
 - **经验**：`extract_hotspot_month_keys` 解析「4月到6月」后须 `sorted` 去重；`retrieve_hotspot_multi_month` + `diversify_hotspot_hits_by_month` 支撑热点演变 RAG。
 - **经验**：Tester PASS 后仍须用户 Trace 门禁；话术见 `acceptance-roadmap-T-023-P1.md`。
+
+### 路线图 T-023-P1/P2/P3：热点工具丰富度用户验收（2026-06-19）
+- **经验**：用户说「热点 P1 验收通过」时，T-023 整 Phase 视为 PASS；`status.json` → `roadmap-T-024`。
+- **经验**：下一项为 **T-024 离线 KB 与入库扩展**，与 T-022-P3 ingest 重跑联动（3 年年报 + 最新季报）。

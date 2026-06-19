@@ -15,15 +15,37 @@
 | **T-020** | 问数工具丰富度 | 问数 `data_query` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-18 |
 | **T-021** | 估值工具丰富度 | 问股 `valuation_profile_lookup` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-19 |
 | **T-022** | 问股财报深化 | 问股 `mock_financial_profile_lookup` + RAG | ✅ **P1/P2 已验收**（P3 入库重跑待办） | 用户 2026-06-19 |
-| **T-023** | 热点工具丰富度 | 热点 `hotspot_*` + RAG | 🟡 **P1–P3 开发完成，待用户验收** | 待用户 |
-| **T-024** | 离线 KB 与入库扩展 | 脚本 `ingest_*` + financials | ⏳ 待 T-023 验收后 | — |
+| **T-023** | 热点工具丰富度 | 热点 `hotspot_*` + RAG | ✅ **P1/P2/P3 已验收** | 用户 2026-06-19 |
+| **T-024** | 离线 KB 与入库扩展 | 脚本 `ingest_*` + financials | 🟡 **当前活动** | 待用户 |
 
 ---
 
-## 二、当前活动 Phase：T-023 热点工具丰富度
+## 二、当前活动 Phase：T-024 离线 KB 与入库扩展
 
-> **T-022-P1/P2** 已于 2026-06-19 用户验收通过（报告：`.sdd/test-reports/acceptance-roadmap-T-022-P1-result.md`）。  
-> **T-022-P3**（批量重跑 ingest 扩 KB 至 3 年报）为可选 backlog，不阻塞 T-023。
+> **T-023** 已于 2026-06-19 用户验收通过（报告：`.sdd/test-reports/acceptance-roadmap-T-023-P1-result.md`）。  
+> **T-022-P3**（批量重跑 ingest 扩 KB 至 3 年报）与 T-024 联动，可一并推进。
+
+### T-023 归档摘要（P1–P3）
+
+#### 问题摘要
+
+信号仅当日 THS；公告依赖手动 `stock_codes`；编排固定双工具；多月复盘 RAG 单路检索。
+
+#### 实施分期
+
+| 子阶段 | 内容 | 状态 |
+|--------|------|------|
+| **T-023-P1** | `resolve_hotspot_stock_codes` 自动拉巨潮公告 | ✅ **已验收**（2026-06-19） |
+| **T-023-P2** | 动态 `tool_names`（复盘跳过 signal） | ✅ **已验收**（2026-06-19） |
+| **T-023-P3** | `retrieve_hotspot_multi_month` 多月 RAG | ✅ **已验收**（2026-06-19） |
+
+#### 技术要点
+
+- `hotspot_tool_plan.py` / `hotspot_recency.py`：代码解析、复盘判定、动态工具
+- `hotspot_fact_lookup.py` / `hotspot_agent.py`：公告与规划层
+- `service.py` / `rag_retrieval.py`：多月检索与 `diversify_hotspot_hits_by_month`
+
+---
 
 ### T-022 归档摘要（P1–P2）
 
@@ -118,7 +140,7 @@
 
 ---
 
-## 五、T-023 热点工具丰富度（当前执行）
+## 五、T-023 热点工具丰富度（已验收）
 
 ### 问题
 
@@ -126,33 +148,25 @@
 
 ### 目标
 
-| 子项 | 内容 |
-|------|------|
-| P1 | 从 query/slots 自动解析股票代码拉巨潮公告 |
-| P2 | 热点动态 `tool_names`（复盘类可跳过当日信号） |
-| P3 | RAG `hotspot_dual` 按月份多路检索，支撑「热点演变」叙述 |
+| 子项 | 内容 | 状态 |
+|------|------|------|
+| P1 | 从 query/slots 自动解析股票代码拉巨潮公告 | ✅ 2026-06-19 |
+| P2 | 热点动态 `tool_names`（复盘类可跳过当日信号） | ✅ 2026-06-19 |
+| P3 | RAG `hotspot_dual` 按月份多路检索 | ✅ 2026-06-19 |
 
-### 验收标准
-
-- 问「机器人板块最近为什么火」→ 含 RAG 月报 + 事实层快讯/公告（若有代码则含公告）。
-- 问「帮我复盘 4 月到 6 月半导体热点」→ 命中多个月报片段或明确标注证据不足。
-
-### 实施状态（2026-06-15）
-
-| 子项 | 实现 | 自动化 |
-|------|------|--------|
-| P1 | `resolve_hotspot_stock_codes` + `hotspot_fact_lookup` / `hotspot_agent` | PASS |
-| P2 | `resolve_hotspot_tool_names` 复盘跳过 signal；Agent `tool_names` | PASS |
-| P3 | `retrieve_hotspot_multi_month` + `diversify_hotspot_hits_by_month` | PASS |
-
-Tester：`.sdd/test-reports/test-roadmap-T-023.md`；用户清单：`.sdd/test-reports/acceptance-roadmap-T-023-P1.md`
+用户验收：`.sdd/test-reports/acceptance-roadmap-T-023-P1-result.md`
 
 ---
 
-## 六、T-024 离线 KB 与入库扩展（T-023 验收后执行）
+## 六、T-024 离线 KB 与入库扩展（当前执行）
 
 - 全市场财报 KB：3 年年报 + 最新季报批量入库
 - 与 T-022-P3 联动，验收以 KB 文件 `### 主要财务数据` 段数量为准
+
+### 验收标准（草案）
+
+- 重跑 `ingest_chinext_sina_financials.py` 后，抽样标的 KB 文件含 ≥3 个年报段 + 最新季报
+- 问股多期 RAG / `periods[]` 可覆盖 3 年以上历史
 
 ---
 
@@ -165,6 +179,8 @@ Tester：`.sdd/test-reports/test-roadmap-T-023.md`；用户清单：`.sdd/test-r
 | 问数编排（T-020） | `backend/src/agents/data_query_tool_plan.py` |
 | 路由默认计划 | `backend/src/agents/nodes/routing_decision.py` |
 | 问数 Agent Prompt | `backend/src/integrations/llm/prompts/agents/data_query.py` |
+| 热点编排（T-023） | `backend/src/agents/hotspot_tool_plan.py` |
+| 入库脚本（T-024） | `backend/scripts/ingest_chinext_sina_financials.py` |
 | 项目状态指针 | `.sdd/status.json` |
 | 开发总计划 | `docs/Plan.md` |
 
