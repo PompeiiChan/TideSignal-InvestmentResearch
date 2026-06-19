@@ -1131,12 +1131,12 @@
         "dev-standards/backend-dev.md",
         "dev-standards/backend-layers.md"
       ],
-      "status": "passed",
+      "status": "done",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "Phase ① 技术验收 PASS（2026-06-20）。P2 见 T-014-P2。",
+      "notes": "[DONE] T-014 Phase ① + T-014-P2 用户门禁通过（2026-06-15）。技术：.sdd/test-reports/test-T-014.md、test-T-014-P2.md；用户：.sdd/test-reports/acceptance-roadmap-T-014-P2-result.md",
       "user_gate": true
     },
     {
@@ -1167,12 +1167,12 @@
       "dependencies": ["T-014"],
       "priority": 18,
       "rules_files": ["dev-standards/backend-dev.md", "dev-standards/backend-layers.md"],
-      "status": "testing",
+      "status": "done",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "方案：.sdd/developer-reports/T-014-P2-plan.md",
+      "notes": "[DONE] T-014-P2 - 用户门禁通过（2026-06-15）。技术：.sdd/test-reports/test-T-014-P2.md；用户：.sdd/test-reports/acceptance-roadmap-T-014-P2-result.md",
       "user_gate": true
     },
     {
