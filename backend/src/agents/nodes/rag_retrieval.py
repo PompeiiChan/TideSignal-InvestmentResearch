@@ -15,9 +15,11 @@ from ...services.rag.retriever import filter_stock_narrative_hits
 from ...services.rag.service import (
     RagService,
     diversify_hits_by_time_period,
+    diversify_hotspot_hits_by_month,
     hits_to_source_refs,
     merge_rag_hit_lists,
 )
+from ...services.hotspot_recency import extract_hotspot_month_keys
 from ...settings import AppSettings
 from ..stock_tool_plan import build_stock_narrative_rag_queries, is_qualitative_business_query
 from ._helpers import build_parallel_trace_update
@@ -152,7 +154,31 @@ async def rag_retrieval(
                 entity_name=stock_name,
             )
     elif retrieval_strategy == "hotspot_dual":
-        rag_result = await rag.retrieve_hotspot(normalized_query, top_k=top_k)
+        slots = state.get("slots") or {}
+        if not isinstance(slots, dict):
+            slots = {}
+        month_keys = retrieval_config.get("hotspot_month_keys")
+        if not isinstance(month_keys, list) or len(month_keys) < 2:
+            month_keys = extract_hotspot_month_keys(
+                " ".join(
+                    [
+                        normalized_query,
+                        str(slots.get("time_range", "")),
+                        str(slots.get("topic", "")),
+                    ]
+                )
+            )
+        topic = str(slots.get("topic") or slots.get("industry") or "").strip()
+        if isinstance(month_keys, list) and len(month_keys) >= 2:
+            rag_result = await rag.retrieve_hotspot_multi_month(
+                normalized_query,
+                month_keys=[str(item) for item in month_keys if str(item).strip()],
+                top_k=top_k,
+                topic=topic,
+            )
+        else:
+            rag_result = await rag.retrieve_hotspot(normalized_query, top_k=top_k)
+            rag_result.hits = diversify_hotspot_hits_by_month(rag_result.hits, top_k=top_k)
     elif retrieval_strategy == "hotspot_industry_only":
         rag_result = await rag.retrieve_hotspot_industry_only(normalized_query, top_k=top_k)
     elif stock_narrative_mode or (

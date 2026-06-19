@@ -61,11 +61,6 @@ def _company_key_from_hit(hit: RagHit) -> str:
     return doc_id or hit.path
 
 
-def _is_financial_hit(hit: RagHit) -> bool:
-    normalized_path = hit.path.replace("\\", "/")
-    return hit.source_type == "financial" or "/financials/" in normalized_path
-
-
 def diversify_hits_by_time_period(hits: list[RagHit], *, top_k: int) -> list[RagHit]:
     """Prefer one high-score chunk per (company, time_period) for financial evidence."""
     if len(hits) <= 1:
@@ -84,6 +79,52 @@ def diversify_hits_by_time_period(hits: list[RagHit], *, top_k: int) -> list[Rag
         existing = best_by_period.get(bucket)
         if existing is None or hit.score > existing.score:
             best_by_period[bucket] = hit
+
+    if len(best_by_period) < 2:
+        return ranked[:top_k]
+
+    diversified = sorted(best_by_period.values(), key=lambda item: item.score, reverse=True)
+    selected_ids = {hit.chunk_id for hit in diversified}
+    merged = diversified + [hit for hit in ranked if hit.chunk_id not in selected_ids]
+    return merged[:top_k]
+
+
+def _is_financial_hit(hit: RagHit) -> bool:
+    normalized_path = hit.path.replace("\\", "/")
+    return hit.source_type == "financial" or "/financials/" in normalized_path
+
+
+def _is_hotspot_hit(hit: RagHit) -> bool:
+    normalized_path = hit.path.replace("\\", "/")
+    return hit.source_type == "market" or "/hotspots/" in normalized_path
+
+
+def _hotspot_period_key(hit: RagHit) -> str:
+    period = hit.time_period.strip()
+    if period:
+        return period
+    path_match = re.search(r"hotspots/(\d{4}-\d{2})-", hit.path.replace("\\", "/"))
+    if path_match:
+        return path_match.group(1)
+    return hit.doc_id or hit.chunk_id
+
+
+def diversify_hotspot_hits_by_month(hits: list[RagHit], *, top_k: int) -> list[RagHit]:
+    """Prefer one high-score hotspot chunk per month for evolution / replay narratives."""
+    if len(hits) <= 1:
+        return hits[:top_k]
+
+    ranked = sorted(hits, key=lambda item: item.score, reverse=True)
+    hotspot_hits = [hit for hit in ranked if _is_hotspot_hit(hit)]
+    if len(hotspot_hits) < 2:
+        return ranked[:top_k]
+
+    best_by_period: dict[str, RagHit] = {}
+    for hit in hotspot_hits:
+        period = _hotspot_period_key(hit)
+        existing = best_by_period.get(period)
+        if existing is None or hit.score > existing.score:
+            best_by_period[period] = hit
 
     if len(best_by_period) < 2:
         return ranked[:top_k]
@@ -438,6 +479,42 @@ class RagService:
             top_k=top_k,
             scopes=[("hotspots/", 0.55), ("industry-reports/", 0.45)],
         )
+
+    async def retrieve_hotspot_multi_month(
+        self,
+        query: str,
+        *,
+        month_keys: list[str],
+        top_k: int = 10,
+        topic: str = "",
+    ) -> RagRetrievalResult:
+        """Run per-month hotspot retrieval to support evolution / replay questions."""
+        normalized_months = [key.strip() for key in month_keys if key.strip()]
+        if len(normalized_months) < 2:
+            result = await self.retrieve_hotspot(query, top_k=top_k)
+            result.hits = diversify_hotspot_hits_by_month(result.hits, top_k=top_k)
+            return result
+
+        subject = topic.strip() or query.strip()
+        per_month_k = max(top_k // len(normalized_months), 3)
+        hit_groups: list[list[RagHit]] = []
+        base_result: RagRetrievalResult | None = None
+        for month_key in normalized_months:
+            scoped_query = f"{subject} {month_key} A股热点 月度复盘"
+            scoped = await self.retrieve_hotspot(scoped_query, top_k=per_month_k)
+            if base_result is None:
+                base_result = scoped
+            hit_groups.append(scoped.hits)
+
+        merged_hits = merge_rag_hit_lists(hit_groups, top_k=max(top_k, len(normalized_months)))
+        merged_hits = diversify_hotspot_hits_by_month(merged_hits, top_k=top_k)
+        result = base_result or RagRetrievalResult(query=query, mode="hotspot_multi_month")
+        result.hits = merged_hits
+        result.query = " | ".join(
+            f"{subject} {month_key}" for month_key in normalized_months
+        )
+        result.mode = "hotspot_multi_month"
+        return result
 
     async def retrieve_hotspot_industry_only(self, query: str, *, top_k: int = 5) -> RagRetrievalResult:
         """Retrieve industry background only (skip stale monthly hotspot docs)."""

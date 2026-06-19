@@ -11,7 +11,7 @@ from ...services.rag.service import RagService
 from ...services.system_time import resolve_system_time
 from ...services.trading_calendar import enrich_trading_slots, query_requests_trading_day
 from ...settings import AppSettings
-from ..hotspot_tool_plan import resolve_hotspot_tool_names
+from ..hotspot_tool_plan import resolve_hotspot_stock_codes, resolve_hotspot_tool_names
 from ._helpers import call_intent_json, response_kind_for_intent, run_node_with_trace
 
 
@@ -116,8 +116,19 @@ async def hotspot_agent(
             last_trading_day=time_ctx.last_trading_day,
             is_trading_day=time_ctx.is_trading_day,
         )
+        tool_params["stock_codes"] = resolve_hotspot_stock_codes(
+            query=normalized_query,
+            slots=slots,
+            tool_stock_codes=str(tool_params.get("stock_codes", "")),
+        )
+        raw_tool_names = parsed.get("tool_names")
+        requested_tool_names = (
+            [str(name) for name in raw_tool_names if str(name).strip()]
+            if isinstance(raw_tool_names, list)
+            else None
+        )
         agent_tool_names = resolve_hotspot_tool_names(
-            None,
+            requested_tool_names,
             query=normalized_query,
             slots=slots,
             execution_plan=execution_plan,

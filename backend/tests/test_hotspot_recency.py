@@ -8,6 +8,7 @@ from src.agents.nodes.routing_decision import build_execution_plan
 from src.services.hotspot_recency import (
     build_hotspot_execution_plan,
     classify_hotspot_evidence_mode,
+    extract_hotspot_month_keys,
 )
 
 
@@ -69,3 +70,22 @@ def test_routing_decision_hotspot_recent_query() -> None:
     )
     assert plan["hotspot_evidence_mode"] == "api_primary"
     assert plan["retrieval_config"]["strategy"] == "hotspot_industry_only"
+
+
+def test_extract_hotspot_month_keys_from_range() -> None:
+    keys = extract_hotspot_month_keys("复盘4月到6月半导体热点")
+    assert keys == ["2026-04", "2026-05", "2026-06"]
+
+
+def test_build_hotspot_plan_multi_month_sets_retrieval_keys() -> None:
+    plan = build_hotspot_execution_plan(
+        "帮我复盘4月到6月半导体热点",
+        {"topic": "半导体"},
+        current_date=date(2026, 6, 13),
+    )
+    assert plan["retrieval_config"]["strategy"] == "hotspot_dual"
+    assert plan["retrieval_config"].get("hotspot_month_keys") == [
+        "2026-04",
+        "2026-05",
+        "2026-06",
+    ]

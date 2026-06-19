@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import re
 
+from ..integrations.market_data.stock_code_resolver import normalize_stock_code, resolve_stock_code
+from ..services.hotspot_recency import is_hotspot_replay_query
+
 HOTSPOT_TOOL_WHITELIST: frozenset[str] = frozenset(
     {
         "hotspot_fact_lookup",
@@ -23,6 +26,7 @@ _HEATMAP_RE = re.compile(
     r"热力图|板块全景|全景|板块地图|在全市场|全市场.*热|A股.*热",
     re.IGNORECASE,
 )
+_INLINE_STOCK_CODE_RE = re.compile(r"(?<!\d)(\d{6})(?!\d)")
 
 
 def _dedupe(names: list[str]) -> list[str]:
@@ -57,6 +61,43 @@ def wants_sector_heatmap(query: str) -> bool:
     return bool("在全市场" in query and "热" in query)
 
 
+def resolve_hotspot_stock_codes(
+    *,
+    query: str,
+    slots: dict | None = None,
+    tool_stock_codes: str = "",
+) -> str:
+    """Collect up to three A-share codes from slots, tool params, inline digits, or name resolution."""
+    slots = slots or {}
+    codes: list[str] = []
+
+    def _append(raw: str) -> None:
+        code = normalize_stock_code(raw)
+        if code and code not in codes:
+            codes.append(code)
+
+    for raw in (
+        tool_stock_codes,
+        str(slots.get("stock_codes", "")),
+        str(slots.get("stock_code", "")),
+    ):
+        for part in re.split(r"[,，\s]+", raw):
+            _append(part)
+
+    for match in _INLINE_STOCK_CODE_RE.finditer(query):
+        _append(match.group(1))
+
+    stock_name = str(slots.get("stock_name", "")).strip()
+    if stock_name:
+        resolved_code, _resolved_name = resolve_stock_code(
+            stock_name,
+            str(slots.get("stock_code", "")),
+        )
+        _append(resolved_code)
+
+    return ",".join(codes[:3])
+
+
 def ranking_industry_param(*, query: str, slots: dict | None = None) -> str:
     """Pick Eastmoney board keyword from slots/query."""
     slots = slots or {}
@@ -79,8 +120,17 @@ def resolve_hotspot_tool_names(
     """Merge base hotspot tools with market heat tools when the query needs them."""
     _ = execution_plan
     slots = slots or {}
-    names = list(_BASE_TOOLS)
-    names.extend(_filter_whitelisted(requested))
+    replay = is_hotspot_replay_query(query, slots)
+    valid = _dedupe(_filter_whitelisted(requested))
+
+    if valid:
+        names = valid
+        if replay:
+            names = [name for name in names if name != "hotspot_signal_lookup"]
+    elif replay:
+        names = ["hotspot_fact_lookup"]
+    else:
+        names = list(_BASE_TOOLS)
 
     if wants_market_ranking(query, slots):
         names.append("market_ranking_lookup")

@@ -8,6 +8,7 @@ from typing import Any
 
 from ...integrations.market_data.cninfo_client import fetch_cninfo_announcements
 from ...integrations.market_data.news_client import fetch_global_news, filter_news_by_keyword
+from ..hotspot_tool_plan import resolve_hotspot_stock_codes
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +44,20 @@ def lookup_hotspot_facts(
     stock_codes: str = "",
     news_limit: int = 30,
     announcement_limit: int = 8,
+    query: str = "",
+    slots: dict[str, Any] | None = None,
     **_extra: Any,
 ) -> dict[str, Any]:
     """Fetch recent news and optional stock announcements for hotspot fact-checking."""
+    slots = slots or {}
     keywords = _split_keywords(topic, industry, event)
     primary_keyword = keywords[0] if keywords else ""
     facts: list[dict[str, Any]] = []
+    resolved_codes = resolve_hotspot_stock_codes(
+        query=query,
+        slots=slots,
+        tool_stock_codes=stock_codes,
+    )
 
     try:
         news_items = fetch_global_news(page_size=max(news_limit, 20))
@@ -64,7 +73,7 @@ def lookup_hotspot_facts(
                 }
             )
 
-        codes = [code.strip().zfill(6) for code in re.split(r"[,，\s]+", stock_codes) if code.strip()]
+        codes = [code.strip().zfill(6) for code in re.split(r"[,，\s]+", resolved_codes) if code.strip()]
         for code in codes[:3]:
             announcements = fetch_cninfo_announcements(code, page_size=announcement_limit)
             for ann in announcements:
@@ -86,6 +95,7 @@ def lookup_hotspot_facts(
             "tool": "hotspot_fact_lookup",
             "topic": primary_keyword or topic or industry or "市场热点",
             "keywords": keywords,
+            "stock_codes": resolved_codes,
             "facts": facts[:15],
             "fact_count": len(facts[:15]),
             "source": _SOURCE,
@@ -93,7 +103,7 @@ def lookup_hotspot_facts(
             "fallback_used": False,
             "timeliness": "近实时快讯/公告",
             "confidence_note": "事实层证据，用于支撑或质疑题材叙事；须与 RAG 月报交叉验证",
-            "notes": "未匹配到关键词时仅返回少量通用快讯；公告需提供 stock_codes",
+            "notes": "未匹配到关键词时仅返回少量通用快讯；公告从 query/slots 自动解析 stock_codes",
             "attribution": _ATTRIBUTION,
         }
     except Exception as exc:

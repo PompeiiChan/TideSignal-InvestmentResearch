@@ -88,6 +88,8 @@ async def tool_call(
         tool_params.setdefault("metric", "涨幅排行")
         tool_params.setdefault("time_range", tool_params.get("time_range") or "近一交易日")
         tool_params.setdefault("rank_limit", 10)
+        tool_params.setdefault("query", query)
+        tool_params.setdefault("slots", state.get("slots") or {})
 
     input_data = {
         "tool_names": tool_names,

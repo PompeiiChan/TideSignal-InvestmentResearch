@@ -5,5 +5,5 @@
   "development_ready": true,
   "current_task": "roadmap-T-023",
   "blocked": false,
-  "notes": "路线图 T-022-P1/P2 问股财报深化用户验收通过（2026-06-19）。当前焦点 T-023 热点；T-022-P3 KB 重跑、估值/问数 backlog 不阻塞。报告：.sdd/test-reports/acceptance-roadmap-T-022-P1-result.md"
+  "notes": "路线图 T-023 热点 P1–P3 开发完成、Tester 自动化 PASS（2026-06-15）。待用户门禁：.sdd/test-reports/acceptance-roadmap-T-023-P1.md。T-022-P3 KB 重跑不阻塞。"
 }

@@ -20,8 +20,8 @@ def test_hotspot_execution_plan_has_dual_tools_and_rag_strategy() -> None:
     )
     assert plan["needs_rag"] is True
     assert plan["needs_tool"] is True
-    assert "hotspot_signal_lookup" in plan["tool_names"]
     assert "hotspot_fact_lookup" in plan["tool_names"]
+    assert "hotspot_signal_lookup" not in plan["tool_names"]
     assert plan["hotspot_evidence_mode"] == "rag_primary"
     assert plan["retrieval_config"].get("strategy") == "hotspot_dual"
 

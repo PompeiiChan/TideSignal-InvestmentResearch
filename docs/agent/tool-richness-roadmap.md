@@ -15,7 +15,7 @@
 | **T-020** | 问数工具丰富度 | 问数 `data_query` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-18 |
 | **T-021** | 估值工具丰富度 | 问股 `valuation_profile_lookup` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-19 |
 | **T-022** | 问股财报深化 | 问股 `mock_financial_profile_lookup` + RAG | ✅ **P1/P2 已验收**（P3 入库重跑待办） | 用户 2026-06-19 |
-| **T-023** | 热点工具丰富度 | 热点 `hotspot_*` + RAG | 🟡 **进行中** | 待用户 |
+| **T-023** | 热点工具丰富度 | 热点 `hotspot_*` + RAG | 🟡 **P1–P3 开发完成，待用户验收** | 待用户 |
 | **T-024** | 离线 KB 与入库扩展 | 脚本 `ingest_*` + financials | ⏳ 待 T-023 验收后 | — |
 
 ---
@@ -136,6 +136,16 @@
 
 - 问「机器人板块最近为什么火」→ 含 RAG 月报 + 事实层快讯/公告（若有代码则含公告）。
 - 问「帮我复盘 4 月到 6 月半导体热点」→ 命中多个月报片段或明确标注证据不足。
+
+### 实施状态（2026-06-15）
+
+| 子项 | 实现 | 自动化 |
+|------|------|--------|
+| P1 | `resolve_hotspot_stock_codes` + `hotspot_fact_lookup` / `hotspot_agent` | PASS |
+| P2 | `resolve_hotspot_tool_names` 复盘跳过 signal；Agent `tool_names` | PASS |
+| P3 | `retrieve_hotspot_multi_month` + `diversify_hotspot_hits_by_month` | PASS |
+
+Tester：`.sdd/test-reports/test-roadmap-T-023.md`；用户清单：`.sdd/test-reports/acceptance-roadmap-T-023-P1.md`
 
 ---
 

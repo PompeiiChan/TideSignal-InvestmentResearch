@@ -228,3 +228,9 @@
 ### 路线图 T-022-P1/P2：问股财报深化用户验收（2026-06-19）
 - **经验**：P1/P2 通过后 `status.json` → `roadmap-T-023`；T-022 在路线图 §一 标为「P1/P2 已验收、P3 KB 重跑待办」。
 - **经验**：用户说「财报 P1 验收通过」时，下一项为 **T-023 热点工具丰富度**（公告自动拉取、动态 tool_names、热点 RAG 多月份）。
+
+### 路线图 T-023：热点工具丰富度（2026-06-15）
+- **经验**：`resolve_hotspot_stock_codes` 合并 slots、内联 6 位代码与 `resolve_stock_code`；`hotspot_fact_lookup` 与 `hotspot_agent` 双写，避免 LLM 漏填 `stock_codes`。
+- **经验**：复盘/多月演变用 `is_hotspot_replay_query`（放 `hotspot_recency.py`）跳过 `hotspot_signal_lookup`；勿与 `hotspot_tool_plan` 循环 import。
+- **经验**：`extract_hotspot_month_keys` 解析「4月到6月」后须 `sorted` 去重；`retrieve_hotspot_multi_month` + `diversify_hotspot_hits_by_month` 支撑热点演变 RAG。
+- **经验**：Tester PASS 后仍须用户 Trace 门禁；话术见 `acceptance-roadmap-T-023-P1.md`。

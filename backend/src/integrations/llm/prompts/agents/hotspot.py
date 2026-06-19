@@ -165,7 +165,11 @@ RAG 月报 + 当日 reason 标签；`hotspot_fact_lookup` 验证硬事实。
 - **tool_params**（object）：
   - 共用：`topic`、`industry`、`event`、`time_range`。
   - 信号：`signal_limit`（8-12）、`trade_date`（用户问上一交易日/刚刚过去的交易日时填 `system_context.last_trading_day`）。
-  - 事实：`stock_codes`（逗号分隔，可选）、`news_limit`（默认 30）。
+  - 事实：`stock_codes`（逗号分隔，可选；未填时下游会从 query/slots 自动解析）、`news_limit`（默认 30）。
+- **tool_names**（array，可选）：
+  - 从白名单选择：`hotspot_fact_lookup`、`hotspot_signal_lookup`、`market_ranking_lookup`、`sector_heatmap_lookup`。
+  - **复盘/多月演变**类问题可省略 `hotspot_signal_lookup`；系统也会按规则自动裁剪。
+  - 未提供时由 `resolve_hotspot_tool_names` 按 query 规则补齐。
 
 示例：
 

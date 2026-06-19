@@ -22,11 +22,15 @@ _RECENT_TIME_RE = re.compile(
 )
 
 _RETROSPECTIVE_RE = re.compile(
-    r"复盘|收官|全月|整月|月度回顾|月度复盘|上月|上个月|前月|整月表现|月内走势",
+    r"复盘|收官|全月|整月|月度回顾|月度复盘|上月|上个月|前月|整月表现|月内走势|回顾|演变",
     re.IGNORECASE,
 )
 
 _EXPLICIT_MONTH_RE = re.compile(r"(20\d{2})[年\-/]?(\d{1,2})月?|(\d{1,2})月")
+_MONTH_RANGE_RE = re.compile(
+    r"(?:20\d{2}[年\-/]?)?(\d{1,2})月(?:份)?\s*(?:到|至|—|-)\s*(?:20\d{2}[年\-/]?)?(\d{1,2})月",
+    re.IGNORECASE,
+)
 
 
 def _month_key(year: int, month: int) -> str:
@@ -60,6 +64,41 @@ def _extract_month_keys(text: str) -> list[str]:
         elif match.group(3):
             keys.append(_month_key(2026, int(match.group(3))))
     return keys
+
+
+def extract_hotspot_month_keys(text: str, *, default_year: int = 2026) -> list[str]:
+    """Parse explicit YYYY-MM and ranges like「4月到6月」for multi-month hotspot RAG."""
+    keys = _extract_month_keys(text)
+    for match in _MONTH_RANGE_RE.finditer(text):
+        start_month = int(match.group(1))
+        end_month = int(match.group(2))
+        if start_month <= end_month:
+            for month in range(start_month, end_month + 1):
+                keys.append(_month_key(default_year, month))
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for key in keys:
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(key)
+    return sorted(ordered)
+
+
+def is_hotspot_replay_query(query: str, slots: dict[str, Any] | None = None) -> bool:
+    """Historical replay / multi-month evolution — skip intraday signal tools."""
+    slots = slots or {}
+    haystack = " ".join(
+        [
+            query.strip(),
+            str(slots.get("time_range", "")),
+            str(slots.get("topic", "")),
+            str(slots.get("event", "")),
+        ]
+    )
+    if _RETROSPECTIVE_RE.search(haystack) or _MONTH_RANGE_RE.search(haystack):
+        return True
+    return len(extract_hotspot_month_keys(haystack)) >= 2
 
 
 def _is_current_month_reference(text: str, current: date) -> bool:
@@ -119,10 +158,26 @@ def build_hotspot_execution_plan(
 ) -> dict[str, Any]:
     """Build hotspot execution_plan with time-aware RAG vs API priority."""
     mode, reason = classify_hotspot_evidence_mode(query, slots, current_date=current_date)
+    slots = slots or {}
+    replay = is_hotspot_replay_query(query, slots)
+    month_keys = extract_hotspot_month_keys(
+        " ".join(
+            [
+                query.strip(),
+                str(slots.get("time_range", "")),
+                str(slots.get("topic", "")),
+            ]
+        ),
+        default_year=current_date.year,
+    )
+    if replay:
+        tool_names = ["hotspot_fact_lookup"]
+    else:
+        tool_names = ["hotspot_fact_lookup", "hotspot_signal_lookup"]
     plan: dict[str, Any] = {
         "needs_rag": True,
         "needs_tool": True,
-        "tool_names": ["hotspot_fact_lookup", "hotspot_signal_lookup"],
+        "tool_names": tool_names,
         "hotspot_evidence_mode": mode,
         "hotspot_evidence_mode_reason": reason,
     }
@@ -144,6 +199,8 @@ def build_hotspot_execution_plan(
             "strategy": "hotspot_dual",
             "filters": {},
         }
+        if len(month_keys) >= 2:
+            plan["retrieval_config"]["hotspot_month_keys"] = month_keys
         plan["tool_params_defaults"] = {
             "news_limit": 30,
             "announcement_limit": 8,
