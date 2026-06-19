@@ -14,16 +14,36 @@
 |-------|------|------|------|--------|
 | **T-020** | 问数工具丰富度 | 问数 `data_query` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-18 |
 | **T-021** | 估值工具丰富度 | 问股 `valuation_profile_lookup` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-19 |
-| **T-022** | 问股财报深化 | 问股 `mock_financial_profile_lookup` + RAG | ✅ **P1/P2 已验收**（P3 入库重跑待办） | 用户 2026-06-19 |
+| **T-022** | 问股财报深化 | 问股 `mock_financial_profile_lookup` + RAG | ✅ **P1/P2/P3 已验收**（P3 随 T-024 重跑） | 用户 2026-06-19 |
 | **T-023** | 热点工具丰富度 | 热点 `hotspot_*` + RAG | ✅ **P1/P2/P3 已验收** | 用户 2026-06-19 |
-| **T-024** | 离线 KB 与入库扩展 | 脚本 `ingest_*` + financials | 🟡 **批量刷新完成，待用户验收** | 待用户 |
+| **T-024** | 离线 KB 与入库扩展 | 脚本 `ingest_*` + financials | ✅ **已验收** | 用户 2026-06-19 |
 
 ---
 
-## 二、当前活动 Phase：T-024 离线 KB 与入库扩展
+## 二、当前活动：工具丰富度路线图已闭环
 
-> **T-023** 已于 2026-06-19 用户验收通过（报告：`.sdd/test-reports/acceptance-roadmap-T-023-P1-result.md`）。  
-> **T-022-P3**（批量重跑 ingest 扩 KB 至 3 年报）与 T-024 联动，可一并推进。
+> **T-024** 已于 2026-06-19 用户验收通过（报告：`.sdd/test-reports/acceptance-roadmap-T-024-result.md`）。  
+> **T-020～T-024 主 Phase 全部完成**；以下为可选 backlog，按产品优先级择一推进。
+
+### 建议下一迭代（择一）
+
+| 优先级 | 方向 | 说明 |
+|--------|------|------|
+| A | **T-014** Query 改写 | `docs/Plan.md` F18；提升 RAG 召回，`.sdd/tasks.json` backlog |
+| B | **T-015～T-017** 短期记忆 | 5 轮 QA 窗口、槽位继承、续问体验 |
+| C | **T-020-P2/P3** 问数 | 指数/单股报价、历史区间 |
+| D | **T-021-P2/P3** 估值 | 同行对比、一致预期 EPS/PEG |
+| E | **回答质量** | `docs/agent/response-bad-case.md` 坏例修整 |
+
+### T-024 归档摘要
+
+| 子项 | 内容 | 状态 |
+|------|------|------|
+| 脚本 | `--refresh` / `financial_ingest.py` | ✅ |
+| 批量入库 | 50 创业板 4 段/文件 | ✅ |
+| 索引 | KB 变更后首次问股触发重建，完成后正常 | ✅ |
+
+用户验收：`.sdd/test-reports/acceptance-roadmap-T-024-result.md`
 
 ### T-023 归档摘要（P1–P3）
 
@@ -47,7 +67,7 @@
 
 ---
 
-### T-022 归档摘要（P1–P2）
+### T-022 归档摘要（P1–P3）
 
 #### 2.1 问题摘要
 
@@ -158,25 +178,17 @@
 
 ---
 
-## 六、T-024 离线 KB 与入库扩展（当前执行）
+## 六、T-024 离线 KB 与入库扩展（已验收）
 
 - 全市场财报 KB：3 年年报 + 最新季报批量入库
 - 与 T-022-P3 联动，验收以 KB 文件 `### 主要财务数据` 段数量为准
 
-### 实施状态（2026-06-19）
+| 子项 | 状态 |
+|------|------|
+| `--refresh` 批量入库 50 标的 | ✅ 2026-06-19 |
+| 用户门禁（多期 periods + RAG） | ✅ 2026-06-19 |
 
-| 子项 | 内容 | 状态 |
-|------|------|------|
-| 脚本 | `--refresh` / `--codes` / `financial_ingest.py` 校验 | ✅ |
-| 批量入库 | 50 创业板样本 `success=50` | ✅ |
-| 用户门禁 | 问股多期 Trace + RAG | 待用户 |
-
-Tester：`.sdd/test-reports/test-roadmap-T-024.md`；清单：`.sdd/test-reports/acceptance-roadmap-T-024.md`
-
-### 验收标准（草案）
-
-- 重跑 `ingest_chinext_sina_financials.py` 后，抽样标的 KB 文件含 ≥3 个年报段 + 最新季报
-- 问股多期 RAG / `periods[]` 可覆盖 3 年以上历史
+用户验收：`.sdd/test-reports/acceptance-roadmap-T-024-result.md`
 
 ---
 

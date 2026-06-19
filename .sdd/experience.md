@@ -244,3 +244,7 @@
 - **避坑**：`--refresh --codes` 局部刷新时勿覆盖 delivery JSON 全量列表；用 `merge=True` 或跳过写入。
 - **经验**：`financial_ingest.py` 提供 `pick_financial_periods` / `kb_file_meets_t024_target` 供脚本与单测共用。
 - **经验**：`EXCLUDE_CODES`（300750）不在 batch 内；全库 51 文件中 50 满足 T-024 四段标准。
+
+### 路线图 T-024：离线 KB 用户验收（2026-06-19）
+- **经验**：用户确认「索引重建完了、验收通过」后，T-020～T-024 主 Phase 闭环；`status.json` → `roadmap-complete`。
+- **经验**：首次问股验收前须等 `knowledge-base/.index/` 的 `build_in_progress=false`，否则长时间停在「获取相关资料」。

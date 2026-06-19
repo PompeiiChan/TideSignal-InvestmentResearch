@@ -3,7 +3,7 @@
   "mode": "new",
   "design_ready": false,
   "development_ready": true,
-  "current_task": "roadmap-T-024",
+  "current_task": "roadmap-complete",
   "blocked": false,
-  "notes": "路线图 T-024 批量 refresh 50 标的完成、Tester PASS（2026-06-19）。待用户门禁：.sdd/test-reports/acceptance-roadmap-T-024.md"
+  "notes": "工具丰富度路线图 T-020～T-024 全部用户验收通过（2026-06-19）。下一迭代见 tool-richness-roadmap.md §二 backlog。报告：.sdd/test-reports/acceptance-roadmap-T-024-result.md"
 }
