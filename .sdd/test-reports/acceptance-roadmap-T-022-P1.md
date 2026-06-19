@@ -56,4 +56,6 @@ cd backend && PYTHONPATH=.. python scripts/ingest_chinext_sina_financials.py --d
 
 **全部通过后请回复**：「财报 P1 验收通过」（或按实际完成的子阶段说明）。
 
-**T-022 backlog**：P2/P3 可与 P1 一并验收；未完成项不阻塞下一 Phase T-023 的启动决策由用户定。
+**✅ 用户已于 2026-06-19 确认通过**（见 `acceptance-roadmap-T-022-P1-result.md`）。
+
+**T-022 backlog（不阻塞 T-023）**：P3 批量重跑 ingest 扩 KB 至 3 年报。

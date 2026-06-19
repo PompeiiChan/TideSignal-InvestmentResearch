@@ -224,3 +224,7 @@
 - **经验**：`periods[]` 扩展 `operating_cash_flow` / `debt_ratio`；Sina 拉三表（lrb/fzb/llb），KB loader 解析现金流量表与资产总计行。
 - **经验**：`diversify_hits_by_time_period` 在 `retrieve_targeted` 与问股 `rag_retrieval` 应用，避免 RAG 命中全为同一 `time_period`。
 - **避坑**：入库脚本 `_pick_periods` 扩展为「最新季报 + 至多 3 年报」后，须 `--dry-run` 验证再批量写入；已有 KB 文件不会自动更新，需重跑 ingest。
+
+### 路线图 T-022-P1/P2：问股财报深化用户验收（2026-06-19）
+- **经验**：P1/P2 通过后 `status.json` → `roadmap-T-023`；T-022 在路线图 §一 标为「P1/P2 已验收、P3 KB 重跑待办」。
+- **经验**：用户说「财报 P1 验收通过」时，下一项为 **T-023 热点工具丰富度**（公告自动拉取、动态 tool_names、热点 RAG 多月份）。

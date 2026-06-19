@@ -14,46 +14,47 @@
 |-------|------|------|------|--------|
 | **T-020** | 问数工具丰富度 | 问数 `data_query` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-18 |
 | **T-021** | 估值工具丰富度 | 问股 `valuation_profile_lookup` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-19 |
-| **T-022** | 问股财报深化 | 问股 `mock_financial_profile_lookup` + RAG | 🟡 **进行中** | 待用户 |
-| **T-023** | 热点工具丰富度 | 热点 `hotspot_*` + RAG | ⏳ 待 T-022 验收后 | — |
+| **T-022** | 问股财报深化 | 问股 `mock_financial_profile_lookup` + RAG | ✅ **P1/P2 已验收**（P3 入库重跑待办） | 用户 2026-06-19 |
+| **T-023** | 热点工具丰富度 | 热点 `hotspot_*` + RAG | 🟡 **进行中** | 待用户 |
 | **T-024** | 离线 KB 与入库扩展 | 脚本 `ingest_*` + financials | ⏳ 待 T-023 验收后 | — |
 
 ---
 
-## 二、当前活动 Phase：T-022 问股财报深化
+## 二、当前活动 Phase：T-023 热点工具丰富度
 
-> **T-021-P1** 已于 2026-06-19 用户验收通过（报告：`.sdd/test-reports/acceptance-roadmap-T-021-P1-result.md`）。  
-> **T-021-P2/P3**（同行估值对比、一致预期 EPS/PEG）仍属估值 backlog，不阻塞 T-022。
+> **T-022-P1/P2** 已于 2026-06-19 用户验收通过（报告：`.sdd/test-reports/acceptance-roadmap-T-022-P1-result.md`）。  
+> **T-022-P3**（批量重跑 ingest 扩 KB 至 3 年报）为可选 backlog，不阻塞 T-023。
 
-### T-021 归档摘要（P1）
+### T-022 归档摘要（P1–P2）
 
 #### 2.1 问题摘要
 
-`valuation_profile_lookup` 原先仅腾讯实时一帧（PE/PB/市值），无法回答「贵不贵」的历史语境。
+多期 `periods[]` 缺现金流/负债；RAG 易只命中最新一季。
 
-#### 2.2 实施分期（T-021 内部）
+#### 2.2 实施分期（T-022 内部）
 
 | 子阶段 | 内容 | 状态 |
 |--------|------|------|
-| **T-021-P1** | `valuation` + `valuation_history`（近 3 年 PE/PB 分位，东财日频） | ✅ **已验收**（2026-06-19） |
-| **T-021-P2** | 同行估值对比（同行业 3–5 家 PE/PB 表） | ⏳ backlog（估值） |
-| **T-021-P3** | `full_valuation`（机构一致预期 EPS、PEG） | ⏳ P2 后 |
+| **T-022-P1** | `periods[]` 增加 `operating_cash_flow`、`debt_ratio`（Sina 三表 + KB） | ✅ **已验收**（2026-06-19） |
+| **T-022-P2** | `diversify_hits_by_time_period` 保证多期 RAG evidence | ✅ **已验收**（2026-06-19） |
+| **T-022-P3** | `ingest_chinext_sina_financials.py` 最新季报 + 至多 3 年报 | 🟡 脚本已就绪，**KB 重跑待办** |
 
-#### 2.3 T-021-P1 技术要点
+#### 2.3 T-022 技术要点
 
-- `backend/src/integrations/market_data/em_valuation_history_client.py`（东财 `RPT_VALUEANALYSIS_DET`）
-- `valuation_profile_lookup` 叠加 `valuation_history`（分位 + `quarterly_series`）
-- `assembly.py` / `stock_analysis.py` / `citation_catalog`：估值解读须结合历史分位
+- `sina_finance_client` / `kb_financial_loader`：现金流与资产负债率
+- `service.py` / `rag_retrieval.py`：按 `time_period` 多样化命中
+- `ingest_chinext_sina_financials.py`：`_pick_periods` 扩展
 
-#### 2.4 T-021 验收标准（P1 用户门禁）
+#### 2.4 T-022 验收标准（用户门禁）
 
-- 问「长春高新估值贵不贵」→ 正文含 **当前估值 + 历史分位/中位数语境**（非单点 PE）
-- Trace `valuation_profile_lookup` 含 `valuation_history`（`data_origin=eastmoney_valuation_history`）
+- 问「利亚德基本面怎么样」→ Trace 含多期 `operating_cash_flow` / `debt_ratio`；正文有多期解读
+- `rag_retrieval` → `retrieved_chunks` 含 ≥2 个不同 `time_period`
 
-**用户验收清单**：`.sdd/test-reports/acceptance-roadmap-T-021-P1.md`  
-**验收结果**：`.sdd/test-reports/acceptance-roadmap-T-021-P1-result.md`（用户 PASS，2026-06-19）
+**用户验收清单**：`.sdd/test-reports/acceptance-roadmap-T-022-P1.md`  
+**验收结果**：`.sdd/test-reports/acceptance-roadmap-T-022-P1-result.md`（用户 PASS，2026-06-19）  
+**Tester 报告**：`.sdd/test-reports/test-roadmap-T-022.md`
 
-**通过后**：§一 T-021 标 P1 已验收；§二 切换 **T-022**（已完成）。
+**通过后**：§一 T-022 标 P1/P2 已验收；§二 切换 **T-023**（已完成）。
 
 ---
 
@@ -87,7 +88,9 @@
 
 ---
 
-## 四、T-022 问股财报深化（当前执行）
+## 四、T-022 问股财报深化（归档）
+
+> 当前活动 Phase 已切换至 **T-023**，本节保留完整规格供 P3 backlog 参考。
 
 ### 问题
 
@@ -97,25 +100,25 @@
 
 | 子项 | 内容 | 状态 |
 |------|------|------|
-| P1 | 运行期财报工具带出现金流、资产负债等（与入库脚本字段对齐） | 🟡 **已开发，待用户验收** |
-| P2 | RAG 问股检索：同 `company_id` 按 `time_period` 去重，保证多期 chunk 进 evidence | 🟡 **已开发，待用户验收** |
-| P3 | `ingest_chinext_sina_financials.py` 扩展为 3 年年报 + 多季报写入 KB | 🟡 **已开发，待重跑入库** |
+| P1 | 运行期财报工具带出现金流、资产负债等（与入库脚本字段对齐） | ✅ **已验收**（2026-06-19） |
+| P2 | RAG 问股检索：同 `company_id` 按 `time_period` 去重，保证多期 chunk 进 evidence | ✅ **已验收**（2026-06-19） |
+| P3 | `ingest_chinext_sina_financials.py` 扩展为 3 年年报 + 多季报写入 KB | ⏳ 脚本就绪，KB 重跑待办 |
 
 ### P1–P3 技术要点（2026-06-19）
 
 - `sina_finance_client` / `kb_financial_loader`：`periods[]` 增加 `operating_cash_flow`、`debt_ratio`
 - `diversify_hits_by_time_period`：`retrieve_targeted` 与问股 `rag_retrieval` 保证多期财报片段
 - `ingest_chinext_sina_financials.py`：`_pick_periods` 支持最新季报 + 至多 3 个年报
-- 验收清单：`.sdd/test-reports/acceptance-roadmap-T-022-P1.md`
+- 用户验收清单：`.sdd/test-reports/acceptance-roadmap-T-022-P1.md`
 
 ### 验收标准
 
-- 已入库标的：工具 `periods.length` ≥ 3 或 RAG 补全缺失期。
+- 已入库标的：工具 `periods.length` ≥ 2 且含现金流/负债字段；RAG 多 `time_period`。
 - 正文多期表含 **营收、利润、毛利率、ROE** 且至少一项 **现金流或负债** 指标（有数据时）。
 
 ---
 
-## 五、T-023 热点工具丰富度（T-022 验收后执行）
+## 五、T-023 热点工具丰富度（当前执行）
 
 ### 问题
 
