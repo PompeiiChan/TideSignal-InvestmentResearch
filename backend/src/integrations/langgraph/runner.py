@@ -26,6 +26,11 @@ from ...services.rag.service import RagService
 from ...services.rich_block_types import extract_rich_block_types
 from ...services.session_service import _iso, _now
 from ...services.short_term_memory import trim_chat_history
+from ...services.slot_memory import (
+    build_context_state_from_run,
+    should_clear_pending,
+    should_persist_pending,
+)
 from ...services.trace_service import TraceService
 from ...settings import AppSettings, get_settings
 from .graph import GraphDeps, build_graph
@@ -234,6 +239,10 @@ class LangGraphRunner:
         trace_id = _next_id("trace", "local")
         assistant_message_id = _next_id("msg", "assistant")
         chat_history = self._build_chat_history(session)
+        context_state = session.context_state if isinstance(session.context_state, dict) else {}
+        pending_slots = context_state.get("pending_slots") or {}
+        pending_intent_id = str(context_state.get("pending_intent_id", ""))
+        pending_slot_confidence = context_state.get("pending_slot_confidence") or {}
 
         initial_state: AgentState = {
             "session_id": session.id,
@@ -242,6 +251,9 @@ class LangGraphRunner:
             "user_query": normalized_query,
             "chat_history": chat_history,
             "request_meta": {"source": source},
+            "pending_slots": pending_slots,
+            "pending_intent_id": pending_intent_id,
+            "pending_slot_confidence": pending_slot_confidence,
             "stream_callback": stream_callback,
             "trace_steps": [],
         }
@@ -326,6 +338,21 @@ class LangGraphRunner:
             user_query=normalized_query,
             steps=list(final_state.get("trace_steps") or []),
         )
+
+        intent_id = str(final_state.get("intent_id", ""))
+        need_clarification = bool(final_state.get("need_clarification"))
+        if should_clear_pending(new_intent_id=intent_id, old_intent_id=pending_intent_id or None):
+            await self._repo.update_context_state(session.id, {})
+        elif should_persist_pending(intent_id=intent_id, need_clarification=need_clarification):
+            slots = final_state.get("slots") or {}
+            slot_confidence = final_state.get("slot_confidence") or {}
+            new_context_state = build_context_state_from_run(
+                intent_id=intent_id,
+                slots=slots if isinstance(slots, dict) else {},
+                slot_confidence=slot_confidence if isinstance(slot_confidence, dict) else {},
+            )
+            await self._repo.update_context_state(session.id, new_context_state)
+
         await self.db.commit()
         await self.db.refresh(session)
 

@@ -32,10 +32,18 @@ class AgentState(TypedDict, total=False):
     candidate_intents: list[dict[str, Any]]
     missing_slots: list[str]
 
+    # --- Session pending slot carryover (injected by Runner) ---
+    pending_slots: dict[str, Any]
+    pending_intent_id: str
+    pending_slot_confidence: dict[str, float]
+
     # --- slot_extraction output ---
     slots: dict[str, Any]
+    active_slots: dict[str, Any]
     slot_confidence: dict[str, float]
     ambiguous_slots: list[str]
+    inherited_slot_keys: list[str]
+    overridden_slot_keys: list[str]
 
     # --- clarification_check output ---
     need_clarification: bool

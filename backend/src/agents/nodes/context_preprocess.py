@@ -39,6 +39,8 @@ def _build_context_pack(
     history_meta: dict[str, Any],
     user_profile: dict[str, Any],
     request_meta: dict[str, Any],
+    pending_slots: dict[str, Any] | None = None,
+    pending_intent_id: str = "",
 ) -> dict[str, Any]:
     active_document_id = request_meta.get("document_id") or request_meta.get("active_document_id")
     return {
@@ -51,6 +53,8 @@ def _build_context_pack(
         "request_meta": request_meta,
         "active_document_id": active_document_id,
         "has_document_context": bool(active_document_id),
+        "pending_slots": pending_slots or {},
+        "pending_intent_id": pending_intent_id,
     }
 
 
@@ -94,6 +98,8 @@ async def context_preprocess(
             history_meta=history_meta,
             user_profile=user_profile,
             request_meta=request_meta,
+            pending_slots=state.get("pending_slots") or {},
+            pending_intent_id=str(state.get("pending_intent_id", "")),
         )
         risk_hint = _detect_risk_hint(normalized_query)
         output = {

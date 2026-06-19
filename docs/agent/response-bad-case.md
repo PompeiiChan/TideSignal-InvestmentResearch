@@ -296,9 +296,50 @@
 
 ---
 
+## BC-008 宁德时代续问「一季报呢」误触发 stock_name 澄清
+
+### 用户问题（示例）
+
+> 宁德时代基本面怎么样  
+> （回答后）一季报呢
+
+### 现象
+
+- `intent_recognition` 结合 `history_summary` 正确识别为 `stock_analysis`。
+- `slot_extraction` 仅抽出 `time_range` / `analysis_dimension`，**无 `stock_name`**。
+- `clarification_check` 触发「核心槽位缺失：stock_name」，要求用户重复公司名。
+
+Trace 示例：`trace_20260619_230935_017_local`。
+
+### 理想态
+
+- 第二轮续问继承上轮 `stock_name=宁德时代`（或等价 `stock_code`），直接进入路由回答一季报，不追问标的。
+
+### 归因
+
+1. **T-015 仅修意图层**：`history_summary` 帮助意图识别，但槽位未跨轮继承。
+2. **无会话级 pending**：`slot_extraction` 每轮独立抽取，续问短句不含公司名即 missing。
+3. **澄清门控未区分继承槽位**：`clarification_check` 将 LLM 报告的 `missing_slots` 与核心必填等同对待。
+
+### 修复（摘要）
+
+- 新增 `SessionRecord.context_state.pending_slots` 会话持久化；成功路由后写入，澄清轮不覆盖。
+- `slot_memory.merge_pending_slots` 在 `slot_extraction` 合并 pending + extracted；`filter_missing_after_inherit` 清理 missing。
+- `clarification_check` 引用 `REQUIRED_SLOTS_BY_INTENT`，已继承且存在于 `slots` 的必填槽位不计 missing。
+- Trace `slot_extraction` / `clarification_check` 可见 `pending_slots`、`inherited_slot_keys`。
+
+### 回归要点
+
+- 「宁德时代基本面」→「一季报呢」：`need_clarification=false`，`slots.stock_name=宁德时代`。
+- 「泸州老窖呢」覆盖 pending，不误用宁德时代。
+- 首轮无 pending、真缺 `stock_name` 时仍澄清。
+
+---
+
 ## 变更日志
 
 | 日期 | 说明 |
 |------|------|
+| 2026-06-19 | BC-008：宁德时代续问一季报 stock_name 误澄清（pending_slots 继承） |
 | 2026-06-16 | BC-007：海天 2025 年报营收 document_id 误澄清 |
 | 2026-06-14 | BC-006：恒瑞管线 PD-1 幻觉 + 寒武纪年报误检索；叙事 RAG 严格过滤 |

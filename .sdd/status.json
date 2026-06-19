@@ -1,9 +1,9 @@
 {
-  "stage": "development",
+  "stage": "testing",
   "mode": "new",
   "design_ready": false,
   "development_ready": true,
-  "current_task": "T-015",
+  "current_task": "T-016",
   "blocked": false,
-  "notes": "T-015 开发完成，待 Tester 验证。报告：.sdd/developer-reports/T-015-completion.md"
+  "notes": "T-016 pending_slots 多轮槽位继承开发完成，待 Tester 验收。方案：.sdd/developer-reports/T-016-plan.md；完成报告：.sdd/developer-reports/T-016-completion.md"
 }

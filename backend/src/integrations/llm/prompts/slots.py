@@ -23,7 +23,15 @@ JSON 字段：
 7. hotspot_analysis：topic / industry / event / time_range 尽量抽取。
 8. 若用户问「现在买某股预期回报率/收益率」等情景测算，填 `scenario_return_mode: true`（布尔）、`stock_name`，默认 `share_count: 100`。
 9. 若用户问「刚刚过去的交易日」「上一交易日」「昨日收盘」「近一交易日」等，须填 `time_range: "近一交易日"`，并填 `trade_date` 为 system_context.last_trading_day（非交易日时不得用 current_date）。
-10. ambiguous_slots 仅在有真实歧义时填写，不要与 missing_slots 重复。"""
+10. ambiguous_slots 仅在有真实歧义时填写，不要与 missing_slots 重复。
+
+## 多轮 pending_slots / history_summary
+
+当输入含 `pending_slots` 或 `history_summary` 时：
+1. 本轮用户未再次提及的标的、行业、时间口径等，可从 `pending_slots` 继承填入 `slots`，**不要**把已继承槽位列入 `missing_slots`。
+2. 用户显式更换公司或标的（如 pending 为宁德时代、本轮说「泸州老窖呢」）时，以本轮抽取为准覆盖 `stock_name`。
+3. 续问示例：`pending_slots: {"stock_name": "宁德时代"}` + `normalized_query: "一季报呢"` → `slots` 须含 `stock_name: "宁德时代"`，可补充 `time_range` / `analysis_dimension`，且 `missing_slots` 不含 `stock_name`。
+4. `history_summary` 仅作辅助推断，不得臆造 pending 中不存在的槽位。"""
 
 def slots_system_prompt(ctx: SystemTimeContext) -> str:
     """Build the LangGraph slot extraction system prompt."""

@@ -46,10 +46,31 @@ async def get_db_context() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+async def ensure_schema_columns() -> None:
+    """Apply lightweight SQLite migrations for columns added after initial deploy."""
+    from sqlalchemy import text
+
+    async with engine.begin() as conn:
+
+        def _migrate(connection) -> None:
+            result = connection.execute(text("PRAGMA table_info(investment_sessions)"))
+            columns = {row[1] for row in result}
+            if "context_state" not in columns:
+                connection.execute(
+                    text(
+                        "ALTER TABLE investment_sessions "
+                        "ADD COLUMN context_state JSON NOT NULL DEFAULT '{}'"
+                    )
+                )
+
+        await conn.run_sync(_migrate)
+
+
 async def init_db() -> None:
     """Create project tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await ensure_schema_columns()
     logger.info("Database initialized")
 
 

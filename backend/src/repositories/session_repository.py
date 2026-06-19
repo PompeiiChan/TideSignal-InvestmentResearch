@@ -166,3 +166,14 @@ class SessionRepository:
         await self.db.delete(session)
         await self.db.flush()
         return True
+
+    async def update_context_state(self, session_id: str, context_state: dict) -> None:
+        """Persist session-level pending slot carryover."""
+        result = await self.db.execute(
+            select(SessionRecord).where(SessionRecord.id == session_id)
+        )
+        session = result.scalar_one_or_none()
+        if session is None:
+            return
+        session.context_state = context_state
+        await self.db.flush()

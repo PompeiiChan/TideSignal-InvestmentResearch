@@ -170,6 +170,11 @@
 - **经验**：`trim_chat_history` 须先 `exclude_trailing_user=True` 剥离当前 user，再按 `max_qa_rounds * 2` 取 prior；runner 与 context_preprocess 共用 `short_term_memory` 模块与 `settings.short_term_qa_rounds`。
 - **避坑**：`user_query` 已单独传递，勿把当前 user 重复放进 `chat_history`；单测直接注入 state 时 preprocess 会二次 trim 保底。
 
+### [T-016]: 会话 pending_slots 多轮闭环（F19）
+- **陷阱**：澄清轮若写入 `context_state`，会把不完整 slots 覆盖 pending，导致下一轮继承丢失（如「一季报呢」澄清后 `stock_name` 被洗掉）。
+- **经验**：`slot_memory.py` 集中维护 `INHERITABLE_SLOTS_BY_INTENT` 与 `REQUIRED_SLOTS_BY_INTENT`；`merge_pending_slots` 在 KB enrich 之前执行；`should_persist_pending` 仅在 `need_clarification=false` 时更新会话 pending。
+- **避坑**：旧 SQLite 库须跑 `init_db` / `ensure_schema_columns` 添加 `context_state` 列；联调前重启 8099；续问验收须同时看 `slot_extraction` trace 的 `inherited_slot_keys` 与 `clarification_check` 是否跳过 inherited missing。
+
 ### 知识库扩容方法论（2026-06-12）
 - **决策**：raw 数据（PDF 解析、网页整理、CSV）入库的统一手册沉淀在 `docs/knowledge-base-ingestion.md`；目录索引仍用 `backend/data/knowledge-base/README.md`。
 - **经验**：扩容按「分类落盘 → 元数据表 → document_manifest 登记 → 升 RAG_INDEX_VERSION → 检索冒烟」执行；财报合并文件须在 `## 2025 年年度报告` / `## 2026 年第一季度报告` 分节各配 `doc_id`；正文放在 `## 原始解析文本` 之后，元数据勿与财务正文混段。

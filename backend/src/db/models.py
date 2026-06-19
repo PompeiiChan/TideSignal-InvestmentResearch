@@ -23,6 +23,7 @@ class SessionRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_message_preview: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     last_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    context_state: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
     messages: Mapped[list["MessageRecord"]] = relationship(
         back_populates="session",

@@ -13,6 +13,10 @@ from ...services.rag.company_index import (
     is_truly_ambiguous_stock_name,
 )
 from ...services.rag.service import RagService
+from ...services.slot_memory import (
+    REQUIRED_SLOTS_BY_INTENT,
+    filter_missing_after_inherit,
+)
 from ...settings import BACKEND_ROOT, AppSettings
 from ._helpers import normalize_string_list, run_node_with_trace
 
@@ -47,15 +51,23 @@ def _missing_core_slots(
     kb_root: Any = None,
 ) -> list[str]:
     missing: list[str] = []
-    if intent_id == "stock_analysis" and not _has_stock_identifier(slots):
-        missing.append("stock_name")
-    if intent_id == "data_query" and not _slot_value(slots, "metric"):
-        missing.append("metric")
-    if intent_id == "document_qa" and not _has_document_reference(slots, context_pack):
-        if kb_root is not None and is_kb_resolvable_document_query(normalized_query, slots, kb_root):
-            pass
-        else:
+    required = REQUIRED_SLOTS_BY_INTENT.get(intent_id, frozenset())
+    for slot_name in required:
+        if slot_name == "stock_name":
+            if not _has_stock_identifier(slots):
+                missing.append("stock_name")
+        elif slot_name == "document_id":
+            if _has_document_reference(slots, context_pack):
+                continue
+            if kb_root is not None and is_kb_resolvable_document_query(
+                normalized_query,
+                slots,
+                kb_root,
+            ):
+                continue
             missing.append("document_id")
+        elif not _slot_value(slots, slot_name):
+            missing.append(slot_name)
     return missing
 
 
@@ -66,10 +78,15 @@ def _normalize_slot_lists_for_clarification(
     slots: dict[str, Any],
     missing_slots: list[str],
     ambiguous_slots: list[str],
+    inherited_slot_keys: list[str],
     kb_root: Any,
 ) -> tuple[list[str], list[str]]:
     """Drop optional / auto-resolvable slots from clarification triggers."""
-    filtered_missing = list(missing_slots)
+    filtered_missing = filter_missing_after_inherit(
+        missing_slots,
+        slots,
+        inherited_slot_keys,
+    )
     filtered_ambiguous = list(ambiguous_slots)
 
     if intent_id == "document_qa" and is_kb_resolvable_document_query(query, slots, kb_root):
@@ -80,7 +97,9 @@ def _normalize_slot_lists_for_clarification(
         return filtered_missing, filtered_ambiguous
 
     if _has_stock_identifier(slots):
-        filtered_missing = [name for name in filtered_missing if name not in _OPTIONAL_STOCK_SLOTS]
+        filtered_missing = [
+            name for name in filtered_missing if name not in _OPTIONAL_STOCK_SLOTS
+        ]
 
     stock_name = _slot_value(slots, "stock_name")
     kb_resolved = is_kb_resolved_stock(query, slots, kb_root)
@@ -135,6 +154,7 @@ async def clarification_check(
     normalized_query = str(state.get("normalized_query", "")).strip()
     slots = state.get("slots") or {}
     context_pack = state.get("context_pack") or {}
+    inherited_slot_keys = normalize_string_list(state.get("inherited_slot_keys"))
     kb_root = resolve_kb_root(settings.local_kb_path, BACKEND_ROOT)
     raw_missing = normalize_string_list(state.get("missing_slots"))
     raw_ambiguous = normalize_string_list(state.get("ambiguous_slots"))
@@ -144,6 +164,7 @@ async def clarification_check(
         slots=slots,
         missing_slots=raw_missing,
         ambiguous_slots=raw_ambiguous,
+        inherited_slot_keys=inherited_slot_keys,
         kb_root=kb_root,
     )
 
@@ -153,6 +174,7 @@ async def clarification_check(
         "slots": slots,
         "missing_slots": missing_slots,
         "ambiguous_slots": ambiguous_slots,
+        "inherited_slot_keys": inherited_slot_keys,
     }
 
     async def _execute() -> tuple[dict[str, Any], str]:
@@ -201,6 +223,7 @@ async def clarification_check(
             "need_clarification": need_clarification,
             "clarification_reason": "；".join(reasons) if reasons else "信息足够，进入路由",
             "clarification_questions": clarification_questions,
+            "inherited_slot_keys": inherited_slot_keys,
         }
         summary = "需要澄清" if need_clarification else "无需澄清，进入路由"
         return output, summary

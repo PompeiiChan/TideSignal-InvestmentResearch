@@ -1181,12 +1181,12 @@
         "dev-standards/backend-dev.md",
         "dev-standards/backend-layers.md"
       ],
-      "status": "backlog",
+      "status": "passed",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "2026-06-12 用户确认补入 PRD 短期记忆方案。当前代码已有 limit=10 消息与 history_summary 骨架，本任务做产品规则固化与意图层消费，不含槽位跨轮与 RAG 改写。",
+      "notes": "[PASS] T-015 - 五轮短期记忆窗口技术验收通过\n详见：.sdd/test-reports/test-T-015.md",
       "user_gate": true
     },
     {
@@ -1235,7 +1235,7 @@
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "多轮指代核心依赖本任务；须在 T-014 Query 改写之前完成。",
+      "notes": "多轮指代核心依赖本任务；须在 T-014 Query 改写之前完成。方案：.sdd/developer-reports/T-016-plan.md",
       "user_gate": true
     },
     {
