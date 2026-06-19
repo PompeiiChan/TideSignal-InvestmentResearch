@@ -95,6 +95,8 @@ async def rag_retrieval(
     emit_node_entry_status(state, "rag_retrieval")
     _ = (llm, settings)
     normalized_query = str(state.get("normalized_query", state.get("user_query", ""))).strip()
+    retrieval_query = str(state.get("retrieval_query", "")).strip() or normalized_query
+    effective_query = retrieval_query
     plan = state.get("execution_plan") or {}
     retrieval_config = plan.get("retrieval_config") or {}
     if not isinstance(retrieval_config, dict):
@@ -116,7 +118,11 @@ async def rag_retrieval(
     stock_name = str(slots.get("stock_name", "")).strip()
 
     input_data = {
-        "query": normalized_query,
+        "normalized_query": normalized_query,
+        "retrieval_query": retrieval_query,
+        "retrieval_query_changed": state.get("retrieval_query_changed", False),
+        "rewrite_method": state.get("rewrite_method", "passthrough"),
+        "query": effective_query,
         "retrieval_config": retrieval_config,
         "supplement_mode": supplement_mode,
         "supplement_queries": supplement_queries,
@@ -143,7 +149,7 @@ async def rag_retrieval(
             merged_hits = filter_stock_narrative_hits(
                 merged_hits,
                 stock_name=stock_name,
-                query=normalized_query,
+                query=effective_query,
             )
             rag_result = narrative_result or RagRetrievalResult(
                 query=" | ".join(str(q) for q in supplement_queries if str(q).strip()),
@@ -168,7 +174,7 @@ async def rag_retrieval(
             month_keys = extract_hotspot_month_keys(
                 " ".join(
                     [
-                        normalized_query,
+                        effective_query,
                         str(slots.get("time_range", "")),
                         str(slots.get("topic", "")),
                     ]
@@ -177,27 +183,27 @@ async def rag_retrieval(
         topic = str(slots.get("topic") or slots.get("industry") or "").strip()
         if isinstance(month_keys, list) and len(month_keys) >= 2:
             rag_result = await rag.retrieve_hotspot_multi_month(
-                normalized_query,
+                effective_query,
                 month_keys=[str(item) for item in month_keys if str(item).strip()],
                 top_k=top_k,
                 topic=topic,
             )
         else:
-            rag_result = await rag.retrieve_hotspot(normalized_query, top_k=top_k)
+            rag_result = await rag.retrieve_hotspot(effective_query, top_k=top_k)
             rag_result.hits = diversify_hotspot_hits_by_month(rag_result.hits, top_k=top_k)
     elif retrieval_strategy == "hotspot_industry_only":
-        rag_result = await rag.retrieve_hotspot_industry_only(normalized_query, top_k=top_k)
+        rag_result = await rag.retrieve_hotspot_industry_only(effective_query, top_k=top_k)
     elif stock_narrative_mode or (
         state.get("route_target") == "stock_analysis_agent"
-        and is_qualitative_business_query(query=normalized_query)
+        and is_qualitative_business_query(query=effective_query)
     ):
         scoped_result = await rag.retrieve_stock_narrative(
-            normalized_query,
+            effective_query,
             top_k=max(top_k, 8),
             stock_name=stock_name,
         )
         narrative_queries = build_stock_narrative_rag_queries(
-            query=normalized_query,
+            query=effective_query,
             stock_name=stock_name,
         )
         targeted_result = await rag.retrieve_targeted(
@@ -205,7 +211,7 @@ async def rag_retrieval(
             top_k=max(top_k, 8),
             entity_name=stock_name,
             narrative_strict=True,
-            narrative_query=normalized_query,
+            narrative_query=effective_query,
         )
         merged_hits = merge_rag_hit_lists(
             [scoped_result.hits, targeted_result.hits],
@@ -214,15 +220,15 @@ async def rag_retrieval(
         merged_hits = filter_stock_narrative_hits(
             merged_hits,
             stock_name=stock_name,
-            query=normalized_query,
+            query=effective_query,
         )
         rag_result = scoped_result
         rag_result.hits = merged_hits
-        rag_result.query = normalized_query
+        rag_result.query = effective_query
         rag_result.mode = "stock_narrative"
     else:
-        rag_result = await rag.retrieve(normalized_query, top_k=top_k)
-        if stock_name and len(normalized_query) <= 12:
+        rag_result = await rag.retrieve(effective_query, top_k=top_k)
+        if stock_name and len(effective_query) <= 12:
             rag_result.hits = filter_hits_by_entity(rag_result.hits, stock_name)
         if state.get("route_target") == "stock_analysis_agent":
             rag_result.hits = diversify_hits_by_time_period(rag_result.hits, top_k=top_k)

@@ -188,6 +188,7 @@ async def test_stock_path_trace_contains_rag_and_tool() -> None:
 
     node_names = [step["node"] for step in result.get("trace_steps", [])]
     assert "stock_analysis_agent" in node_names
+    assert "query_rewrite" in node_names
     assert "rag_retrieval" in node_names
     assert "tool_call" in node_names
     assert "evidence_merge" in node_names

@@ -67,10 +67,11 @@ def build_graph(deps: GraphDeps) -> Any:
         route_after_clarification,
         {
             "clarification_response": "clarification_response",
-            "routing_decision": "routing_decision",
+            "query_rewrite": "query_rewrite",
         },
     )
     graph.add_edge("clarification_response", END)
+    graph.add_edge("query_rewrite", "routing_decision")
     graph.add_conditional_edges(
         "routing_decision",
         route_after_routing,

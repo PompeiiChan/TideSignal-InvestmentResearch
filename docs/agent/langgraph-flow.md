@@ -17,13 +17,14 @@
 | `slot_extraction` | 槽位抽取。抽取标的、行业、时间范围、指标、市场、文档 ID 等。 | `normalized_query`、`intent_id`、`context_pack` | `slots`、`slot_confidence`、`missing_slots`、`ambiguous_slots` |
 | `clarification_check` | 澄清判断。意图低置信、槽位缺失或歧义时进入澄清链路。 | `intent_id`、`intent_confidence`、`slots`、`missing_slots`、`ambiguous_slots` | `need_clarification`、`clarification_reason`、`clarification_questions` |
 | `clarification_response` | 澄清回复。生成结构化追问，一次性补齐关键槽位。 | `clarification_reason`、`clarification_questions`、`normalized_query` | `final_response`、`next_expected_slots` |
+| `query_rewrite` | Query 改写（Phase ① 规则+槽位拼接，无 LLM）。将口语化/多轮指代 Query 转为检索友好语句。 | `normalized_query`、`intent_id`、`slots`、`active_slots` | `retrieval_query`、`rewrite_method`、`retrieval_query_changed` |
 | `routing_decision` | 路由决策。根据意图、槽位和上下文选择子 Agent 或工具链路。 | `intent_id`、`slots`、`context_pack`、`risk_hint` | `route_target`、`route_reason`、`execution_plan` |
 | `hotspot_agent` | 热点解读 Agent。市场热点、概念异动、政策事件、产业趋势。 | `normalized_query`、`slots`、`execution_plan` | `agent_result`、`evidence_list`、`followup_need` |
 | `data_query_agent` | 问数 Agent。排行、涨跌幅、估值、财务指标、成交额、资金流等。 | `normalized_query`、`slots`、`execution_plan` | `agent_result`、`data_table`、`data_source` |
 | `stock_analysis_agent` | 问股 Agent。个股诊断、基本面、技术面、资金面、事件影响、风险提示。 | `normalized_query`、`slots`、`execution_plan` | `agent_result`、`analysis_dimensions`、`evidence_list` |
 | `document_qa_agent` | 文档问答 Agent。研报、年报、公告、会议纪要等文档内问答。 | `normalized_query`、`slots`、`document_id`、`execution_plan` | `agent_result`、`quoted_chunks`、`doc_citations` |
 | `tool_call` | 工具调用。封装行情、财务、新闻、研报、公告、搜索等工具。 | `route_target`、`execution_plan`、`slots`、`tool_params` | `tool_result`、`tool_status`、`tool_latency`、`tool_error` |
-| `rag_retrieval` | RAG 检索。召回知识库、文档片段、研报段落、公告等。**当前实现**：以 `normalized_query` 作为检索 Query，走 BM25 + 向量混合召回（可选 Rerank）；**尚未**单独实现 `query_rewrite` 节点。 | `normalized_query`（当前）、`intent_id`、`slots`、`retrieval_config`；Trace 规划字段 `retrieval_query`（待 Query 改写节点落地后写入） | `retrieved_chunks`、`retrieval_score`、`citations`、`low_confidence_flag` |
+| `rag_retrieval` | RAG 检索。召回知识库、文档片段、研报段落、公告等。**当前实现**：主路径优先使用 `retrieval_query`（由 `query_rewrite` 产出），缺省回退 `normalized_query`；走 BM25 + 向量混合召回（可选 Rerank）；`supplement_mode` 仍用 `supplement_rag_queries`。 | `normalized_query`、`retrieval_query`、`intent_id`、`slots`、`retrieval_config` | `retrieved_chunks`、`retrieval_score`、`citations`、`low_confidence_flag` |
 | `evidence_merge` | 证据聚合。整理工具结果、RAG 结果、结构化数据、子 Agent 输出。 | `tool_result`、`retrieved_chunks`、`agent_result` | `evidence_pack`、`citation_map`、`conflict_points` |
 | `quality_check` | 质检合规。事实一致性、引用完整性、合规风险、投资建议越界检查。 | `agent_result`、`evidence_pack`、`citation_map`、`risk_hint` | `quality_status`、`quality_score`、`risk_level`、`revision_suggestions` |
 | `response_assembly` | 回答组装。统一结构、引用、风险提示和追问建议。 | `agent_result`、`evidence_pack`、`quality_status`、`revision_suggestions` | `final_response`、`response_meta` |
@@ -45,7 +46,8 @@ flowchart TD
     clarification_check -- 是：意图低置信 / 槽位缺失 / 存在歧义 --> clarification_response[clarification_response<br/>生成结构化追问]
     clarification_response --> END([END<br/>返回回复并写入 Trace])
 
-    clarification_check -- 否：信息足够 --> routing_decision[routing_decision<br/>路由决策]
+    clarification_check -- 否：信息足够 --> query_rewrite[query_rewrite<br/>检索问句改写]
+    query_rewrite --> routing_decision[routing_decision<br/>路由决策]
 
     routing_decision -- 热点 / 概念 / 事件解读 --> hotspot_agent[hotspot_agent<br/>热点解读 Agent]
     routing_decision -- 问数 / 排行 / 指标查询 --> data_query_agent[data_query_agent<br/>问数 Agent]
@@ -86,7 +88,8 @@ flowchart TD
 | → `clarification_response` | `intent_confidence < 0.70` | 先追问真实意图，不直接执行任务 |
 | → `clarification_response` | 核心槽位缺失（如问股缺股票名、问数缺指标或时间范围） | 结构化追问，一次性补齐关键槽位 |
 | → `clarification_response` | 槽位歧义（如「茅台」多义） | 让用户选择或给出可选项 |
-| → `routing_decision` | `intent_confidence >= 0.70` 且核心槽位完整 | 进入任务执行链路 |
+| → `query_rewrite` | `intent_confidence >= 0.70` 且核心槽位完整 | 规则+槽位拼接生成 `retrieval_query` |
+| → `routing_decision` | `query_rewrite` 完成后 | 进入任务执行链路 |
 
 ### 3.2 路由分支
 
@@ -130,13 +133,14 @@ flowchart TD
 | `slot_extraction` | `slot_extraction` | `output.slots`、`output.missing_slots`、`output.ambiguous_slots` |
 | `clarification_check` | `clarification_check` | `output.need_clarification`、`output.clarification_reason` |
 | `clarification_response` | `clarification_response` | `output.final_response`、`output.next_expected_slots` |
+| `query_rewrite` | `query_rewrite` | `input.normalized_query`、`output.retrieval_query`、`output.rewrite_method`、`output.retrieval_query_changed` |
 | `routing_decision` | `routing_decision` | `output.route_target`、`output.route_reason`、`output.execution_plan` |
 | `hotspot_agent` | `hotspot_agent` | `input.slots`、`output.agent_result`、`output.evidence_list` |
 | `data_query_agent` | `data_query_agent` | `input.slots`、`output.data_table`、`output.data_source` |
 | `stock_analysis_agent` | `stock_analysis_agent` | `input.slots`、`output.analysis_dimensions`、`output.agent_result` |
 | `document_qa_agent` | `document_qa_agent` | `input.document_id`、`output.quoted_chunks`、`output.doc_citations` |
 | `tool_call` | `tool_call` | `input.tool_name`、`input.tool_params`、`output.tool_result`、`output.tool_status`、`output.tool_latency` |
-| `rag_retrieval` | `rag_retrieval` | `input.query`（当前）、`input.retrieval_query`（规划，待改写节点）、`output.retrieved_chunks`、`output.retrieval_score`、`output.citations`、`output.mode`（`hybrid` / `bm25` / `mock`） |
+| `rag_retrieval` | `rag_retrieval` | `input.normalized_query`、`input.retrieval_query`、`input.query`（实际检索句）、`input.rewrite_method`、`output.retrieved_chunks`、`output.retrieval_score`、`output.citations`、`output.mode`（`hybrid` / `bm25` / `mock`） |
 | `evidence_merge` | `evidence_merge` | `output.evidence_pack`、`output.citation_map`、`output.conflict_points` |
 | `quality_check` | `quality_check` | `output.quality_status`、`output.quality_score`、`output.risk_level`、`output.revision_suggestions` |
 | `response_assembly` | `response_assembly` | `output.final_response`、`output.response_meta` |
@@ -249,16 +253,16 @@ flowchart TD
 
 以下能力**已纳入产品规划**，但**不阻塞** T-012～T-013（V1.1 收尾）；优先级排在 V1.1 全链路验收与槽位体系完善之后。
 
-### 7.1 `query_rewrite`（Query 改写，延后）
+### 7.1 `query_rewrite`（Query 改写）
 
 | 项 | 说明 |
 |----|------|
-| **状态** | 未实现；对应 backlog 任务 **T-014** |
+| **状态** | **已实现 Phase ①**（T-014）：规则+槽位拼接，无 LLM 改写 |
 | **动机** | 多轮指代（「它一季报怎么样」）、口语化问法、槽位已齐但检索 Query 未结构化时，提升 RAG 召回率 |
-| **建议落点** | `slot_extraction` → **`query_rewrite`** → `clarification_check` / `routing_decision` 之后、`rag_retrieval` 之前（槽位已知后再改写） |
-| **建议输出** | `retrieval_query`（主检索句，写入 `rag_retrieval` input 与 Trace）；可选 `retrieval_queries[]`（多路召回） |
-| **分阶段实现** | ① 规则/槽位拼接（轻量，无新 LLM 节点）→ ② 独立 LLM 改写节点 → ③ 多 Query 扩展 / HyDE（可选） |
-| **当前替代** | `context_preprocess` 仅做空白清洗；`rag_retrieval` 直接使用 `normalized_query`；`company_index.resolve_query_filters` 从 Query 解析公司/文档类型元数据过滤 |
+| **落点** | `clarification_check` 通过 → **`query_rewrite`** → `routing_decision` → … → `rag_retrieval`（澄清链路不经过改写） |
+| **输出** | `retrieval_query`（主检索句，写入 `rag_retrieval` input 与 Trace）；`rewrite_method`（`passthrough` / `rule_slots` / `rule_multiturn`）；`retrieval_query_changed` |
+| **分阶段实现** | ① 规则/槽位拼接（**已完成**）→ ② 独立 LLM 改写节点 → ③ 多 Query 扩展 / HyDE（可选） |
+| **当前行为** | `build_retrieval_query()` 纯规则拼接；Embedding 不可用时不阻断，RAG 仍走既有 BM25-only 降级；`supplement_mode` 不改写 |
 
 ### 7.2 槽位体系增强（与 Query 改写配套，优先于 LLM 改写）
 

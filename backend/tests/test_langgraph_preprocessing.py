@@ -31,8 +31,8 @@ def _llm_deps() -> tuple[LLMService, RagService, AppSettings]:
     ("state", "expected_route"),
     [
         ({"need_clarification": True}, "clarification_response"),
-        ({"need_clarification": False}, "routing_decision"),
-        ({}, "routing_decision"),
+        ({"need_clarification": False}, "query_rewrite"),
+        ({}, "query_rewrite"),
     ],
 )
 def test_route_after_clarification_branches(state: AgentState, expected_route: str) -> None:
@@ -372,9 +372,11 @@ async def test_graph_clear_stock_query_reaches_stock_route() -> None:
             }
         )
 
+    node_names = [step["node"] for step in result.get("trace_steps", [])]
     routing_steps = [
         step for step in result.get("trace_steps", []) if step["node"] == "routing_decision"
     ]
+    assert "query_rewrite" in node_names
     assert routing_steps
     assert routing_steps[0]["output"]["route_target"] == "stock_analysis_agent"
     assert result.get("route_target") == "stock_analysis_agent"

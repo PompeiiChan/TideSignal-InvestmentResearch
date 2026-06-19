@@ -51,6 +51,11 @@ class AgentState(TypedDict, total=False):
     clarification_reason: str
     clarification_questions: list[str]
 
+    # --- query_rewrite output (T-014) ---
+    retrieval_query: str
+    rewrite_method: str
+    retrieval_query_changed: bool
+
     # --- clarification_response output ---
     next_expected_slots: list[str]
 

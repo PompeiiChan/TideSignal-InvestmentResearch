@@ -18,11 +18,11 @@ AGENT_NODES = (
 
 def route_after_clarification(
     state: AgentState,
-) -> Literal["clarification_response", "routing_decision"]:
-    """Route to clarification or routing based on need_clarification flag."""
+) -> Literal["clarification_response", "query_rewrite"]:
+    """Route to clarification or query rewrite based on need_clarification flag."""
     if state.get("need_clarification"):
         return "clarification_response"
-    return "routing_decision"
+    return "query_rewrite"
 
 
 def route_after_routing(state: AgentState) -> str:

@@ -3,7 +3,7 @@
   "mode": "new",
   "design_ready": false,
   "development_ready": true,
-  "current_task": "T-016",
+  "current_task": "T-014",
   "blocked": false,
-  "notes": "T-016 pending_slots 多轮槽位继承开发完成，待 Tester 验收。方案：.sdd/developer-reports/T-016-plan.md；完成报告：.sdd/developer-reports/T-016-completion.md"
+  "notes": "T-014 Query 改写节点 Phase ① 开发完成，待 Tester 验收。完成报告：.sdd/developer-reports/T-014-completion.md"
 }

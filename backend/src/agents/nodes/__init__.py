@@ -13,6 +13,7 @@ from .hotspot_agent import hotspot_agent
 from .intent_recognition import intent_recognition
 from .multi_agent_handoff import multi_agent_handoff
 from .quality_check import quality_check
+from .query_rewrite import query_rewrite
 from .rag_retrieval import rag_retrieval
 from .response_assembly import response_assembly
 from .routing_decision import routing_decision
@@ -26,6 +27,7 @@ ALL_NODES = {
     "slot_extraction": slot_extraction,
     "clarification_check": clarification_check,
     "clarification_response": clarification_response,
+    "query_rewrite": query_rewrite,
     "routing_decision": routing_decision,
     "hotspot_agent": hotspot_agent,
     "data_query_agent": data_query_agent,
@@ -56,6 +58,7 @@ __all__ = [
     "hotspot_agent",
     "intent_recognition",
     "quality_check",
+    "query_rewrite",
     "rag_retrieval",
     "response_assembly",
     "routing_decision",

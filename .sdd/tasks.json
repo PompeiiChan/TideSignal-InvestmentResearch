@@ -1131,12 +1131,12 @@
         "dev-standards/backend-dev.md",
         "dev-standards/backend-layers.md"
       ],
-      "status": "backlog",
+      "status": "testing",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "2026-06-12 用户确认：Query 改写优先级排到 V1.1 之后；当前 RAG 已具备 BM25+向量混合+Rerank，检索直接用 normalized_query。实现前须先完成 T-015～T-017（短期记忆与槽位跨轮）。",
+      "notes": "2026-06-12 用户确认：Query 改写优先级排到 V1.1 之后。T-015～T-017 已完成。方案：.sdd/developer-reports/T-014-plan.md",
       "user_gate": true
     },
     {
@@ -1283,12 +1283,12 @@
         "dev-standards/backend-dev.md",
         "dev-standards/backend-layers.md"
       ],
-      "status": "testing",
+      "status": "passed",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,
       "blocked": false,
-      "notes": "完成本任务后多轮「能聊下去」；检索侧口语改写仍由 T-014 负责。方案：.sdd/developer-reports/T-017-plan.md",
+      "notes": "技术验收 PASS（2026-06-19）。详见：.sdd/test-reports/test-T-017.md；用户门禁：.sdd/test-reports/acceptance-roadmap-T-017.md",
       "user_gate": true
     },
     {

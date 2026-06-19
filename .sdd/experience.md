@@ -160,6 +160,11 @@
 - **经验**：多轮指代与口语化召回问题，在槽位 `pending_slots` 未闭环前，LLM 改写收益有限且易幻觉；优先 F19 再 F18。
 - **避坑**：文档已写入 `docs/agent/langgraph-flow.md` §7、`docs/Plan.md` F18、`tasks.json` T-014（status=backlog）；勿在 T-012～T-013 验收中要求 retrieval_query 字段。
 
+### [T-014]: Query 改写节点（F18）Phase ①
+- **经验**：`build_retrieval_query` 集中规则；`_query_already_rich` 检测 query 含年份+财报关键词或公司名+财报词时 passthrough，避免「罗莱生活 2026 年一季报」退化。
+- **经验**：图边为 `clarification_check` 通过 → `query_rewrite` → `routing_decision`；澄清链路不经过改写；`rag_retrieval` 主路径用 `effective_query = retrieval_query or normalized_query`，`supplement_mode` 仍用 `supplement_rag_queries`。
+- **避坑**：`route_after_clarification` 返回目标改为 `query_rewrite` 后，图回归测试须断言节点序列含 `query_rewrite`；`filter_hits_by_entity` 长度判断改用 `effective_query` 而非短 `normalized_query`。
+
 ### 短期对话记忆（T-015～T-017 backlog，2026-06-12 补入）
 - **决策**：PRD 短期记忆为同会话最近 5 轮 QA；长期记忆 V2+ 延后。实施顺序 T-015（窗口）→ T-016（pending_slots）→ T-017（下游注入）→ T-014（Query 改写）。
 - **现状**：`runner` 已读 10 条消息、`history_summary`  mainly 供意图识别；槽位不跨轮、`response_assembly` 不看历史。
