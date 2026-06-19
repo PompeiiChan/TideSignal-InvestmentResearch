@@ -16,7 +16,7 @@
 | **T-021** | 估值工具丰富度 | 问股 `valuation_profile_lookup` | ✅ **P1 已验收**（P2/P3 待办） | 用户 2026-06-19 |
 | **T-022** | 问股财报深化 | 问股 `mock_financial_profile_lookup` + RAG | ✅ **P1/P2 已验收**（P3 入库重跑待办） | 用户 2026-06-19 |
 | **T-023** | 热点工具丰富度 | 热点 `hotspot_*` + RAG | ✅ **P1/P2/P3 已验收** | 用户 2026-06-19 |
-| **T-024** | 离线 KB 与入库扩展 | 脚本 `ingest_*` + financials | 🟡 **当前活动** | 待用户 |
+| **T-024** | 离线 KB 与入库扩展 | 脚本 `ingest_*` + financials | 🟡 **批量刷新完成，待用户验收** | 待用户 |
 
 ---
 
@@ -59,7 +59,7 @@
 |--------|------|------|
 | **T-022-P1** | `periods[]` 增加 `operating_cash_flow`、`debt_ratio`（Sina 三表 + KB） | ✅ **已验收**（2026-06-19） |
 | **T-022-P2** | `diversify_hits_by_time_period` 保证多期 RAG evidence | ✅ **已验收**（2026-06-19） |
-| **T-022-P3** | `ingest_chinext_sina_financials.py` 最新季报 + 至多 3 年报 | 🟡 脚本已就绪，**KB 重跑待办** |
+| **T-022-P3** | `ingest_chinext_sina_financials.py` 最新季报 + 至多 3 年报 | ✅ **已随 T-024 批量重跑**（2026-06-19） |
 
 #### 2.3 T-022 技术要点
 
@@ -162,6 +162,16 @@
 
 - 全市场财报 KB：3 年年报 + 最新季报批量入库
 - 与 T-022-P3 联动，验收以 KB 文件 `### 主要财务数据` 段数量为准
+
+### 实施状态（2026-06-19）
+
+| 子项 | 内容 | 状态 |
+|------|------|------|
+| 脚本 | `--refresh` / `--codes` / `financial_ingest.py` 校验 | ✅ |
+| 批量入库 | 50 创业板样本 `success=50` | ✅ |
+| 用户门禁 | 问股多期 Trace + RAG | 待用户 |
+
+Tester：`.sdd/test-reports/test-roadmap-T-024.md`；清单：`.sdd/test-reports/acceptance-roadmap-T-024.md`
 
 ### 验收标准（草案）
 

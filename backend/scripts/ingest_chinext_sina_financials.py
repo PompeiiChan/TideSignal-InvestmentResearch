@@ -4,6 +4,8 @@
 Usage:
     cd backend && PYTHONPATH=.. python scripts/ingest_chinext_sina_financials.py
     cd backend && PYTHONPATH=.. python scripts/ingest_chinext_sina_financials.py --dry-run
+    cd backend && PYTHONPATH=.. python scripts/ingest_chinext_sina_financials.py --refresh
+    cd backend && PYTHONPATH=.. python scripts/ingest_chinext_sina_financials.py --refresh --codes 300296,300033
 """
 
 from __future__ import annotations
@@ -25,13 +27,20 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = BACKEND_ROOT.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from backend.src.services.rag.financial_ingest import (
+    count_financial_data_sections,
+    pick_financial_periods,
+    summarize_financial_kb_file,
+)
+
 KB_ROOT = BACKEND_ROOT / "data" / "knowledge-base"
 FINANCIALS_DIR = KB_ROOT / "financials"
 STRUCTURED_DIR = KB_ROOT / "structured-data"
 COMPANIES_MD = STRUCTURED_DIR / "companies.md"
 MANIFEST_MD = STRUCTURED_DIR / "document_manifest.md"
 DELIVERY_JSON = STRUCTURED_DIR / "companies_chinext_batch1.json"
-REPORT_MD = PROJECT_ROOT / ".sdd" / "test-reports" / "T-019-ingestion-report.md"
+REPORT_MD = PROJECT_ROOT / ".sdd" / "test-reports" / "T-024-ingestion-report.md"
+SINA_REPORT_NUM = 12
 
 RANDOM_SEED = 20260612
 SAMPLE_SIZE = 50
@@ -195,19 +204,7 @@ def _period_date(period_key: str) -> str:
 
 
 def _pick_periods(report_lists: dict[str, dict[str, Any]]) -> list[str]:
-    """Return latest interim plus up to three annual report keys."""
-    keys = sorted(report_lists.keys(), reverse=True)
-    annuals = [key for key in keys if key.endswith("1231")][:3]
-    interim = next((key for key in keys if not key.endswith("1231")), None)
-    selected: list[str] = []
-    if interim:
-        selected.append(interim)
-    for annual in annuals:
-        if annual not in selected:
-            selected.append(annual)
-    if not selected and keys:
-        selected.append(keys[0])
-    return selected
+    return pick_financial_periods(report_lists)
 
 
 def _extract_items(report_obj: dict[str, Any]) -> dict[str, str]:
@@ -220,7 +217,7 @@ def _extract_items(report_obj: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-def sina_fetch_report_list(code: str, report_type: str, num: int = 8) -> dict[str, dict[str, Any]]:
+def sina_fetch_report_list(code: str, report_type: str, num: int = SINA_REPORT_NUM) -> dict[str, dict[str, Any]]:
     params = {
         "paperCode": f"sz{code}",
         "source": report_type,
@@ -502,7 +499,10 @@ def ingest_company(company: CompanyInfo) -> IngestResult:
         content, doc_ids, period_keys = build_markdown(company, reports, slug)
         plabel = _periods_label(reports)
         out_path = FINANCIALS_DIR / f"{company.code}-{slug}-financial-{plabel}.md"
+        removed_paths = _remove_stale_financial_files(company.code, keep_path=out_path)
+        _ = removed_paths
         out_path.write_text(content, encoding="utf-8")
+        section_count = count_financial_data_sections(content)
         return IngestResult(
             code=company.code,
             name=company.name,
@@ -510,15 +510,57 @@ def ingest_company(company: CompanyInfo) -> IngestResult:
             file_path=out_path,
             doc_ids=doc_ids,
             period_keys=period_keys,
+            error=None if section_count >= 2 else f"only {section_count} financial sections",
         )
     except Exception as exc:
         return IngestResult(
             code=company.code,
-           name=company.name,
+            name=company.name,
             slug=slug,
             file_path=FINANCIALS_DIR / f"{company.code}-{slug}-financial-unknown.md",
             error=str(exc),
         )
+
+
+def _remove_stale_financial_files(code: str, *, keep_path: Path) -> list[Path]:
+    removed: list[Path] = []
+    for path in FINANCIALS_DIR.glob(f"{code}-*.md"):
+        if path.resolve() == keep_path.resolve():
+            continue
+        path.unlink(missing_ok=True)
+        removed.append(path)
+    return removed
+
+
+def _remove_manifest_rows_for_codes(text: str, codes: set[str]) -> str:
+    if not codes:
+        return text
+    pattern = re.compile(r"^\| (?:ann|q1|q)_(" + "|".join(re.escape(code) for code in sorted(codes)) + r")_")
+    lines = []
+    for line in text.splitlines():
+        if pattern.match(line):
+            continue
+        lines.append(line)
+    return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
+
+
+def _load_companies_from_json(path: Path) -> list[CompanyInfo]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return [CompanyInfo(code=str(item["code"]).zfill(6), name=str(item["name"])) for item in payload]
+
+
+def _filter_companies(
+    companies: list[CompanyInfo],
+    *,
+    codes: set[str] | None,
+    limit: int | None,
+) -> list[CompanyInfo]:
+    filtered = companies
+    if codes:
+        filtered = [company for company in filtered if company.code in codes]
+    if limit is not None and limit > 0:
+        filtered = filtered[:limit]
+    return filtered
 
 
 def _manifest_row(doc_id: str, company: CompanyInfo, period_key: str, file_path: Path) -> str:
@@ -549,8 +591,10 @@ def _update_companies_md(companies: list[CompanyInfo]) -> None:
     COMPANIES_MD.write_text(text, encoding="utf-8")
 
 
-def _update_manifest_md(results: list[IngestResult]) -> None:
+def _update_manifest_md(results: list[IngestResult], *, refresh_codes: set[str] | None = None) -> None:
     text = MANIFEST_MD.read_text(encoding="utf-8")
+    if refresh_codes:
+        text = _remove_manifest_rows_for_codes(text, refresh_codes)
     new_rows: list[str] = []
     for res in results:
         if res.error or not res.doc_ids:
@@ -573,8 +617,18 @@ def _update_manifest_md(results: list[IngestResult]) -> None:
     MANIFEST_MD.write_text(text, encoding="utf-8")
 
 
-def _write_delivery_json(companies: list[CompanyInfo]) -> None:
-    payload = [{"code": c.code, "name": c.name} for c in companies]
+def _write_delivery_json(companies: list[CompanyInfo], *, merge: bool = False) -> None:
+    if merge and DELIVERY_JSON.exists():
+        existing: dict[str, dict[str, str]] = {}
+        for item in json.loads(DELIVERY_JSON.read_text(encoding="utf-8")):
+            code = str(item.get("code", "")).zfill(6)
+            if code:
+                existing[code] = {"code": code, "name": str(item.get("name", ""))}
+        for company in companies:
+            existing[company.code] = {"code": company.code, "name": company.name}
+        payload = [existing[code] for code in sorted(existing)]
+    else:
+        payload = [{"code": c.code, "name": c.name} for c in companies]
     DELIVERY_JSON.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
@@ -583,17 +637,31 @@ def _write_report(
     sampled: list[CompanyInfo],
     results: list[IngestResult],
     pytest_summary: str,
+    mode: str,
 ) -> None:
     ok = [r for r in results if not r.error]
     fail = [r for r in results if r.error]
+    section_samples: list[str] = []
+    for res in ok[:8]:
+        summary = summarize_financial_kb_file(res.file_path)
+        section_samples.append(
+            f"- `{res.code}` {res.name}: sections={summary['financial_sections']} "
+            f"annual={summary['annual_sections']} interim={summary['interim_sections']} "
+            f"periods={','.join(res.period_keys)}"
+        )
     lines = [
-        "# T-019 知识库扩容入库报告",
+        "# T-024 知识库财报扩容入库报告",
         "",
         f"- 生成时间（UTC）：{datetime.now(UTC).isoformat()}",
+        f"- 模式：{mode}",
         f"- 随机种子：{RANDOM_SEED}",
-        f"- 抽样数量：{len(sampled)}",
+        f"- 处理数量：{len(sampled)}",
         f"- 成功：{len(ok)}",
         f"- 失败：{len(fail)}",
+        "",
+        "## 期数抽样",
+        "",
+        *section_samples,
         "",
         "## 样本 doc_id",
         "",
@@ -628,21 +696,40 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Ingest ChiNext Sina financials into knowledge-base.")
     parser.add_argument("--dry-run", action="store_true", help="Only sample and print targets, no writes.")
     parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Re-ingest companies from delivery JSON (T-024 KB upgrade).",
+    )
+    parser.add_argument(
         "--from-json",
         type=Path,
         default=None,
         help="Reuse sampled companies from delivery JSON (skip Eastmoney universe fetch).",
     )
+    parser.add_argument(
+        "--codes",
+        type=str,
+        default="",
+        help="Comma-separated stock codes to process (with --refresh or --from-json).",
+    )
+    parser.add_argument("--limit", type=int, default=0, help="Process only the first N companies.")
     parser.add_argument("--seed", type=int, default=RANDOM_SEED)
     parser.add_argument("--size", type=int, default=SAMPLE_SIZE)
     args = parser.parse_args()
 
-    if args.from_json:
-        payload = json.loads(args.from_json.read_text(encoding="utf-8"))
-        sampled = [CompanyInfo(code=str(item["code"]).zfill(6), name=str(item["name"])) for item in payload]
+    code_filter = {code.strip().zfill(6) for code in args.codes.split(",") if code.strip()}
+    limit = args.limit if args.limit > 0 else None
+
+    if args.refresh or args.from_json:
+        source = args.from_json or DELIVERY_JSON
+        sampled = _load_companies_from_json(source)
+        mode = "refresh" if args.refresh else "from-json"
     else:
         universe = fetch_chinext_universe()
         sampled = sample_companies(universe, seed=args.seed, size=args.size)
+        mode = "sample"
+
+    sampled = _filter_companies(sampled, codes=code_filter or None, limit=limit)
     if args.dry_run:
         for c in sampled:
             print(c.code, c.name)
@@ -653,11 +740,12 @@ def main() -> int:
         results.append(ingest_company(company))
 
     ok_results = [r for r in results if not r.error]
+    refresh_codes = {res.code for res in ok_results} if mode == "refresh" else None
     _update_companies_md(sampled)
-    _update_manifest_md(ok_results)
-    _write_delivery_json(sampled)
+    _update_manifest_md(ok_results, refresh_codes=refresh_codes)
+    _write_delivery_json(sampled, merge=bool(code_filter))
     pytest_summary = _run_pytest_summary()
-    _write_report(sampled=sampled, results=results, pytest_summary=pytest_summary)
+    _write_report(sampled=sampled, results=results, pytest_summary=pytest_summary, mode=mode)
 
     ok = len(ok_results)
     fail = len(results) - ok

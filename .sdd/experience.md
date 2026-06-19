@@ -238,3 +238,9 @@
 ### 路线图 T-023-P1/P2/P3：热点工具丰富度用户验收（2026-06-19）
 - **经验**：用户说「热点 P1 验收通过」时，T-023 整 Phase 视为 PASS；`status.json` → `roadmap-T-024`。
 - **经验**：下一项为 **T-024 离线 KB 与入库扩展**，与 T-022-P3 ingest 重跑联动（3 年年报 + 最新季报）。
+
+### 路线图 T-024：离线 KB 与入库扩展（2026-06-19）
+- **经验**：`--refresh` 从 `companies_chinext_batch1.json` 重跑；刷新前删除同 code 旧 `financials/{code}-*.md`；manifest 按 code 替换行。
+- **避坑**：`--refresh --codes` 局部刷新时勿覆盖 delivery JSON 全量列表；用 `merge=True` 或跳过写入。
+- **经验**：`financial_ingest.py` 提供 `pick_financial_periods` / `kb_file_meets_t024_target` 供脚本与单测共用。
+- **经验**：`EXCLUDE_CODES`（300750）不在 batch 内；全库 51 文件中 50 满足 T-024 四段标准。
