@@ -3,7 +3,7 @@
   "mode": "new",
   "design_ready": false,
   "development_ready": true,
-  "current_task": "roadmap-complete",
+  "current_task": "T-015",
   "blocked": false,
-  "notes": "工具丰富度路线图 T-020～T-024 全部用户验收通过（2026-06-19）。下一迭代见 tool-richness-roadmap.md §二 backlog。报告：.sdd/test-reports/acceptance-roadmap-T-024-result.md"
+  "notes": "T-015 开发完成，待 Tester 验证。报告：.sdd/developer-reports/T-015-completion.md"
 }

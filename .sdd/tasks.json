@@ -1230,7 +1230,7 @@
         "dev-standards/backend-dev.md",
         "dev-standards/backend-layers.md"
       ],
-      "status": "backlog",
+      "status": "testing",
       "developer_id": null,
       "tester_id": null,
       "retry_count": 0,

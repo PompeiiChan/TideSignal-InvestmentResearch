@@ -165,6 +165,11 @@
 - **现状**：`runner` 已读 10 条消息、`history_summary`  mainly 供意图识别；槽位不跨轮、`response_assembly` 不看历史。
 - **避坑**：勿把 UI 会话列表当成 Agent 多轮智能；验收须用指代续问用例（如宁德时代 → 它一季报）。
 
+### [T-015]: 五轮短期记忆窗口（F20）
+- **陷阱**：对 `session.messages` 直接按条数 `[-limit:]` 截取时，若尾部含当前轮未回复的 user 消息，第 6 轮会截断出不完整 QA 对（遗留孤儿 assistant 片段）。
+- **经验**：`trim_chat_history` 须先 `exclude_trailing_user=True` 剥离当前 user，再按 `max_qa_rounds * 2` 取 prior；runner 与 context_preprocess 共用 `short_term_memory` 模块与 `settings.short_term_qa_rounds`。
+- **避坑**：`user_query` 已单独传递，勿把当前 user 重复放进 `chat_history`；单测直接注入 state 时 preprocess 会二次 trim 保底。
+
 ### 知识库扩容方法论（2026-06-12）
 - **决策**：raw 数据（PDF 解析、网页整理、CSV）入库的统一手册沉淀在 `docs/knowledge-base-ingestion.md`；目录索引仍用 `backend/data/knowledge-base/README.md`。
 - **经验**：扩容按「分类落盘 → 元数据表 → document_manifest 登记 → 升 RAG_INDEX_VERSION → 检索冒烟」执行；财报合并文件须在 `## 2025 年年度报告` / `## 2026 年第一季度报告` 分节各配 `doc_id`；正文放在 `## 原始解析文本` 之后，元数据勿与财务正文混段。

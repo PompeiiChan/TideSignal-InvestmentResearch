@@ -28,6 +28,25 @@ JSON 字段：
 - 主意图判定优先级：prediction_request（命中预测边界时强制为主）> 用户核心诉求对应的任务意图 > 次要附带诉求。
 - 示例：「热度排名 + 带动个股」主意图为 data_query；「为什么涨 + 基本面」若强调归因则 hotspot_analysis 为主，若强调公司经营则 stock_analysis 为主。
 
+多轮续问 / history_summary（重要）：
+- 输入 JSON 含 history_summary（上轮对话摘要）与 normalized_query（本轮问题）。
+- 当 history_summary 非空且本轮为短续问、指代或省略主语（如「一季报呢」「估值呢」「那风险呢」）时，须结合历史判定主意图，**通常延续上轮 intent_id**。
+- 若 history_summary 显示上轮为个股/财报/基本面讨论，短续问应识别为 stock_analysis。
+
+Few-shot 续问示例（history_summary + normalized_query -> 输出 JSON）：
+
+history_summary:
+user: 宁德时代基本面怎么样
+assistant: （上轮摘要…）
+normalized_query: 一季报呢
+{"intent_id":"stock_analysis","intent_name":"个股分析","intent_confidence":0.91,"candidate_intents":[{"intent_id":"stock_analysis","confidence":0.91}],"missing_slots":[]}
+
+history_summary:
+user: 帮我看一下泸州老窖基本面怎么样
+assistant: （上轮摘要…）
+normalized_query: 估值呢
+{"intent_id":"stock_analysis","intent_name":"个股分析","intent_confidence":0.89,"candidate_intents":[{"intent_id":"stock_analysis","confidence":0.89}],"missing_slots":[]}
+
 prediction_request 处理（重要）：
 - 命中「预测明天涨跌」「给目标价」「一定涨」「估值预测」等**纯预测**问题时，intent_id 必须为 prediction_request。
 - **例外**：用户问「现在买 XX 预期回报率/收益率/能赚多少」且涉及具体个股时，识别为 stock_analysis（参数化情景测算，非 prediction_request）。

@@ -25,6 +25,7 @@ from ...services.message_sanitizer import (
 from ...services.rag.service import RagService
 from ...services.rich_block_types import extract_rich_block_types
 from ...services.session_service import _iso, _now
+from ...services.short_term_memory import trim_chat_history
 from ...services.trace_service import TraceService
 from ...settings import AppSettings, get_settings
 from .graph import GraphDeps, build_graph
@@ -73,10 +74,15 @@ class LangGraphRunner:
         )
         self._repo = SessionRepository(db)
 
-    def _build_chat_history(self, session: SessionRecord, *, limit: int = 10) -> list[dict[str, str]]:
+    def _build_chat_history(self, session: SessionRecord) -> list[dict[str, str]]:
         messages = sorted(session.messages or [], key=lambda item: item.created_at)
-        recent = messages[-limit:]
-        return [{"role": str(message.role), "content": message.content} for message in recent]
+        payload = [{"role": str(message.role), "content": message.content} for message in messages]
+        trimmed, _ = trim_chat_history(
+            payload,
+            max_qa_rounds=self.settings.short_term_qa_rounds,
+            exclude_trailing_user=True,
+        )
+        return trimmed
 
     @staticmethod
     def _drain_stream_queue(queue: asyncio.Queue[dict[str, Any]]) -> list[dict[str, Any]]:

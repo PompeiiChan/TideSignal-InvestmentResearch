@@ -22,6 +22,7 @@ rerank_api_key = ""
 rerank_base_url = ""
 rerank_model = ""
 langgraph_env = ""
+short_term_qa_rounds = 5
 cors_origins = [
   "http://localhost:5199",
   "http://127.0.0.1:5199",

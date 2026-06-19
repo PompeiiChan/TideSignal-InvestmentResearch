@@ -35,6 +35,10 @@ _ENV_FIELD_MAP: dict[str, str] = {
     "REFERENCE_DATE": "reference_date",
 }
 
+_INT_ENV_FIELD_MAP: dict[str, str] = {
+    "SHORT_TERM_QA_ROUNDS": "short_term_qa_rounds",
+}
+
 
 class AppSettings(BaseSettings):
     """Runtime settings for the FastAPI application."""
@@ -66,6 +70,7 @@ class AppSettings(BaseSettings):
     rerank_model: str = ""
     langgraph_env: str = ""
     reference_date: str = ""
+    short_term_qa_rounds: int = 5
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5199",
@@ -104,6 +109,13 @@ def _apply_env_overrides(settings: AppSettings) -> AppSettings:
         value = str(raw_value).strip()
         if value:
             setattr(settings, attr_name, value)
+    for env_key, attr_name in _INT_ENV_FIELD_MAP.items():
+        raw_value = env_values.get(env_key)
+        if raw_value is None:
+            continue
+        value = str(raw_value).strip()
+        if value:
+            setattr(settings, attr_name, int(value))
     return settings
 
 
