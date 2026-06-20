@@ -1417,12 +1417,12 @@
       "dependencies": ["T-010"],
       "priority": 19,
       "rules_files": ["dev-standards/backend-dev.md"],
-      "status": "in_progress",
+      "status": "passed",
       "developer_id": "cursor-developer",
-      "tester_id": null,
+      "tester_id": "cursor-tester",
       "retry_count": 0,
       "blocked": false,
-      "notes": "用户确认：RAG 从 5 家扩至约 55 家（含原样本）；创业板随机 50 家，新浪三表入库。",
+      "notes": "[PASS] T-019 用户门禁通过（2026-06-20）。入库：.sdd/test-reports/T-019-ingestion-report.md；用户：.sdd/test-reports/acceptance-T-019-result.md。RAG 约 55 家（含 T-024 refresh）。",
       "user_gate": true
     },
     {
@@ -1639,7 +1639,7 @@
       "tester_id": "cursor-tester",
       "retry_count": 0,
       "blocked": false,
-      "notes": "Developer+Tester PASS（2026-06-20）。报告：.sdd/test-reports/test-T-028.md；完成：.sdd/developer-reports/T-028-completion.md",
+      "notes": "[PASS] T-028 Developer+Tester+用户门禁通过（2026-06-20）。技术：.sdd/test-reports/test-T-028.md；用户：.sdd/test-reports/acceptance-T-028-result.md（含宁德时代估值 live 恢复确认）。",
       "user_gate": true
     }
   ]

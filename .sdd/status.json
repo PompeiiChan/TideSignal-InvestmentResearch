@@ -3,7 +3,7 @@
   "mode": "new",
   "design_ready": false,
   "development_ready": true,
-  "current_task": "T-028",
+  "current_task": null,
   "blocked": false,
-  "notes": "T-028 Developer+Tester PASS，待用户门禁 citation 覆盖率。报告：.sdd/test-reports/test-T-028.md"
+  "notes": "V1.2++ 已闭环：T-019（KB 扩容）、T-025～T-028（assembly/citation）用户门禁均 PASS。下一迭代择一：T-020-P2/P3 问数、T-021-P2/P3 估值、性能专项；见 docs/agent/tool-richness-roadmap.md §二"
 }

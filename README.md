@@ -65,13 +65,16 @@ cd frontend && npm run dev -- --host 127.0.0.1 --port 5199
 
 - **回答过程时间线**（T-020）：流式开始前可折叠的执行过程展示
 - **问数 / 问股 / 热点深化**（T-021～T-024）：估值分位、财务深度、热点工具丰富度、KB ingest 刷新
+- **知识库扩容**（T-019）：创业板 50 家新浪财报入库（叠加 T-024 refresh，RAG 覆盖约 **55 家** A 股标的）
 - **多轮对话**（T-015～T-017）：五轮短期记忆、槽位继承、下游上下文注入
 - **Query 改写**（T-014 / T-014-P2）：检索 query passthrough + 维度多路检索
 - **问股 live 基本面 Tool**（T-018）：新浪财报、同花顺一致预期、东财研报元数据、巨潮公告；Trace 含数据来源归因
 - **回答组装性能**（T-025）：`assembly_profile` 分级、首稿流式、citation 程序补标、纯排行/热力图模板短路、`llm_assembly_model`；Trace 含 `prompt_stats` / `llm_passes`
 - **问数默认路由**（T-026）：排行/热力图/成交额等自然语言自动 enrich `metric`/`time_range`，减少误澄清（BC-010）
 - **Citation 区 compact**（T-027）：问股 `stock_full` 等 profile 启用 compact citation context，显著缩短 assembly prefill、改善吐首字体感
-- **Citation 加固**（T-028）：段落级补标、禁止 `###` 标题堆 citation（表节除外）、patch retry 不二次流式；hybrid snippet 800 字
+- **Citation 加固**（T-028）：段落级补标、禁止 `###` 标题堆 citation（表节除外）、patch retry 不二次流式；hybrid snippet 800 字（**用户验收 2026-06-20**）
+
+**V1.2++ 里程碑**：T-019、T-025～T-028 均已通过 Developer / Tester / 用户门禁（验收记录见 `.sdd/test-reports/acceptance-T-019-result.md`、`acceptance-T-028-result.md`）。
 - **交易日历**（BC-011）：法定休市日与显式 `trade_date` 锚点，修复节假日涨幅排行口径
 
 左侧历史示例会话（排行表 / 测算器 / 热力图）在首次拉列表时自动置顶，便于验收富组件。
@@ -92,7 +95,7 @@ cd frontend && npm run dev -- --host 127.0.0.1 --port 5199
 | **V1.1** | `ed52d93` | 流式输出、富组件示例与侧栏标签、年报澄清修复（BC-007）等 |
 | **V1.2** | `7485f74` | 回答过程时间线、问数 P1 真实 API、移除问数 Mock 等 |
 | **V1.2+** | `75aa4ec` | 多轮记忆（T-015～T-017）、Query 改写（T-014）、问股 live Tool（T-018）、热点/财务深化与 KB 扩容（T-021～T-024） |
-| **V1.2++（当前）** | `0d092de` | T-025 回答组装性能、T-026 问数 enrich、T-027 compact citation、T-028 citation 加固与 BC-011 交易日历 |
+| **V1.2++（当前）** | `0d092de` | T-019 KB 扩容、T-025～T-028 回答组装与 citation；**用户验收 2026-06-20** |
 
 回滚到某一检查点（**会丢弃之后所有本地未推送改动，慎用**）：
 
@@ -101,7 +104,9 @@ git fetch origin
 git reset --hard <提交哈希>   # 例如 ed52d93、7485f74、75aa4ec
 ```
 
-当前 `main` 与 `origin/main` 已同步；V1.2++ 功能检查点见提交 **`0d092de`**。
+当前 `main` 功能代码检查点 **`0d092de`**；SDD 验收状态与 `.sdd/status.json` 随最新推送同步。
+
+**可选下一迭代**（见 `docs/agent/tool-richness-roadmap.md` §二）：T-020-P2/P3 问数历史区间、T-021-P2/P3 估值同行对比、端到端性能优化。
 
 ## 许可证与免责
 

@@ -299,7 +299,12 @@
 ### [T-028]: Hybrid snippet 800 + Citation 加固
 - **经验**：T-027 compact 不回滚；snippet **800** 字 hybrid 平衡 prefill 与 RAG 对齐。citation 漏标主因在 enforcement 不在 compact：扩大 `FACTUAL_PARAGRAPH_RE` + 长叙述段（≥48 字）检测；`patch_missing_citations` 段落级精确匹配；`pick_best_citation_content` 用 `citation_compliance_score`（含 misplaced heading 惩罚），**禁止 patch 失败回退裸 draft**。
 - **经验**：LLM 易把 citation 全打在 `###` 标题（误读「表标题可标 citation」）；`relocate_citations_from_headings` 将标题 citation 下移到该节叙述段末，**纯表节**保留标题 citation；`count_misplaced_heading_citations` 触发 retry；assembly prompt 明确「有叙述段禁止标在 ###」。
+- **经验（用户门禁）**：「宁德时代现在估值贵不贵？」曾卡在「获取资料」/前端「回答未完成」；citation 加固 + `citation_patch` 改 `stream_to_client=False` 后 **live 已恢复**。验收看 Trace missing before/after 与段末 citation，不单看吐首字。
 - **避坑**：叙述段检测可能略增 patch/retry 触发率；200 秒端到端耗时需另任务优化工具链与 max_tokens，不能指望 citation 加固或 snippet 调参单独解决。
+
+### [T-019]: 知识库扩容——创业板 50 家财报（用户门禁 2026-06-20）
+- **经验**：首批 50 家由 `T-019-ingestion-report.md` 记录；后续 **T-024 `--refresh`** 扩展为 3 年报 + 最新季报，验收以用户 live 问股命中 + 索引重建完成为准，勿仅看 tasks.json 的 `in_progress` 状态。
+- **避坑**：`.index/` 在 gitignore；KB 版本 bump 后须等 `build_in_progress=false` 再验收 RAG 命中。
 
 ### BC-011: 节假日涨幅排行 trade_date 锚点
 - **陷阱**：`trading_calendar` 只跳过周末时，端午等法定假日会被当成上一交易日；`market_ranking_lookup` 忽略 `trade_date` 入参会导致用户指定 6/18 仍标注 6/19。
