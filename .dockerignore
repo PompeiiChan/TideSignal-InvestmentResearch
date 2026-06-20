@@ -1,0 +1,9 @@
+# Demo 部署忽略（减小 Railway 镜像体积）
+frontend/
+.sdd/
+docs/
+third_party/
+**/__pycache__/
+**/.pytest_cache/
+**/*.md
+.git/

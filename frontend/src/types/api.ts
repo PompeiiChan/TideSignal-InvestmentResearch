@@ -23,6 +23,15 @@ export interface ApiResponse<T> {
   data: T
 }
 
+export interface DemoQuota {
+  enabled: boolean
+  limit: number
+  used: number
+  remaining: number
+  reset_date: string
+  visitor_id: string
+}
+
 export interface PageResult<T> {
   items: T[]
   total: number

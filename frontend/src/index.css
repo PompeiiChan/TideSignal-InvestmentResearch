@@ -1665,6 +1665,14 @@ body.is-trace-resizing .trace-resize-handle::after {
   color: var(--subtle);
   font-size: 12px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.demo-quota-hint {
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .trace-panel {

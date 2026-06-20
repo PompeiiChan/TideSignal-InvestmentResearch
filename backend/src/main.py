@@ -12,6 +12,7 @@ from .api.routes import (
     chat_router,
     config_router,
     data_sources_router,
+    demo_router,
     health_router,
     layout_router,
     sessions_router,
@@ -62,6 +63,7 @@ server.on_shutdown(close_db)
 server.add_middleware(ErrorHandlerMiddleware, debug=settings.debug)
 server.add_middleware(RequestContextMiddleware)
 server.include_router(health_router)
+server.include_router(demo_router)
 server.include_router(sessions_router)
 server.include_router(layout_router)
 server.include_router(chat_router)

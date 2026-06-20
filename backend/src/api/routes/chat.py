@@ -4,17 +4,19 @@ import json
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
-from fastapi import Depends
+from fastapi import Depends, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pycore.api import APIRouter
 from pycore.api.responses import APIResponse, success_response
 
+from ...api.demo_quota_deps import VISITOR_HEADER, enforce_demo_quota
 from ...api.deps import get_session
 from ...integrations.llm import LLMNotConfiguredError
 from ...models.chat import ChatQueryRequest, ChatQueryResponse, ChatRegenerateRequest
 from ...services.chat_service import ChatService, EmptyQueryError, LLMUnavailableError
+from ...services.demo_quota import DemoQuotaExceededError
 from ...services.session_service import SessionNotFoundError
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -35,11 +37,21 @@ def _sse(event: str, data: Any) -> str:
 @router.post("/query", response_model=APIResponse[ChatQueryResponse])
 async def post_chat_query(
     payload: ChatQueryRequest,
+    request: Request,
     db: AsyncSession = DB_SESSION_DEPENDENCY,
+    x_demo_visitor_id: str | None = Header(default=None, alias=VISITOR_HEADER),
 ) -> APIResponse[ChatQueryResponse] | JSONResponse:
     """Persist a user query and return an LLM-generated assistant response."""
     try:
+        await enforce_demo_quota(db, request=request, visitor_id=x_demo_visitor_id)
+        await db.commit()
         data = await ChatService(db).query(payload.session_id, payload.source, payload.query)
+    except DemoQuotaExceededError as exc:
+        await db.rollback()
+        return _error(str(exc), 429)
+    except ValueError as exc:
+        await db.rollback()
+        return _error(str(exc), 400)
     except EmptyQueryError as exc:
         return _error(str(exc), 422)
     except SessionNotFoundError as exc:
@@ -54,9 +66,20 @@ async def post_chat_query(
 @router.post("/query/stream", response_model=None)
 async def post_chat_query_stream(
     payload: ChatQueryRequest,
+    request: Request,
     db: AsyncSession = DB_SESSION_DEPENDENCY,
-) -> StreamingResponse:
+    x_demo_visitor_id: str | None = Header(default=None, alias=VISITOR_HEADER),
+) -> StreamingResponse | JSONResponse:
     """Stream chat query lifecycle as Server-Sent Events."""
+    try:
+        await enforce_demo_quota(db, request=request, visitor_id=x_demo_visitor_id)
+        await db.commit()
+    except DemoQuotaExceededError as exc:
+        await db.rollback()
+        return _error(str(exc), 429)
+    except ValueError as exc:
+        await db.rollback()
+        return _error(str(exc), 400)
 
     async def event_generator() -> AsyncIterator[str]:
         async for item in ChatService(db).query_stream(payload.session_id, payload.source, payload.query):
@@ -76,9 +99,20 @@ async def post_chat_query_stream(
 @router.post("/regenerate/stream", response_model=None)
 async def post_chat_regenerate_stream(
     payload: ChatRegenerateRequest,
+    request: Request,
     db: AsyncSession = DB_SESSION_DEPENDENCY,
-) -> StreamingResponse:
+    x_demo_visitor_id: str | None = Header(default=None, alias=VISITOR_HEADER),
+) -> StreamingResponse | JSONResponse:
     """Stream assistant regeneration lifecycle as Server-Sent Events."""
+    try:
+        await enforce_demo_quota(db, request=request, visitor_id=x_demo_visitor_id)
+        await db.commit()
+    except DemoQuotaExceededError as exc:
+        await db.rollback()
+        return _error(str(exc), 429)
+    except ValueError as exc:
+        await db.rollback()
+        return _error(str(exc), 400)
 
     async def event_generator() -> AsyncIterator[str]:
         async for item in ChatService(db).regenerate_stream(

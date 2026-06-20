@@ -89,4 +89,21 @@ class LayoutPreferenceRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
-__all__ = ["Base", "LayoutPreferenceRecord", "MessageRecord", "SessionRecord", "TraceRecord"]
+class DemoQuotaCounter(Base):
+    """Daily demo quota usage counter keyed by visitor or IP hash."""
+
+    __tablename__ = "demo_quota_counters"
+
+    quota_key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    usage_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+__all__ = [
+    "Base",
+    "DemoQuotaCounter",
+    "LayoutPreferenceRecord",
+    "MessageRecord",
+    "SessionRecord",
+    "TraceRecord",
+]

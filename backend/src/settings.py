@@ -1,5 +1,6 @@
 """Application settings loaded through PyCore ConfigManager."""
 
+import json
 from functools import lru_cache
 from pathlib import Path
 from typing import cast
@@ -35,6 +36,8 @@ _ENV_FIELD_MAP: dict[str, str] = {
     "LOCAL_KB_PATH": "local_kb_path",
     "MOCK_DATA_PATH": "mock_data_path",
     "REFERENCE_DATE": "reference_date",
+    "DEMO_QUOTA_ENABLED": "demo_quota_enabled",
+    "CORS_ORIGINS": "__cors_origins__",
 }
 
 _INT_ENV_FIELD_MAP: dict[str, str] = {
@@ -75,6 +78,9 @@ class AppSettings(BaseSettings):
     langgraph_env: str = ""
     reference_date: str = ""
     short_term_qa_rounds: int = 5
+    demo_quota_enabled: bool = False
+    demo_quota_daily_limit: int = 5
+    demo_quota_ip_daily_limit: int = 20
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5199",
@@ -100,6 +106,10 @@ def normalize_sqlite_url(database_url: str) -> str:
     return f"{prefix}{db_path}"
 
 
+def _parse_bool(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _apply_env_overrides(settings: AppSettings) -> AppSettings:
     """Overlay sensitive runtime values from backend/.env onto ConfigManager settings."""
     if not ENV_FILE_PATH.exists():
@@ -111,9 +121,31 @@ def _apply_env_overrides(settings: AppSettings) -> AppSettings:
         if raw_value is None:
             continue
         value = str(raw_value).strip()
-        if value:
-            setattr(settings, attr_name, value)
+        if not value:
+            continue
+        if attr_name == "__cors_origins__":
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, list):
+                settings.cors_origins = [str(item).strip() for item in parsed if str(item).strip()]
+            continue
+        if attr_name == "demo_quota_enabled":
+            settings.demo_quota_enabled = _parse_bool(value)
+            continue
+        setattr(settings, attr_name, value)
     for env_key, attr_name in _INT_ENV_FIELD_MAP.items():
+        raw_value = env_values.get(env_key)
+        if raw_value is None:
+            continue
+        value = str(raw_value).strip()
+        if value:
+            setattr(settings, attr_name, int(value))
+    for env_key, attr_name in (
+        ("DEMO_QUOTA_DAILY_LIMIT", "demo_quota_daily_limit"),
+        ("DEMO_QUOTA_IP_DAILY_LIMIT", "demo_quota_ip_daily_limit"),
+    ):
         raw_value = env_values.get(env_key)
         if raw_value is None:
             continue

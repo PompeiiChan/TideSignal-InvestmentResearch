@@ -25,6 +25,9 @@ rerank_base_url = ""
 rerank_model = ""
 langgraph_env = ""
 short_term_qa_rounds = 5
+demo_quota_enabled = false
+demo_quota_daily_limit = 5
+demo_quota_ip_daily_limit = 20
 cors_origins = [
   "http://localhost:5199",
   "http://127.0.0.1:5199",

@@ -4,6 +4,7 @@ import { MarkdownContent } from './MarkdownContent'
 import { ProgressTimelineView } from './ProgressTimeline'
 import { RichBlockRenderer } from './RichBlockRenderer'
 import { TideSignalAnimatedLogo } from './TideSignalAnimatedLogo'
+import { useDemoQuota } from '../hooks/useDemoQuota'
 import { useEmptyClientChat } from '../hooks/useEmptyClientChat'
 import { useMarketGreeting } from '../hooks/useMarketGreeting'
 import { useInvestmentStore } from '../stores/useInvestmentStore'
@@ -26,11 +27,12 @@ interface ComposerProps {
   query: string
   disabled: boolean
   variant: 'default' | 'hero'
+  quotaHint?: string | null
   onChange: (value: string) => void
   onSubmit: () => void
 }
 
-function Composer({ query, disabled, variant, onChange, onSubmit }: ComposerProps) {
+function Composer({ query, disabled, variant, quotaHint, onChange, onSubmit }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -63,7 +65,10 @@ function Composer({ query, disabled, variant, onChange, onSubmit }: ComposerProp
             {disabled ? '…' : '↑'}
           </button>
         </div>
-        <div className="composer-note">系统仅提供信息整理、数据查询和参数测算，不构成投资建议。</div>
+        <div className="composer-note">
+          {quotaHint ? <span className="demo-quota-hint">{quotaHint}</span> : null}
+          <span>系统仅提供信息整理、数据查询和参数测算，不构成投资建议。</span>
+        </div>
       </div>
     </div>
   )
@@ -82,6 +87,22 @@ export function ChatView() {
   const sendQuery = useInvestmentStore((state) => state.sendQuery)
   const regenerateMessage = useInvestmentStore((state) => state.regenerateMessage)
   const toggleMessageProgressTimeline = useInvestmentStore((state) => state.toggleMessageProgressTimeline)
+  const { quota, refresh: refreshQuota } = useDemoQuota()
+  const wasPendingRef = useRef(false)
+
+  useEffect(() => {
+    if (wasPendingRef.current && !isCurrentSessionPending) {
+      void refreshQuota()
+    }
+    wasPendingRef.current = isCurrentSessionPending
+  }, [isCurrentSessionPending, refreshQuota])
+
+  const quotaHint =
+    quota.enabled && !isCurrentSessionPending
+      ? `今日 Demo 剩余 ${quota.remaining}/${quota.limit} 次提问`
+      : quota.enabled && isCurrentSessionPending
+        ? `今日 Demo 剩余 ${quota.remaining}/${quota.limit} 次提问（发送中…）`
+        : null
 
   useEffect(() => {
     if (isEmptyClientChat) return
@@ -94,11 +115,15 @@ export function ChatView() {
     setQuery('')
     void sendQuery(value).catch((error: unknown) => {
       const detail = error instanceof Error ? error.message : ''
+      const quotaExhausted = /额度|429/.test(detail)
       const backendUnreachable = /failed|fetch|network|502|503|ECONNREFUSED|Load failed/i.test(detail)
+      void refreshQuota()
       window.alert(
-        backendUnreachable
-          ? '无法连接后端服务（8099）。请确认后端已启动，并设置 LANGGRAPH_ENV=local 后重启 uvicorn。'
-          : detail || '发送失败，请稍后重试。',
+        quotaExhausted
+          ? detail || '今日 Demo 提问额度已用完，请明天再试。'
+          : backendUnreachable
+            ? '无法连接后端服务。请确认后端已启动，或检查 VITE_API_BASE_URL 配置。'
+            : detail || '发送失败，请稍后重试。',
       )
     })
   }
@@ -106,8 +131,9 @@ export function ChatView() {
   const composer = (
     <Composer
       query={query}
-      disabled={isCurrentSessionPending}
+      disabled={isCurrentSessionPending || (quota.enabled && quota.remaining <= 0)}
       variant={isEmptyClientChat ? 'hero' : 'default'}
+      quotaHint={quotaHint}
       onChange={setQuery}
       onSubmit={submit}
     />

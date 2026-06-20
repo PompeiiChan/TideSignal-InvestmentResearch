@@ -5,6 +5,7 @@ import type {
   ChatQueryResponse,
   ChatRegenerateRequest,
 } from '../types/api'
+import { demoVisitorHeaders } from '../utils/demoVisitor'
 
 const useMock = import.meta.env.VITE_USE_MOCK === 'true'
 const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -142,6 +143,7 @@ export const chatService = {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
+        ...demoVisitorHeaders(),
       },
       body: JSON.stringify(request),
       signal: handlers.signal,
@@ -161,6 +163,7 @@ export const chatService = {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
+        ...demoVisitorHeaders(),
       },
       body: JSON.stringify(request),
       signal: handlers.signal,
