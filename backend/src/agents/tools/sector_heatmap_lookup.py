@@ -6,17 +6,12 @@ import logging
 from typing import Any
 
 from ...integrations.market_data.eastmoney_client import industry_heatmap_boards
-from ...services.trading_calendar import resolve_default_trade_date
+from ...services.trading_calendar import resolve_trade_date_label
 
 logger = logging.getLogger(__name__)
 
 _SOURCE = "东方财富 push2（a-stock-data 适配）"
 _ATTRIBUTION = "third_party/a-stock-data (Apache-2.0)"
-
-
-def _trade_date_label() -> str:
-    return resolve_default_trade_date()
-
 
 def _normalize_tiles(boards: list[dict[str, Any]]) -> list[dict[str, Any]]:
     tiles: list[dict[str, Any]] = []
@@ -43,16 +38,19 @@ def lookup_sector_heatmap(
     *,
     board_kind: str = "industry",
     board_limit: int = 30,
+    trade_date: str = "",
+    time_range: str = "",
     **_extra: Any,
 ) -> dict[str, Any]:
     """Return industry-board heatmap tiles sized by turnover from Eastmoney push2."""
     limit = max(min(int(board_limit or 30), 50), 5)
+    resolved_trade_date = resolve_trade_date_label(trade_date=trade_date, time_range=time_range)
     if board_kind.strip() and board_kind.strip() != "industry":
         return {
             "tool": "sector_heatmap_lookup",
             "board_kind": board_kind,
             "board_limit": limit,
-            "trade_date": _trade_date_label(),
+            "trade_date": resolved_trade_date,
             "tiles": [],
             "tile_count": 0,
             "source": _SOURCE,
@@ -71,7 +69,7 @@ def lookup_sector_heatmap(
             "tool": "sector_heatmap_lookup",
             "board_kind": "industry",
             "board_limit": limit,
-            "trade_date": _trade_date_label(),
+            "trade_date": resolved_trade_date,
             "tiles": tiles,
             "tile_count": len(tiles),
             "source": _SOURCE,
@@ -86,7 +84,7 @@ def lookup_sector_heatmap(
             "tool": "sector_heatmap_lookup",
             "board_kind": "industry",
             "board_limit": limit,
-            "trade_date": _trade_date_label(),
+            "trade_date": resolved_trade_date,
             "tiles": [],
             "tile_count": 0,
             "source": _SOURCE,

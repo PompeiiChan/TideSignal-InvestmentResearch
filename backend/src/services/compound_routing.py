@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .data_query_slot_enrich import enrich_data_query_slots
 from .scenario_return import is_scenario_return_query
 
 _INDUSTRY_FUNDAMENTAL_RE = re.compile(
@@ -73,14 +74,10 @@ def resolve_compound_route_targets(
 
 def enrich_slots_for_compound(query: str, slots: dict[str, Any]) -> dict[str, Any]:
     """Ensure industry slot is present for the data-query phase."""
-    enriched = dict(slots)
+    enriched, _ = enrich_data_query_slots(query, slots)
     industry = extract_industry_label(query, enriched)
     if industry and not str(enriched.get("industry", "")).strip():
         enriched["industry"] = industry
     if industry and not str(enriched.get("topic", "")).strip():
         enriched["topic"] = industry
-    if not str(enriched.get("metric", "")).strip() and _MARKET_HEAT_DATA_RE.search(query):
-        enriched["metric"] = "涨幅排行"
-    if not str(enriched.get("time_range", "")).strip():
-        enriched["time_range"] = "近一交易日"
     return enriched

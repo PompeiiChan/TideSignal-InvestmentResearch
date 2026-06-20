@@ -69,6 +69,34 @@ def test_route_after_clarification_branches(state: AgentState, expected_route: s
             {
                 "intent_id": "data_query",
                 "intent_confidence": 0.9,
+                "normalized_query": "今天涨幅前10的行业板块",
+                "slots": {
+                    "metric": "涨幅排行",
+                    "time_range": "近一交易日",
+                    "market": "A股",
+                },
+                "missing_slots": [],
+                "ambiguous_slots": [],
+            },
+            False,
+            "进入路由",
+        ),
+        (
+            {
+                "intent_id": "data_query",
+                "intent_confidence": 0.9,
+                "normalized_query": "帮我查一下数据",
+                "slots": {},
+                "missing_slots": ["metric"],
+                "ambiguous_slots": [],
+            },
+            True,
+            "metric",
+        ),
+        (
+            {
+                "intent_id": "data_query",
+                "intent_confidence": 0.9,
                 "slots": {"industry": "白酒"},
                 "missing_slots": [],
                 "ambiguous_slots": [],

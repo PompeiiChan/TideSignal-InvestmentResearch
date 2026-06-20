@@ -9,7 +9,7 @@ from ...integrations.llm.prompts.agents.hotspot import hotspot_agent_prompt
 from ...integrations.llm.service import LLMService
 from ...services.rag.service import RagService
 from ...services.system_time import resolve_system_time
-from ...services.trading_calendar import enrich_trading_slots, query_requests_trading_day
+from ...services.trading_calendar import apply_tool_trading_defaults
 from ...settings import AppSettings
 from ..hotspot_tool_plan import resolve_hotspot_stock_codes, resolve_hotspot_tool_names
 from ._helpers import call_intent_json, response_kind_for_intent, run_node_with_trace
@@ -22,32 +22,16 @@ def _apply_hotspot_tool_trading_defaults(
     query: str,
     last_trading_day: str,
     is_trading_day: bool,
+    current_date: str = "",
 ) -> dict[str, Any]:
-    merged_slots = enrich_trading_slots(
-        query,
-        slots,
+    return apply_tool_trading_defaults(
+        tool_params,
+        slots=slots,
+        query=query,
         last_trading_day=last_trading_day,
-        is_trading_day=is_trading_day,
+        is_current_trading_day=is_trading_day,
+        current_date=current_date,
     )
-    if (
-        query_requests_trading_day(query)
-        or str(merged_slots.get("time_range", "")) == "近一交易日"
-    ):
-        tool_params["time_range"] = "近一交易日"
-        tool_params["trade_date"] = (
-            str(tool_params.get("trade_date") or merged_slots.get("trade_date") or last_trading_day).strip()
-            or last_trading_day
-        )
-        return tool_params
-
-    time_range = str(tool_params.get("time_range") or merged_slots.get("time_range", "")).strip()
-    trade_date = str(tool_params.get("trade_date") or merged_slots.get("trade_date", "")).strip()
-    if time_range in {"近一交易日", "上一交易日", "最近一个交易日", "最近交易日", "昨日收盘", "昨天收盘"}:
-        tool_params["time_range"] = "近一交易日"
-        tool_params["trade_date"] = trade_date or last_trading_day
-    elif trade_date:
-        tool_params["trade_date"] = trade_date
-    return tool_params
 
 
 async def hotspot_agent(
@@ -115,6 +99,7 @@ async def hotspot_agent(
             query=normalized_query,
             last_trading_day=time_ctx.last_trading_day,
             is_trading_day=time_ctx.is_trading_day,
+            current_date=time_ctx.current_date,
         )
         tool_params["stock_codes"] = resolve_hotspot_stock_codes(
             query=normalized_query,

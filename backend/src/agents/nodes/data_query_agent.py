@@ -26,6 +26,8 @@ def _default_tool_params(slots: dict[str, Any]) -> dict[str, Any]:
         "time_range": slots.get("time_range", "近一交易日"),
         "rank_limit": 8,
     }
+    if slots.get("trade_date"):
+        params["trade_date"] = slots.get("trade_date")
     for key in ("buy_price", "sell_price", "share_count", "fee_rate"):
         if key in slots:
             params[key] = slots[key]

@@ -279,3 +279,29 @@
 - **经验**：`em_research_report_client.fetch_em_research_report_rows` 作为共享底层，`em_report_consensus_client` 与 `research_report_metadata_lookup` 共用；机构类问股在 `resolve_stock_tool_names` **最早**分支返回三工具，不依赖 LLM 是否漏选。
 - **经验**：`tool_call` 统一从 Tool 结果读 `data_origin` / `is_mock` / `fallback_used` / `attribution` 写入 `detail_sections` 与 `output.tool_attributions`；`local_profile_cache` / `local_kb_file` 相对新浪 live 须标 `fallback=true`。
 - **避坑**：`GET /api/data-sources/status` 的 `SourceType` 与前端 `api.ts` 须同步扩展 `*_live` 类型；REAL_API_TEST 用例用 `skipif` 控制，禁止永久 skip。Tester 须 `VITE_USE_MOCK=false` + Trace 验收，不得仅用 curl/KB 样本判 live PASS。
+
+### [T-025]: 回答组装性能优化（Phase 0～2）
+- **陷阱**：`assembly/citation_fix.py` 若在模块顶层 `from ..nodes.citation_rules import ...`，会经 `nodes/__init__.py` 拉起 `response_assembly` 形成循环导入；集成测若只 mock `_output_client` 而组装已切 `_assembly_client()`，图执行后 `final_response` 为空。
+- **经验**：`resolve_assembly_profile` + `try_template_assembly` 分级：`template_skip` 优先于 `heatmap_primary`/`data_ranking_only`；纯排行/纯热力图/非 scenario 测算可走模板短路（数字仅来自 `tool_result`）。user prompt 去重：`format_citation_context` 为唯一数据源，不再塞全量 `evidence_pack` JSON。
+- **经验**：首稿始终 `stream_to_client=True`；citation 先 `patch_missing_citations` 程序补标，仍不合规时用 ≤500 字 `build_citation_patch_prompt` 增量 LLM retry，避免整篇重生成。Trace `raw_json` 写 `assembly_profile`/`prompt_stats`/`llm_passes`/`citation_patch_*`；`detail_sections` 增「组装性能」。
+- **避坑**：`ensure_public_risk_notice` 须在 `content_delta` 前执行；`format_citation_context` 须补 T-018 `consensus_valuation_lookup` 与 `research_report_metadata_lookup` JSON 块；langgraph 集成测须同时 patch `_assembly_client`。
+
+### [T-026]: 问数槽位规则 enrich（BC-010）
+- **陷阱**：仅改 `tool_call` 默认 `metric` 无法阻止澄清；`compound_routing.enrich_slots_for_compound` 不覆盖普通 `data_query` 链路。
+- **经验**：`data_query_slot_enrich.enrich_data_query_slots` 在 `slot_extraction` 的 inherit 之后执行；热力图/排行/成交额 regex + 默认 `time_range=近一交易日`；泛问「帮我查一下数据」不填 metric。Trace 写 `data_query_slot_enrich.applied_keys`。
+- **避坑**：`clarification_check` 对 `data_query` 须 `filter_missing_after_data_query_enrich` 双保险；规则只填空槽位，不覆盖 LLM 已填值；`compound_routing` 复用同一 enrich 函数。
+
+### [T-027]: 问股 citation 区 compact 瘦身
+- **经验**：`stock_full`/`stock_narrative`/`compound` 走 `format_citation_context(compact=True)`；省略 citation 区重复 `time_ctx.prompt_block`；RAG snippet ≤800 字（T-028 hybrid 由 480 放宽）、最多 6 hit；估值历史只保留分位 + 最近 4 季 quarterly_series；工具 JSON 用 `dump_citation_json` 无 indent。
+- **经验（用户门禁）**：问股 live 联调体感 **吐首字明显变快**。根因是 assembly output LLM 的 user prompt prefill 缩短（T-025 后 `citation_context_chars≈23k` 是主要瓶颈）；compact 降 citation 区体积 → 缩短 prefill/TTFB → 首字流式更早到达。优化 assembly 延迟应优先看 `prompt_stats.citation_context_chars`，而不只盯节点 wall time。
+- **避坑**：compact 不能删「多期结构化财务数据」「估值历史分位」等节标题与 `[citation:N]` 指引；Trace 写 `prompt_stats.citation_context_mode` 便于对比 T-025 baseline；首字变快不等于总生成时间同比例下降（生成阶段仍取决于 max_tokens 与模型速度）。
+
+### [T-028]: Hybrid snippet 800 + Citation 加固
+- **经验**：T-027 compact 不回滚；snippet **800** 字 hybrid 平衡 prefill 与 RAG 对齐。citation 漏标主因在 enforcement 不在 compact：扩大 `FACTUAL_PARAGRAPH_RE` + 长叙述段（≥48 字）检测；`patch_missing_citations` 段落级精确匹配；`pick_best_citation_content` 用 `citation_compliance_score`（含 misplaced heading 惩罚），**禁止 patch 失败回退裸 draft**。
+- **经验**：LLM 易把 citation 全打在 `###` 标题（误读「表标题可标 citation」）；`relocate_citations_from_headings` 将标题 citation 下移到该节叙述段末，**纯表节**保留标题 citation；`count_misplaced_heading_citations` 触发 retry；assembly prompt 明确「有叙述段禁止标在 ###」。
+- **避坑**：叙述段检测可能略增 patch/retry 触发率；200 秒端到端耗时需另任务优化工具链与 max_tokens，不能指望 citation 加固或 snippet 调参单独解决。
+
+### BC-011: 节假日涨幅排行 trade_date 锚点
+- **陷阱**：`trading_calendar` 只跳过周末时，端午等法定假日会被当成上一交易日；`market_ranking_lookup` 忽略 `trade_date` 入参会导致用户指定 6/18 仍标注 6/19。
+- **经验**：法定休市日维护在 `a_share_holidays.py`；`parse_explicit_trade_date` 解析「6月18号」；问数 `tool_call` 用 `apply_tool_trading_defaults` 透传槽位；data_query enrich 后再跑 `enrich_trading_slots` 补 `trade_date`。
+- **避坑**：每年更新节假日表；`REFERENCE_DATE=2026-06-20` 时断言 `last_trading_day=2026-06-18`。

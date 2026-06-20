@@ -23,6 +23,7 @@ JSON 字段：
 7. hotspot_analysis：topic / industry / event / time_range 尽量抽取。
 8. 若用户问「现在买某股预期回报率/收益率」等情景测算，填 `scenario_return_mode: true`（布尔）、`stock_name`，默认 `share_count: 100`。
 9. 若用户问「刚刚过去的交易日」「上一交易日」「昨日收盘」「近一交易日」等，须填 `time_range: "近一交易日"`，并填 `trade_date` 为 system_context.last_trading_day（非交易日时不得用 current_date）。
+10. 若用户明确给出日历日（如「6月18号」「2026-06-18」），须填 `trade_date` 为该 ISO 日期；不得被默认上一交易日覆盖。
 10. ambiguous_slots 仅在有真实歧义时填写，不要与 missing_slots 重复。
 
 ## 多轮 pending_slots / history_summary

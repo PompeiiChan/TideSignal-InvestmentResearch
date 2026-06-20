@@ -8,6 +8,8 @@ from backend.src.agents.nodes.citation_rules import (
     content_has_citation_markers,
     content_needs_citation_retry,
     count_citation_markers,
+    count_misplaced_heading_citations,
+    count_paragraphs_missing_citations,
     evidence_requires_citations,
     paragraphs_missing_trailing_citations,
 )
@@ -42,6 +44,37 @@ def test_paragraphs_missing_trailing_citations() -> None:
     missing = paragraphs_missing_trailing_citations(body)
     assert len(missing) == 1
     assert "312" in missing[0]
+
+
+def test_trailing_citation_allows_chinese_period() -> None:
+    body = (
+        "宁德时代当前 PE TTM 约 22.3 倍[citation:2]。\n\n"
+        "### 参考来源\n\n"
+        "- [citation:2]估值"
+    )
+    assert paragraphs_missing_trailing_citations(body) == []
+
+
+def test_count_paragraphs_missing_citations() -> None:
+    body = (
+        "公司 2025A 营收 312 亿元，同比 +8%。\n\n"
+        "行业竞争格局变化，龙头份额提升。\n\n"
+        "盈利质量改善，毛利率回升[citation:1]"
+    )
+    assert count_paragraphs_missing_citations(body) == 2
+
+
+def test_misplaced_heading_citation_detected() -> None:
+    body = (
+        "### 一、行业竞争 [citation:2]\n\n"
+        "公司营收 100 亿元，净利润 20 亿元。\n\n"
+        "### 三、财务表 [citation:1]\n\n"
+        "| 指标 | 值 |\n"
+        "| --- | ---: |\n"
+        "| 营收 | 100 亿元 |"
+    )
+    assert count_misplaced_heading_citations(body) == 1
+    assert content_needs_citation_retry(body) is True
 
 
 def test_content_needs_citation_retry_when_only_reference_section_has_citations() -> None:

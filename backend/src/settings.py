@@ -18,6 +18,8 @@ _ENV_FIELD_MAP: dict[str, str] = {
     "LLM_BASE_URL": "llm_base_url",
     "LLM_MODEL": "llm_model",
     "LLM_TIMEOUT": "llm_timeout",
+    "LLM_ASSEMBLY_MODEL": "llm_assembly_model",
+    "LLM_ASSEMBLY_TIMEOUT": "llm_assembly_timeout",
     "LLM_INTENT_API_KEY": "llm_intent_api_key",
     "LLM_INTENT_BASE_URL": "llm_intent_base_url",
     "LLM_INTENT_MODEL": "llm_intent_model",
@@ -57,6 +59,8 @@ class AppSettings(BaseSettings):
     llm_base_url: str = ""
     llm_model: str = ""
     llm_timeout: str = "120"
+    llm_assembly_model: str = ""
+    llm_assembly_timeout: str = ""
     llm_intent_api_key: str = ""
     llm_intent_base_url: str = ""
     llm_intent_model: str = ""

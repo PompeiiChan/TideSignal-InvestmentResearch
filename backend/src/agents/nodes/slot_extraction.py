@@ -8,6 +8,11 @@ from ...integrations.langgraph.state import AgentState
 from ...integrations.llm.prompts.slots import slots_system_prompt
 from ...integrations.llm.service import LLMService
 from ...services.conversation_context import build_conversation_context
+from ...services.data_query_slot_enrich import (
+    build_data_query_slot_enrich_trace,
+    enrich_data_query_slots,
+    filter_missing_after_data_query_enrich,
+)
 from ...services.rag.chunker import resolve_kb_root
 from ...services.rag.company_index import enrich_stock_slots_from_kb
 from ...services.rag.service import RagService
@@ -72,7 +77,8 @@ async def slot_extraction(
             normalized_query,
             merged_slots,
             last_trading_day=time_ctx.last_trading_day,
-            is_trading_day=time_ctx.is_trading_day,
+            is_current_trading_day=time_ctx.is_trading_day,
+            current_date=time_ctx.current_date,
         )
         merged_slots = enrich_scenario_return_slots(normalized_query, merged_slots)
         slot_confidence = normalize_slot_confidence(parsed.get("slot_confidence"))
@@ -84,6 +90,23 @@ async def slot_extraction(
             merged_slots,
             inherited_keys,
         )
+
+        data_query_slot_enrich: dict[str, Any] | None = None
+        if intent_id == "data_query":
+            merged_slots, enrich_applied = enrich_data_query_slots(normalized_query, merged_slots)
+            if enrich_applied:
+                data_query_slot_enrich = build_data_query_slot_enrich_trace(
+                    merged_slots,
+                    enrich_applied,
+                )
+            missing_slots = filter_missing_after_data_query_enrich(missing_slots, merged_slots)
+            merged_slots = enrich_trading_slots(
+                normalized_query,
+                merged_slots,
+                last_trading_day=time_ctx.last_trading_day,
+                is_current_trading_day=time_ctx.is_trading_day,
+                current_date=time_ctx.current_date,
+            )
 
         if not missing_slots and prior_missing:
             remaining = [name for name in prior_missing if name not in merged_slots]
@@ -112,6 +135,8 @@ async def slot_extraction(
                 "inherited_slot_keys": inherited_keys,
             },
         }
+        if data_query_slot_enrich is not None:
+            output["data_query_slot_enrich"] = data_query_slot_enrich
         return output, "完成槽位抽取"
 
     return await run_node_with_trace(

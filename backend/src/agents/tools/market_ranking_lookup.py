@@ -10,16 +10,12 @@ from ...integrations.market_data.eastmoney_client import (
     find_board_by_keyword,
     industry_board_ranking,
 )
-from ...services.trading_calendar import resolve_default_trade_date
+from ...services.trading_calendar import resolve_trade_date_label
 
 logger = logging.getLogger(__name__)
 
 _SOURCE = "东方财富 push2（a-stock-data 适配）"
 _ATTRIBUTION = "third_party/a-stock-data (Apache-2.0)"
-
-
-def _trade_date_label() -> str:
-    return resolve_default_trade_date()
 
 
 def _board_ticker(board_code: str) -> str:
@@ -29,9 +25,13 @@ def _board_ticker(board_code: str) -> str:
     return f"BK{code}"
 
 
-def _board_rows_to_ranking_rows(boards: list[dict[str, Any]], *, limit: int) -> list[dict[str, Any]]:
+def _board_rows_to_ranking_rows(
+    boards: list[dict[str, Any]],
+    *,
+    limit: int,
+    trade_date: str,
+) -> list[dict[str, Any]]:
     """Map industry-board ranking to ranking_table row shape."""
-    trade_date = _trade_date_label()
     rows: list[dict[str, Any]] = []
     for board in boards[:limit]:
         rows.append(
@@ -69,12 +69,15 @@ def lookup_market_ranking(
     industry: str = "",
     metric: str = "涨幅排行",
     time_range: str = "近一交易日",
+    trade_date: str = "",
     rank_limit: int = 5,
     **_extra: Any,
 ) -> dict[str, Any]:
     """Query live board/stock rankings from Eastmoney push2."""
     limit = max(int(rank_limit or 5), 1)
     descending = "跌" not in metric
+    resolved_trade_date = resolve_trade_date_label(trade_date=trade_date, time_range=time_range)
+    time_label = time_range or f"{resolved_trade_date} 盘中/收盘"
 
     try:
         if industry.strip():
@@ -90,7 +93,8 @@ def lookup_market_ranking(
                     "tool": "market_ranking_lookup",
                     "industry": industry,
                     "metric": metric,
-                    "time_range": time_range,
+                    "time_range": time_label,
+                    "trade_date": resolved_trade_date,
                     "rows": [],
                     "row_count": 0,
                     "source": _SOURCE,
@@ -103,6 +107,7 @@ def lookup_market_ranking(
                 str(board["board_code"]),
                 limit=limit,
                 descending=descending,
+                trade_date=resolved_trade_date,
             )
             return {
                 "tool": "market_ranking_lookup",
@@ -111,7 +116,8 @@ def lookup_market_ranking(
                 "board_code": board.get("board_code"),
                 "board_kind": board.get("board_kind"),
                 "metric": metric,
-                "time_range": time_range or f"{_trade_date_label()} 盘中/收盘",
+                "time_range": time_label,
+                "trade_date": resolved_trade_date,
                 "rows": rows,
                 "row_count": len(rows),
                 "source": _SOURCE,
@@ -123,13 +129,18 @@ def lookup_market_ranking(
 
         ranking = industry_board_ranking(top_n=limit)
         source_rows = ranking["top"] if descending else ranking["bottom"]
-        rows = _board_rows_to_ranking_rows(source_rows, limit=limit)
+        rows = _board_rows_to_ranking_rows(
+            source_rows,
+            limit=limit,
+            trade_date=resolved_trade_date,
+        )
         return {
             "tool": "market_ranking_lookup",
             "ranking_mode": "industry_boards",
             "industry": "全行业",
             "metric": metric,
-            "time_range": time_range or f"{_trade_date_label()} 盘中/收盘",
+            "time_range": time_label,
+            "trade_date": resolved_trade_date,
             "rows": rows,
             "row_count": len(rows),
             "source": _SOURCE,
@@ -144,7 +155,8 @@ def lookup_market_ranking(
             "tool": "market_ranking_lookup",
             "industry": industry or "全行业",
             "metric": metric,
-            "time_range": time_range,
+            "time_range": time_label,
+            "trade_date": resolved_trade_date,
             "rows": [],
             "row_count": 0,
             "source": _SOURCE,

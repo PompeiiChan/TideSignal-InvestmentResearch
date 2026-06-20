@@ -7,6 +7,17 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from .citation_context_compact import (
+    COMPACT_MAX_CONSENSUS_SCENARIOS,
+    dump_citation_json,
+    rag_hits_for_assembly,
+    slim_api_facts,
+    slim_financial_periods,
+    slim_financial_profile,
+    slim_research_reports,
+    slim_valuation_history,
+    slim_valuation_snapshot,
+)
 from .rag.models import RagHit
 from .system_time import SystemTimeContext, resolve_system_time
 
@@ -545,18 +556,23 @@ def format_citation_context(
     tool_result: dict[str, Any],
     *,
     ctx: SystemTimeContext | None = None,
+    compact: bool = False,
 ) -> str:
     """Build numbered reference table + RAG snippets aligned to catalog indices."""
     if not catalog.entries and not rag_hits:
         return ""
 
     time_ctx = ctx or resolve_system_time()
-    lines = [
-        time_ctx.prompt_block(),
-        "",
-        "## 引用编号表（正文与 `### 参考来源` 只能使用下列数字编号 `[citation:N]`，禁止使用 `[citation:财务]`）",
-        "",
-    ]
+    context_rag_hits = rag_hits_for_assembly(rag_hits, compact=compact)
+    lines: list[str] = []
+    if not compact:
+        lines.extend([time_ctx.prompt_block(), ""])
+    lines.extend(
+        [
+            "## 引用编号表（正文与 `### 参考来源` 只能使用下列数字编号 `[citation:N]`，禁止使用 `[citation:财务]`）",
+            "",
+        ]
+    )
 
     for entry in catalog.entries:
         lines.append(f"【{entry.index}】{entry.title}")
@@ -566,21 +582,23 @@ def format_citation_context(
     periods_raw = payload.get("periods") if payload else None
     periods = [item for item in periods_raw if isinstance(item, dict)] if isinstance(periods_raw, list) else []
     if financial_tool_is_usable(tool_result) and periods:
+        period_payload = slim_financial_periods(periods) if compact else periods
         lines.extend(
             [
                 "",
                 "### 多期结构化财务数据（引用编号 1，须用 [citation:1]）",
                 "按 time_period 从新到旧排列；综合基本面问题**必须**据此输出多期对比 Markdown 表并分析趋势/同比，"
                 "不得只分析最新一期：",
-                json.dumps(periods, ensure_ascii=False, indent=2),
+                dump_citation_json(period_payload, compact=compact),
             ]
         )
     elif financial_tool_is_usable(tool_result) and profile:
+        profile_payload = slim_financial_profile(profile) if compact else profile
         lines.extend(
             [
                 "",
                 "### 结构化财务数据（引用编号 1，须用 [citation:1]）",
-                json.dumps(profile, ensure_ascii=False, indent=2),
+                dump_citation_json(profile_payload, compact=compact),
             ]
         )
 
@@ -588,33 +606,86 @@ def format_citation_context(
     valuation_snapshot = _valuation_snapshot(valuation_payload) if valuation_payload else None
     valuation_index = catalog.doc_index.get("__valuation_tool__")
     if valuation_tool_is_usable(tool_result) and valuation_snapshot and valuation_index:
+        snapshot_payload = (
+            slim_valuation_snapshot(valuation_snapshot) if compact else valuation_snapshot
+        )
         lines.extend(
             [
                 "",
                 f"### 结构化估值数据（引用编号 {valuation_index}，须用 [citation:{valuation_index}]）",
-                json.dumps(valuation_snapshot, ensure_ascii=False, indent=2),
+                dump_citation_json(snapshot_payload, compact=compact),
             ]
         )
         valuation_history = (valuation_payload or {}).get("valuation_history")
         if isinstance(valuation_history, dict) and valuation_history.get("found"):
+            history_payload = (
+                slim_valuation_history(valuation_history) if compact else valuation_history
+            )
             lines.extend(
                 [
                     "",
                     f"### 估值历史分位（同引用编号 {valuation_index}，解读「贵不贵」须结合本节）",
-                    json.dumps(valuation_history, ensure_ascii=False, indent=2),
+                    dump_citation_json(history_payload, compact=compact),
                 ]
             )
+
+    consensus_payload = _consensus_tool_payload(tool_result)
+    consensus_index = catalog.doc_index.get("__consensus_tool__")
+    if consensus_tool_is_usable(tool_result) and consensus_payload and consensus_index:
+        scenarios = consensus_payload.get("scenarios") or []
+        scenario_limit = COMPACT_MAX_CONSENSUS_SCENARIOS if compact else 6
+        scenario_slice = scenarios[:scenario_limit] if isinstance(scenarios, list) else scenarios
+        lines.extend(
+            [
+                "",
+                f"### 机构一致预期（引用编号 {consensus_index}，须用 [citation:{consensus_index}]）",
+                dump_citation_json(
+                    {
+                        "stock_name": consensus_payload.get("stock_name"),
+                        "data_origin": consensus_payload.get("data_origin"),
+                        "scenarios": scenario_slice,
+                        "notes": consensus_payload.get("notes", ""),
+                    },
+                    compact=compact,
+                ),
+            ]
+        )
+
+    research_payload = _research_report_tool_payload(tool_result)
+    research_index = catalog.doc_index.get("__research_report_tool__")
+    if research_report_tool_is_usable(tool_result) and research_payload and research_index:
+        reports = research_payload.get("reports") or []
+        if compact and isinstance(reports, list):
+            report_slice = slim_research_reports(reports)
+        else:
+            report_slice = reports[:5] if isinstance(reports, list) else []
+        lines.extend(
+            [
+                "",
+                f"### 卖方研报列表元数据（引用编号 {research_index}，须用 [citation:{research_index}]）",
+                dump_citation_json(
+                    {
+                        "stock_name": research_payload.get("stock_name"),
+                        "report_count": research_payload.get("report_count", len(report_slice)),
+                        "reports": report_slice,
+                        "notes": research_payload.get("notes", ""),
+                    },
+                    compact=compact,
+                ),
+            ]
+        )
 
     stock_api_payload = _stock_api_tool_payload(tool_result)
     stock_api_index = catalog.doc_index.get("__stock_api_tool__")
     if stock_api_tool_is_usable(tool_result) and stock_api_payload and stock_api_index:
         facts = stock_api_payload.get("facts") or []
+        fact_payload = slim_api_facts(facts) if compact and isinstance(facts, list) else facts
         lines.extend(
             [
                 "",
                 f"### API 公告与资讯（引用编号 {stock_api_index}，须用 [citation:{stock_api_index}]）",
                 "以下为巨潮公告与东财快讯摘要，用于补充本地知识库未收录标的；引用时写明时间与来源：",
-                json.dumps(facts, ensure_ascii=False, indent=2),
+                dump_citation_json(fact_payload, compact=compact),
             ]
         )
 
@@ -707,7 +778,7 @@ def format_citation_context(
             ]
         )
 
-    if rag_hits:
+    if context_rag_hits:
         lines.extend(
             [
                 "",
@@ -715,7 +786,7 @@ def format_citation_context(
                 "正文段末请使用 `[citation:N]`：",
             ]
         )
-        for hit in rag_hits:
+        for hit in context_rag_hits:
             cite_index = _catalog_index_for_hit(catalog, hit)
             if cite_index is None:
                 continue

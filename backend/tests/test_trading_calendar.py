@@ -11,6 +11,8 @@ from src.services.system_time import SystemTimeContext, resolve_system_time
 from src.services.trading_calendar import (
     compute_trading_day_meta,
     enrich_trading_slots,
+    is_trading_day,
+    parse_explicit_trade_date,
     query_requests_trading_day,
     resolve_default_trade_date,
 )
@@ -43,10 +45,56 @@ def test_enrich_trading_slots_from_query() -> None:
         "刚刚过去的这个交易日，热点分别是什么？",
         {"topic": "A股"},
         last_trading_day="2026-06-12",
-        is_trading_day=False,
+        is_current_trading_day=False,
     )
     assert slots["time_range"] == "近一交易日"
     assert slots["trade_date"] == "2026-06-12"
+
+
+def test_compute_trading_day_meta_dragon_boat_holiday_weekend() -> None:
+    """2026-06-20 周六，端午 6/19-21 放假 → 上一交易日 6/18。"""
+    last_day, is_trading = compute_trading_day_meta(date(2026, 6, 20))
+    assert last_day == "2026-06-18"
+    assert is_trading is False
+
+
+def test_compute_trading_day_meta_dragon_boat_friday() -> None:
+    last_day, is_trading = compute_trading_day_meta(date(2026, 6, 19))
+    assert last_day == "2026-06-18"
+    assert is_trading is False
+
+
+def test_is_trading_day_excludes_holiday() -> None:
+    assert is_trading_day(date(2026, 6, 19)) is False
+    assert is_trading_day(date(2026, 6, 18)) is True
+
+
+def test_parse_explicit_trade_date_month_day() -> None:
+    assert parse_explicit_trade_date("我要看6月18号的涨幅排行榜", default_year=2026) == "2026-06-18"
+
+
+def test_enrich_trading_slots_explicit_date_overrides_recent_session() -> None:
+    slots = enrich_trading_slots(
+        "帮我查6月18号的涨幅排行榜",
+        {"metric": "涨幅排行"},
+        last_trading_day="2026-06-19",
+        is_current_trading_day=False,
+        current_date="2026-06-20",
+    )
+    assert slots["trade_date"] == "2026-06-18"
+    assert slots["time_range"] == "2026-06-18"
+
+
+def test_enrich_trading_slots_today_on_holiday_weekend() -> None:
+    slots = enrich_trading_slots(
+        "今天的涨幅排行榜",
+        {"metric": "涨幅排行"},
+        last_trading_day="2026-06-18",
+        is_current_trading_day=False,
+        current_date="2026-06-20",
+    )
+    assert slots["trade_date"] == "2026-06-18"
+    assert slots["time_range"] == "近一交易日"
 
 
 def test_query_requests_trading_day() -> None:

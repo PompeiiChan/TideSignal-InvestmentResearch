@@ -16,6 +16,7 @@
 | BC-005 | 创新药管线补数用巨潮薄公告、缺研报拆解 | RAG + 工具链 | 已修复（系统侧）；待 KB 入库 |
 | BC-006 | 恒瑞管线只提 PD-1/L1、无研报引用（幻觉+误检索） | RAG + 组装 | 已修复（系统侧）；待 KB 入库 |
 | BC-007 | 海天 2025 年报营收误走澄清（缺 document_id） | 预处理 / 澄清 | 已修复 |
+| BC-011 | 节假日/显式日期涨幅排行锚点错误 | 交易日历 + Tool | 已修复 |
 
 ---
 
@@ -373,10 +374,86 @@ Trace 示例：`trace_20260619_230935_017_local`。
 
 ---
 
+## BC-010 问数排行/热力图误澄清（metric 缺失）
+
+### 用户问题（示例）
+
+> 今天涨幅前 10 的行业板块  
+> 行业板块热力图
+
+### 现象
+
+- 意图识别为 `data_query`，但 `slot_extraction` 未抽出 `metric`。
+- `clarification_check` 触发「请说明您想查询的具体指标或排行类型」，**未进入** `data_query_agent` / `response_assembly`。
+- T-025 模板短路与 lite assembly 无法生效。
+
+### 理想态
+
+- 排行/热力图类口语 query 经规则 enrich 后 `slots.metric` 有值，`need_clarification=false`，全链路完成。
+- 泛问「帮我查一下数据」仍澄清 metric。
+
+### 归因
+
+1. **`metric` 为 data_query 必填槽位**，LLM 槽位抽取对口语 query 不稳定。
+2. **`tool_call` 默认 metric** 在澄清之后，无法阻止误澄清。
+3. **compound enrich** 未覆盖普通问数链路。
+
+### 修复（摘要）
+
+- T-026：`services/data_query_slot_enrich.py` 规则 enrich；`slot_extraction` 写入 `data_query_slot_enrich` Trace；`clarification_check` 双保险过滤 missing。
+
+### 回归要点
+
+- 「今天涨幅前 10 的行业板块」→ 不澄清，含 ranking_table。
+- 「行业板块热力图」→ 不澄清 metric，进入热力图 tool。
+- 「帮我查一下数据」→ 仍澄清 metric。
+
+---
+
+## BC-011 节假日与显式日期涨幅排行锚点错误
+
+### 用户问题（示例）
+
+> 我现在这个时间，今天是 6 月 20 号，今天的涨幅排行榜  
+> （续问）我要搜 6 月 18 号的
+
+### 现象
+
+- 2026-06-19 为端午节法定假日，非 A 股交易日；系统仍将「上一交易日」锚在 6/19。
+- 用户明确指定 6/18（正常交易日）后，回答与 Trace 仍标注 6/19，或提示搜不到。
+- `market_ranking_lookup` 忽略槽位 `trade_date`，始终用 `resolve_default_trade_date()` 打标签。
+
+### 理想态
+
+- `REFERENCE_DATE=2026-06-20`（周六）时，`last_trading_day=2026-06-18`（跳过端午 6/19–6/21）。
+- 用户说「6月18号」→ `slots.trade_date=2026-06-18`，Tool 与正文口径一致。
+- 问「今天涨幅排行」在非交易日 → 锚定最近交易日 6/18，并写清统计口径。
+
+### 归因
+
+1. **`trading_calendar` 仅回退周末**，未排除法定节假日。
+2. **未解析用户显式日历日**（`6月18号` / `2026-06-18`）。
+3. **问数 `tool_call` 未透传 `trade_date`**；排行 Tool 硬编码默认日期。
+
+### 修复（摘要）
+
+- 新增 `a_share_holidays.py`（2025–2027 法定休市日）。
+- `compute_trading_day_meta` / `parse_explicit_trade_date` / `apply_tool_trading_defaults`。
+- `slot_extraction` 在 data_query enrich 后二次 enrich 交易日；`tool_call` 问数路径透传 `trade_date`。
+- `market_ranking_lookup` / `sector_heatmap_lookup` / `eastmoney_client` 使用入参 `trade_date`。
+
+### 回归要点
+
+- `REFERENCE_DATE=2026-06-20`，问「今天涨幅排行榜」→ `trade_date=2026-06-18`。
+- 问「6月18号涨幅排行榜」→ `trade_date=2026-06-18`，不被 6/19 覆盖。
+
+---
+
 ## 变更日志
 
 | 日期 | 说明 |
 |------|------|
+| 2026-06-20 | BC-011：节假日与显式日期涨幅排行锚点（交易日历 + trade_date 透传） |
 | 2026-06-20 | BC-009：海天味业基本面过度收敛为财报（T-014-P2 passthrough + 维度多 Query） |
 | 2026-06-19 | BC-008：宁德时代续问一季报 stock_name 误澄清（pending_slots 继承） |
 | 2026-06-16 | BC-007：海天 2025 年报营收 document_id 误澄清 |

@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-from ...services.trading_calendar import resolve_default_trade_date
+from ...services.trading_calendar import resolve_trade_date_label
 
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 CLIST_URL = "https://push2.eastmoney.com/api/qt/clist/get"
@@ -126,6 +126,7 @@ def fetch_board_stock_ranking(
     *,
     limit: int = 10,
     descending: bool = True,
+    trade_date: str = "",
 ) -> list[dict[str, Any]]:
     """Return constituent stocks of a board sorted by intraday change %."""
     params = {
@@ -141,14 +142,14 @@ def fetch_board_stock_ranking(
     }
     response = em_get(CLIST_URL, params=params, headers={"User-Agent": UA}, timeout=15)
     response.raise_for_status()
-    trade_date = resolve_default_trade_date()
+    resolved_trade_date = resolve_trade_date_label(trade_date=trade_date)
     rows: list[dict[str, Any]] = []
     for index, item in enumerate(_parse_clist_items(response.json())[:limit], start=1):
         code = str(item.get("f12", "")).zfill(6)
         rows.append(
             {
                 "rank": index,
-                "trade_date": trade_date,
+                "trade_date": resolved_trade_date,
                 "ticker": _ticker_from_em(code, item.get("f13")),
                 "stock_name": str(item.get("f14", "")),
                 "close_price": _safe_float(item.get("f2")),

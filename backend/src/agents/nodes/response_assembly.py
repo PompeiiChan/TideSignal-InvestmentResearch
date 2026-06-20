@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import json
+import time
 from typing import Any, cast
 from uuid import uuid4
 
@@ -25,16 +25,35 @@ from ...services.citation_catalog import (
     normalize_assembly_citations,
     strip_unusable_financial_tool,
 )
-from ...services.conversation_context import (
-    build_conversation_context,
-    format_conversation_context_for_prompt,
-)
+from ...services.conversation_context import build_conversation_context
 from ...services.message_sanitizer import ensure_public_risk_notice, sanitize_rich_blocks
 from ...services.rag.models import RagHit
 from ...services.rag.service import RagService
 from ...services.system_time import resolve_system_time
 from ...settings import AppSettings
-from ..heatmap_intent import wants_sector_heatmap
+from ..assembly.citation_fix import (
+    apply_citation_fix,
+    build_citation_patch_prompt,
+    pick_best_citation_content,
+    relocate_citations_from_headings,
+)
+from ..assembly.profile import (
+    PROFILE_MAX_TOKENS,
+    AssemblyProfile,
+    rag_hits_from_state,
+    resolve_assembly_profile,
+    use_compact_citation_context,
+)
+from ..assembly.prompt_builder import build_assembly_user_prompt
+from ..assembly.template import finalize_template_content, try_template_assembly
+from ._helpers import run_node_with_trace
+from .citation_rules import (
+    content_has_citation_markers,
+    content_needs_citation_retry,
+    count_paragraphs_missing_citations,
+    evidence_requires_citations,
+    paragraphs_missing_trailing_citations,
+)
 
 
 def _format_ranking_cell(field: str, value: Any) -> Any:
@@ -78,40 +97,9 @@ def _build_ranking_table_payload(
     return {"columns": columns, "rows": slim_rows}
 
 
-from ._helpers import run_node_with_trace
-from .citation_rules import (
-    content_needs_citation_retry,
-    evidence_requires_citations,
-    paragraphs_missing_trailing_citations,
-)
-
-_ASSEMBLY_EVIDENCE_MAX_CHARS = 12_000
-
-
-def _compact_evidence_for_prompt(evidence_pack: dict[str, Any]) -> str:
-    """Shrink evidence JSON so long hotspot/stock packs do not blow LLM timeouts."""
-    compact = json.loads(json.dumps(evidence_pack, ensure_ascii=False))
-    tool_result = compact.get("tool_result")
-    if isinstance(tool_result, dict):
-        for _key, payload in list(tool_result.items()):
-            if not isinstance(payload, dict):
-                continue
-            for list_key in ("rows", "tiles", "articles", "announcements", "highlights"):
-                items = payload.get(list_key)
-                if isinstance(items, list) and len(items) > 8:
-                    payload[list_key] = items[:8]
-    rag_hits = compact.get("rag_hits")
-    if isinstance(rag_hits, list) and len(rag_hits) > 6:
-        compact["rag_hits"] = rag_hits[:6]
-    text = json.dumps(compact, ensure_ascii=False)
-    if len(text) <= _ASSEMBLY_EVIDENCE_MAX_CHARS:
-        return text
-    return text[:_ASSEMBLY_EVIDENCE_MAX_CHARS] + "…"
-
-
 def _fallback_assembly_content(evidence_pack: dict[str, Any], query: str) -> str:
     """Readable draft when the output model times out."""
-    agent_result = str(evidence_pack.get("agent_result") or "").strip()
+    agent_result = str(evidence_pack.get("agent_result") or evidence_pack.get("agent_summary") or "").strip()
     body = agent_result or f"以下是对「{query}」的简要整理（完整生成超时，展示已有证据摘要）。"
     return ensure_public_risk_notice(body)
 
@@ -142,17 +130,6 @@ def _build_intent_stub(state: AgentState) -> IntentResult:
             raw_json={},
         ),
     )
-
-
-def _rag_hits_from_state(state: AgentState) -> list[RagHit]:
-    hits: list[RagHit] = []
-    for item in state.get("rag_hits") or []:
-        if isinstance(item, dict):
-            try:
-                hits.append(RagHit.model_validate(item))
-            except Exception:
-                continue
-    return hits
 
 
 def _append_market_data_rich_blocks(
@@ -232,15 +209,6 @@ def _emit_stream_rich_blocks(
     return prepared
 
 
-def _heatmap_tool_has_tiles(tool_result: dict[str, Any]) -> bool:
-    heatmap_tool = tool_result.get("sector_heatmap_lookup")
-    return isinstance(heatmap_tool, dict) and bool(heatmap_tool.get("tiles"))
-
-
-def _is_heatmap_primary_query(query: str, tool_result: dict[str, Any]) -> bool:
-    return wants_sector_heatmap(query) and _heatmap_tool_has_tiles(tool_result)
-
-
 def _build_market_rich_blocks(
     *,
     response_kind: str,
@@ -318,6 +286,31 @@ def _build_rich_blocks_from_evidence(
     return llm.enrich_rich_blocks(content, blocks, response_kind, rag_hits)
 
 
+def _build_assembly_detail_sections(assembly_trace: dict[str, Any]) -> list[dict[str, Any]]:
+    prompt_stats = assembly_trace.get("prompt_stats") or {}
+    items = [
+        {"label": "assembly_profile", "value": str(assembly_trace.get("assembly_profile", ""))},
+        {"label": "assembly_mode", "value": str(assembly_trace.get("assembly_mode", ""))},
+        {"label": "LLM passes", "value": str(len(assembly_trace.get("llm_passes") or []))},
+        {"label": "user prompt chars", "value": str(prompt_stats.get("user_chars", ""))},
+        {"label": "citation context chars", "value": str(prompt_stats.get("citation_context_chars", ""))},
+        {
+            "label": "citation patch",
+            "value": "yes" if assembly_trace.get("citation_patch_applied") else "no",
+        },
+    ]
+    return [{"title": "组装性能", "items": items}]
+
+
+def _patch_trace_step(result: dict[str, Any], assembly_trace: dict[str, Any]) -> None:
+    steps = result.get("trace_steps") or []
+    if not steps:
+        return
+    step = steps[-1]
+    step["raw_json"] = {**step.get("raw_json", {}), **assembly_trace}
+    step["detail_sections"] = _build_assembly_detail_sections(assembly_trace)
+
+
 async def response_assembly(
     state: AgentState,
     *,
@@ -332,7 +325,7 @@ async def response_assembly(
     revision_suggestions = state.get("revision_suggestions") or []
     stream_callback = state.get("stream_callback")
     intent_stub = _build_intent_stub(state)
-    rag_hits = _rag_hits_from_state(state)
+    rag_hits = rag_hits_from_state(state)
     time_ctx = resolve_system_time(settings)
     active_slots = state.get("active_slots") or state.get("slots") or {}
     history_summary = str(state.get("history_summary", "")).strip()
@@ -342,6 +335,16 @@ async def response_assembly(
         inherited_slot_keys=state.get("inherited_slot_keys") or [],
         normalized_query=normalized_query,
     )
+    profile = resolve_assembly_profile(state)
+    assembly_trace: dict[str, Any] = {
+        "assembly_profile": profile.value,
+        "assembly_mode": "template" if profile == AssemblyProfile.TEMPLATE_SKIP else "llm",
+        "prompt_stats": {},
+        "llm_passes": [],
+        "citation_retry_triggered": False,
+        "citation_patch_applied": False,
+        "citation_patch_paragraphs": 0,
+    }
 
     input_data = {
         "query": normalized_query,
@@ -350,6 +353,7 @@ async def response_assembly(
         "conversation_context": conversation_context,
         "response_kind": state.get("response_kind", "data"),
         "revision_suggestions": revision_suggestions,
+        "assembly_profile": profile.value,
     }
 
     async def _execute() -> tuple[dict[str, Any], str]:
@@ -359,7 +363,6 @@ async def response_assembly(
         response_kind_str = str(state.get("response_kind", "data"))
         callback = stream_callback if callable(stream_callback) else None
         can_stream = callback is not None
-        heatmap_primary = _is_heatmap_primary_query(normalized_query, cleaned_tool_result)
         streamed_rich_blocks = (
             _emit_stream_rich_blocks(
                 callback,
@@ -377,59 +380,40 @@ async def response_assembly(
             cleaned_tool_result,
             response_kind=response_kind_str,
         )
+        compact_citation = use_compact_citation_context(profile)
         citation_context = format_citation_context(
             catalog,
             rag_hits,
             cleaned_tool_result,
             ctx=time_ctx,
+            compact=compact_citation,
         )
-        evidence_text = _compact_evidence_for_prompt(assembly_evidence)
-        user_prompt = (
-            f"用户问题：{normalized_query}\n\n"
-            f"evidence_pack：\n{evidence_text}\n\n"
+        prompt_parts = build_assembly_user_prompt(
+            normalized_query=normalized_query,
+            evidence_pack=assembly_evidence,
+            citation_context=citation_context,
+            catalog=catalog,
+            conversation_context=conversation_context,
+            revision_suggestions=list(revision_suggestions),
+            time_ctx=time_ctx,
         )
-        if conversation_context.get("has_context"):
-            context_block = format_conversation_context_for_prompt(conversation_context)
-            user_prompt += (
-                "【多轮对话上下文】\n"
-                f"{context_block}\n\n"
-                "须延续上述标的与时间口径作答，不得要求用户重复提供公司名称。\n\n"
-            )
-        if revision_suggestions:
-            user_prompt += f"质检修订建议：{'; '.join(revision_suggestions)}\n\n"
-        if citation_context:
-            user_prompt += f"{citation_context}\n\n"
-        if assembly_evidence.get("stock_narrative_evidence_missing") or assembly_evidence.get(
-            "stock_kb_uncovered"
-        ):
-            user_prompt += (
-                "【强制约束】本地未收录该公司券商深度研报或本轮未命中 company-reports/industry-reports 片段。"
-                "不得编造具体药品、靶点或管线品种名称；须先声明证据不足。\n\n"
-            )
-        if heatmap_primary:
-            user_prompt += (
-                "【热力图优先】用户核心是查看行业板块热力图交互组件。正文控制在 3～6 行："
-                "说明统计口径（交易日）并点出 1～2 个成交或涨跌突出的板块即可；"
-                "勿逐块复述热力图全部数据，热力图由前端组件展示。\n\n"
-            )
-        user_prompt += "请直接输出 Markdown 正文。"
-
+        user_prompt = prompt_parts.user_prompt
         system_prompt = assembly_system_prompt(
             time_ctx,
             response_kind=response_kind_str,
             hotspot_evidence_mode=str(evidence_pack.get("hotspot_evidence_mode", "")),
+            profile=profile.value,
         )
-        client = llm._output_client()
+        assembly_trace["prompt_stats"] = {
+            **prompt_parts.prompt_stats,
+            "system_chars": len(system_prompt),
+            "citation_context_mode": "compact" if compact_citation else "full",
+        }
 
         requires_citation_validation = evidence_requires_citations(
             rag_hits=rag_hits,
             evidence_pack=assembly_evidence,
         )
-        # Hybrid streaming (plan A):
-        # - first draft is buffered when citations are required;
-        # - citation retry streams live to the client;
-        # - a first-pass pass emits via buffered typewriter only.
-        buffer_first_draft = requires_citation_validation
         streamed_to_client = False
 
         def _emit_delta(delta: str) -> None:
@@ -443,88 +427,145 @@ async def response_assembly(
                 callback({"event": "content_done", "data": {"content": content}})
 
         async def _emit_buffered_content(content: str, *, chunk_size: int = 64) -> None:
-            """Reveal buffered text with a typewriter effect when LLM output was not streamed."""
             if not content:
                 return
             for index in range(0, len(content), chunk_size):
                 _emit_delta(content[index : index + chunk_size])
                 await asyncio.sleep(0)
 
-        async def _stream_completion(
-            prompt: str,
-            *,
-            temperature: float,
-            stream_to_client: bool,
-        ) -> str:
-            parts: list[str] = []
-            async for delta in client.chat_completion_stream(
-                [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=temperature,
-                max_tokens=2048,
-            ):
-                parts.append(delta)
-                if stream_to_client:
-                    _emit_delta(delta)
-            return "".join(parts).strip()
+        max_tokens = PROFILE_MAX_TOKENS.get(profile, 2048)
+        template_body = try_template_assembly(state) if profile == AssemblyProfile.TEMPLATE_SKIP else None
+        content = ""
 
-        try:
-            content = await _stream_completion(
-                user_prompt,
-                temperature=0.4,
-                stream_to_client=can_stream and not buffer_first_draft,
-            )
-        except LLMClientError:
-            content = _fallback_assembly_content(assembly_evidence, normalized_query)
-        content = content or _fallback_assembly_content(assembly_evidence, normalized_query)
-        content = normalize_assembly_citations(content, catalog)
-        draft_content = content
-        if buffer_first_draft and content_needs_citation_retry(content):
-            emit_stream_phase(stream_callback, "rewriting")
-            missing = paragraphs_missing_trailing_citations(content)
-            missing_hint = ""
-            if missing:
-                missing_hint = (
-                    "以下段落引用了事实/数字但段末缺少 citation，请逐段补在段末："
-                    + "；".join(missing[:3])
-                    + "。"
+        if template_body:
+            content = finalize_template_content(template_body, catalog)
+            pre_notice_content = content
+            content = ensure_public_risk_notice(content)
+            if can_stream and content:
+                if content != pre_notice_content:
+                    _emit_delta(content[: len(pre_notice_content)])
+                    _emit_delta(content[len(pre_notice_content) :])
+                else:
+                    await _emit_buffered_content(content)
+            _emit_content_replace(content)
+        else:
+            client = llm._assembly_client()
+            model_name = client.model
+
+            async def _stream_completion(
+                prompt: str,
+                *,
+                temperature: float,
+                pass_name: str,
+                stream_to_client: bool,
+            ) -> str:
+                started = time.perf_counter()
+                parts: list[str] = []
+                async for delta in client.chat_completion_stream(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                ):
+                    parts.append(delta)
+                    if stream_to_client:
+                        _emit_delta(delta)
+                text = "".join(parts).strip()
+                assembly_trace["llm_passes"].append(
+                    {
+                        "pass": pass_name,
+                        "latency_ms": int((time.perf_counter() - started) * 1000),
+                        "completion_tokens": len(text),
+                        "streamed": stream_to_client,
+                        "model": model_name,
+                    }
                 )
-            valid_nums = ", ".join(str(entry.index) for entry in catalog.entries) or "1"
-            retry_prompt = (
-                f"{user_prompt}\n\n"
-                "【强制修订】正文须按**段落**标注引用：凡写入知识库/工具/研报事实或数字的段落，"
-                f"在该段落**最后一句话末尾**仅使用 `[citation:N]`（N 为引用编号表中的数字：{valid_nums}），"
-                "多来源合并写在段末（如 `[citation:2][citation:3]`）。"
-                "禁止使用 `[citation:财务]`；无本地财报数据时不要编造财务类参考来源。"
-                "禁止只在 `### 参考来源` 列文献而正文无 citation。"
-                f"{missing_hint}"
-                "文末须有 `### 参考来源` 并合并同源条目。"
-            )
+                return text
+
             try:
-                revised = await _stream_completion(
-                    retry_prompt,
-                    temperature=0.3,
+                content = await _stream_completion(
+                    user_prompt,
+                    temperature=0.4,
+                    pass_name="first",
                     stream_to_client=can_stream,
                 )
-                revised = normalize_assembly_citations(revised or "", catalog)
-                if revised.strip() and not content_needs_citation_retry(revised):
-                    content = revised
-                else:
-                    content = draft_content
             except LLMClientError:
-                content = draft_content
+                content = _fallback_assembly_content(assembly_evidence, normalized_query)
 
-        pre_notice_content = content
-        content = ensure_public_risk_notice(content)
+            content = content or _fallback_assembly_content(assembly_evidence, normalized_query)
+            content = normalize_assembly_citations(content, catalog)
+            content, _ = relocate_citations_from_headings(content)
+            draft_content = content
+            heading_reloc_total = 0
 
-        if not streamed_to_client and content:
-            await _emit_buffered_content(content)
-        elif content != pre_notice_content:
-            _emit_delta(content[len(pre_notice_content) :])
+            if requires_citation_validation and content_needs_citation_retry(content):
+                assembly_trace["citation_missing_before_patch"] = count_paragraphs_missing_citations(
+                    content
+                )
+                patched, patch_applied, patch_count = apply_citation_fix(content, catalog)
+                assembly_trace["citation_patch_paragraphs"] = patch_count
+                if patch_applied:
+                    content = normalize_assembly_citations(patched, catalog)
+                    assembly_trace["citation_patch_applied"] = True
+                elif content_needs_citation_retry(patched):
+                    content = patched
+                    assembly_trace["citation_retry_triggered"] = True
+                    emit_stream_phase(stream_callback, "rewriting")
+                    missing = paragraphs_missing_trailing_citations(content)
+                    patch_prompt = build_citation_patch_prompt(
+                        missing_paragraphs=missing,
+                        catalog=catalog,
+                        needs_reference_section=not content_has_citation_markers(content)
+                        or "### 参考来源" not in content,
+                    )
+                    retry_prompt = f"{content}\n\n{patch_prompt}"
+                    try:
+                        revised = await _stream_completion(
+                            retry_prompt,
+                            temperature=0.3,
+                            pass_name="citation_patch",
+                            stream_to_client=False,
+                        )
+                        revised = normalize_assembly_citations(revised or "", catalog)
+                        content = pick_best_citation_content(
+                            revised,
+                            patched,
+                            draft_content,
+                        )
+                        content = normalize_assembly_citations(content, catalog)
+                    except LLMClientError:
+                        content = normalize_assembly_citations(
+                            pick_best_citation_content(patched, draft_content),
+                            catalog,
+                        )
+                else:
+                    content = normalize_assembly_citations(patched, catalog)
+                    assembly_trace["citation_patch_applied"] = patch_count > 0
+                assembly_trace["citation_missing_after_patch"] = count_paragraphs_missing_citations(
+                    content
+                )
 
-        _emit_content_replace(content)
+            content, heading_reloc_final = relocate_citations_from_headings(content)
+            heading_reloc_total += heading_reloc_final
+            if heading_reloc_total:
+                assembly_trace["citation_relocated_from_headings"] = heading_reloc_total
+                content = normalize_assembly_citations(content, catalog)
+                assembly_trace["citation_missing_after_patch"] = count_paragraphs_missing_citations(
+                    content
+                )
+
+            pre_notice_content = content
+            content = ensure_public_risk_notice(content)
+
+            if not streamed_to_client and content:
+                await _emit_buffered_content(content)
+            elif content != pre_notice_content:
+                _emit_delta(content[len(pre_notice_content) :])
+
+            _emit_content_replace(content)
+
         response_kind = cast(ResponseKind, intent_stub.response_kind)
         rich_blocks = _build_rich_blocks_from_evidence(
             llm,
@@ -539,14 +580,20 @@ async def response_assembly(
             "response_kind": response_kind_str,
             "rich_blocks": rich_blocks,
             "rich_blocks_streamed": rich_blocks_streamed,
-            "response_meta": {"assembly": True, "citation_catalog": catalog.to_quality_payload()},
+            "response_meta": {
+                "assembly": True,
+                "citation_catalog": catalog.to_quality_payload(),
+                "assembly_trace": assembly_trace,
+            },
         }
         return output, "完成回答组装"
 
-    return await run_node_with_trace(
+    result = await run_node_with_trace(
         state,
         node="response_assembly",
         input_data=input_data,
         summary="完成回答组装",
         fn=_execute,
     )
+    _patch_trace_step(result, assembly_trace)
+    return result

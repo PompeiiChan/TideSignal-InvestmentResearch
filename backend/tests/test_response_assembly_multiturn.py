@@ -33,7 +33,7 @@ async def test_response_assembly_injects_multiturn_block() -> None:
     stream_mock.chat_completion_stream = _fake_stream
 
     llm = MagicMock()
-    llm._output_client.return_value = stream_mock
+    llm._assembly_client.return_value = stream_mock
     llm.enrich_rich_blocks.return_value = []
 
     state: AgentState = {
@@ -96,7 +96,7 @@ async def test_response_assembly_skips_multiturn_block_without_history() -> None
     stream_mock.chat_completion_stream = _fake_stream
 
     llm = MagicMock()
-    llm._output_client.return_value = stream_mock
+    llm._assembly_client.return_value = stream_mock
     llm.enrich_rich_blocks.return_value = []
 
     state: AgentState = {

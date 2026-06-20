@@ -47,8 +47,69 @@ _BAD_DRAFT = "公司营收 100 亿元，利润 20 亿元。\n\n### 参考来源\
 
 
 @pytest.mark.asyncio
-async def test_citation_retry_live_streams_revised_draft() -> None:
-    """First non-compliant draft is buffered; revision pass streams live to the client."""
+async def test_first_draft_always_streams_live() -> None:
+    """First draft streams to client even when citations are required."""
+    events: list[dict[str, Any]] = []
+
+    def stream_callback(event: dict[str, Any]) -> None:
+        events.append(event)
+
+    bad_draft = _BAD_DRAFT
+
+    async def _fake_stream(*_args: Any, **_kwargs: Any) -> AsyncIterator[str]:
+        yield bad_draft
+
+    stream_mock = MagicMock()
+    stream_mock.model = "test-model"
+    stream_mock.chat_completion_stream = _fake_stream
+
+    llm = MagicMock()
+    llm._assembly_client.return_value = stream_mock
+    llm.enrich_rich_blocks.return_value = []
+
+    state: AgentState = {
+        "normalized_query": "测试公司基本面",
+        "response_kind": "stock",
+        "evidence_pack": {
+            "agent_summary": "要点",
+            "tool_result": {},
+            "retrieved_chunks": [{"snippet": "x"}],
+        },
+        "rag_hits": [_rag_hit()],
+        "stream_callback": stream_callback,
+        "trace_steps": [],
+    }
+
+    with patch(
+        "backend.src.agents.nodes.response_assembly.resolve_system_time",
+        return_value=_time_ctx(),
+    ), patch(
+        "backend.src.agents.nodes.response_assembly.build_citation_catalog",
+        return_value=MagicMock(
+            entries=[],
+            doc_index={},
+            to_quality_payload=lambda: {},
+            valid_indices=lambda: set(),
+        ),
+    ), patch(
+        "backend.src.agents.nodes.response_assembly.format_citation_context",
+        return_value="",
+    ), patch(
+        "backend.src.agents.nodes.response_assembly.normalize_assembly_citations",
+        side_effect=lambda content, _catalog: content,
+    ):
+        result = await response_assembly(state, llm=llm, rag=MagicMock(), settings=MagicMock())
+
+    delta_events = [event for event in events if event["event"] == "content_delta"]
+    assert delta_events
+    streamed = "".join(event["data"]["delta"] for event in delta_events)
+    assert "公司营收 100 亿元" in streamed
+    assert "content_reset" not in {event["event"] for event in events}
+    assert result["final_response"]
+
+
+@pytest.mark.asyncio
+async def test_citation_patch_retry_streams_when_programmatic_patch_insufficient() -> None:
     events: list[dict[str, Any]] = []
 
     def stream_callback(event: dict[str, Any]) -> None:
@@ -67,10 +128,11 @@ async def test_citation_retry_live_streams_revised_draft() -> None:
             yield good_draft
 
     stream_mock = MagicMock()
+    stream_mock.model = "test-model"
     stream_mock.chat_completion_stream = _fake_stream
 
     llm = MagicMock()
-    llm._output_client.return_value = stream_mock
+    llm._assembly_client.return_value = stream_mock
     llm.enrich_rich_blocks.return_value = []
 
     state: AgentState = {
@@ -91,27 +153,33 @@ async def test_citation_retry_live_streams_revised_draft() -> None:
         return_value=_time_ctx(),
     ), patch(
         "backend.src.agents.nodes.response_assembly.build_citation_catalog",
-        return_value=MagicMock(entries=[], to_quality_payload=lambda: {}),
+        return_value=MagicMock(
+            entries=[],
+            doc_index={},
+            to_quality_payload=lambda: {},
+            valid_indices=lambda: set(),
+        ),
     ), patch(
         "backend.src.agents.nodes.response_assembly.format_citation_context",
         return_value="",
     ), patch(
         "backend.src.agents.nodes.response_assembly.normalize_assembly_citations",
         side_effect=lambda content, _catalog: content,
+    ), patch(
+        "backend.src.agents.nodes.response_assembly.apply_citation_fix",
+        return_value=(_BAD_DRAFT, False, 0),
     ):
         result = await response_assembly(state, llm=llm, rag=MagicMock(), settings=MagicMock())
 
-    event_names = [event["event"] for event in events]
-    assert "content_reset" not in event_names
-    streamed = "".join(event["data"]["delta"] for event in events if event["event"] == "content_delta")
-    assert _BAD_DRAFT not in streamed
-    assert ensure_public_risk_notice(good_draft) in streamed
-    assert result["final_response"] == ensure_public_risk_notice(good_draft)
+    assert call_count == 2
+    assert ensure_public_risk_notice(good_draft) in result["final_response"]
+    trace = result["trace_steps"][-1]["raw_json"]
+    assert trace.get("citation_retry_triggered") is True
+    assert "assembly_profile" in trace
 
 
 @pytest.mark.asyncio
-async def test_citation_retry_fallback_buffers_draft_when_revision_fails() -> None:
-    """When revision fails, fall back to buffered first draft without content_reset."""
+async def test_citation_patch_fallback_when_revision_fails() -> None:
     events: list[dict[str, Any]] = []
 
     def stream_callback(event: dict[str, Any]) -> None:
@@ -129,10 +197,11 @@ async def test_citation_retry_fallback_buffers_draft_when_revision_fails() -> No
         raise LLMClientError("LLM 请求超时")
 
     stream_mock = MagicMock()
+    stream_mock.model = "test-model"
     stream_mock.chat_completion_stream = _fake_stream
 
     llm = MagicMock()
-    llm._output_client.return_value = stream_mock
+    llm._assembly_client.return_value = stream_mock
     llm.enrich_rich_blocks.return_value = []
 
     state: AgentState = {
@@ -153,25 +222,31 @@ async def test_citation_retry_fallback_buffers_draft_when_revision_fails() -> No
         return_value=_time_ctx(),
     ), patch(
         "backend.src.agents.nodes.response_assembly.build_citation_catalog",
-        return_value=MagicMock(entries=[], to_quality_payload=lambda: {}),
+        return_value=MagicMock(
+            entries=[],
+            doc_index={},
+            to_quality_payload=lambda: {},
+            valid_indices=lambda: set(),
+        ),
     ), patch(
         "backend.src.agents.nodes.response_assembly.format_citation_context",
         return_value="",
     ), patch(
         "backend.src.agents.nodes.response_assembly.normalize_assembly_citations",
         side_effect=lambda content, _catalog: content,
+    ), patch(
+        "backend.src.agents.nodes.response_assembly.apply_citation_fix",
+        return_value=(_BAD_DRAFT, False, 0),
     ):
         result = await response_assembly(state, llm=llm, rag=MagicMock(), settings=MagicMock())
 
     assert result["final_response"] == ensure_public_risk_notice(bad_draft)
     assert "content_reset" not in {event["event"] for event in events}
-    streamed = "".join(event["data"]["delta"] for event in events if event["event"] == "content_delta")
-    assert _BAD_DRAFT in streamed or ensure_public_risk_notice(bad_draft) in streamed
     assert any(event["event"] == "content_done" for event in events)
 
 
 @pytest.mark.asyncio
-async def test_first_pass_compliant_uses_buffered_typewriter() -> None:
+async def test_compliant_first_pass_streams_live() -> None:
     events: list[dict[str, Any]] = []
 
     def stream_callback(event: dict[str, Any]) -> None:
@@ -183,10 +258,11 @@ async def test_first_pass_compliant_uses_buffered_typewriter() -> None:
         yield good_draft
 
     stream_mock = MagicMock()
+    stream_mock.model = "test-model"
     stream_mock.chat_completion_stream = _fake_stream
 
     llm = MagicMock()
-    llm._output_client.return_value = stream_mock
+    llm._assembly_client.return_value = stream_mock
     llm.enrich_rich_blocks.return_value = []
 
     state: AgentState = {
@@ -207,7 +283,12 @@ async def test_first_pass_compliant_uses_buffered_typewriter() -> None:
         return_value=_time_ctx(),
     ), patch(
         "backend.src.agents.nodes.response_assembly.build_citation_catalog",
-        return_value=MagicMock(entries=[], to_quality_payload=lambda: {}),
+        return_value=MagicMock(
+            entries=[],
+            doc_index={},
+            to_quality_payload=lambda: {},
+            valid_indices=lambda: set(),
+        ),
     ), patch(
         "backend.src.agents.nodes.response_assembly.format_citation_context",
         return_value="",
@@ -218,9 +299,12 @@ async def test_first_pass_compliant_uses_buffered_typewriter() -> None:
         result = await response_assembly(state, llm=llm, rag=MagicMock(), settings=MagicMock())
 
     delta_events = [event for event in events if event["event"] == "content_delta"]
-    assert len(delta_events) >= 1
+    assert delta_events
     assert "".join(event["data"]["delta"] for event in delta_events) == ensure_public_risk_notice(good_draft)
     assert result["final_response"] == ensure_public_risk_notice(good_draft)
+    trace = result["trace_steps"][-1]["raw_json"]
+    assert trace.get("assembly_profile") == "stock_full"
+    assert trace.get("prompt_stats", {}).get("user_chars", 0) > 0
 
 
 @pytest.mark.asyncio
@@ -229,12 +313,6 @@ async def test_heatmap_rich_blocks_stream_before_content_delta() -> None:
 
     def stream_callback(event: dict[str, Any]) -> None:
         events.append(event)
-
-    async def _fake_stream(*_args: Any, **_kwargs: Any) -> AsyncIterator[str]:
-        yield "半导体板块成交居前，白酒板块涨幅靠前。[citation:1]"
-
-    stream_mock = MagicMock()
-    stream_mock.chat_completion_stream = _fake_stream
 
     heatmap_block = {
         "type": "sector_heatmap",
@@ -245,7 +323,6 @@ async def test_heatmap_rich_blocks_stream_before_content_delta() -> None:
     }
 
     llm = MagicMock()
-    llm._output_client.return_value = stream_mock
     llm.enrich_rich_blocks.return_value = [heatmap_block]
 
     state: AgentState = {
@@ -255,6 +332,7 @@ async def test_heatmap_rich_blocks_stream_before_content_delta() -> None:
             "agent_summary": "热力图",
             "tool_result": {
                 "sector_heatmap_lookup": {
+                    "tool": "sector_heatmap_lookup",
                     "tiles": [
                         {
                             "board_name": "半导体",
@@ -278,7 +356,12 @@ async def test_heatmap_rich_blocks_stream_before_content_delta() -> None:
         return_value=_time_ctx(),
     ), patch(
         "backend.src.agents.nodes.response_assembly.build_citation_catalog",
-        return_value=MagicMock(entries=[], to_quality_payload=lambda: {}),
+        return_value=MagicMock(
+            entries=[],
+            doc_index={},
+            to_quality_payload=lambda: {},
+            valid_indices=lambda: set(),
+        ),
     ), patch(
         "backend.src.agents.nodes.response_assembly.format_citation_context",
         return_value="",
@@ -293,5 +376,7 @@ async def test_heatmap_rich_blocks_stream_before_content_delta() -> None:
     assert "content_delta" in event_names
     assert event_names.index("rich_blocks") < event_names.index("content_delta")
     assert result.get("rich_blocks_streamed") is True
+    trace = result["trace_steps"][-1]["raw_json"]
+    assert trace.get("assembly_mode") == "template"
     rich_payload = next(event for event in events if event["event"] == "rich_blocks")["data"]["rich_blocks"]
     assert rich_payload[0]["type"] == "sector_heatmap"

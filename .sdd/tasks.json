@@ -1473,6 +1473,174 @@
       "blocked": false,
       "notes": "[PASS] 回答生成过程状态时间线：Tester PASS + 用户门禁确认通过（2026-06-18）。\n详见：.sdd/test-reports/test-T-020.md",
       "user_gate": true
+    },
+    {
+      "id": "T-025",
+      "title": "回答组装性能优化（Phase 0～2）",
+      "type": "integration",
+      "description": "优化 response_assembly 节点：Phase 0 Trace 可观测（assembly_profile/prompt_stats/llm_passes）；Phase 1 assembly_profile 分级 prompt、user prompt 去重（citation 区唯一数据源）、首稿流式 + 程序补 citation；Phase 2 模板短路（纯排行/热力图/计算器）、llm_assembly_model 配置、agent_summary 润色约束、format_citation_context 补 T-018 consensus/研报。方案见 .sdd/developer-reports/T-025-plan.md。",
+      "source_feature": "F01 对话 / F02 Trace",
+      "acceptanceCriteria": [
+        "问「今天涨幅前 10 的行业板块」时，流式首包明显提前到达，回答仍含排行解读与 ranking_table 组件。",
+        "问「行业板块热力图」时，正文简短（约 3～6 行），热力图组件正常；Trace 可见 assembly_profile 或 assembly_mode=template。",
+        "问「宁德时代 2026 一季报怎么样」时，仍含多期财务解读、段末 citation 与参考来源，不出现无 citation 编造管线/药品（BC-006 不退化）。",
+        "问「机构怎么看宁德时代」时，仍展示一致预期或研报列表，参考来源含机构/API 口径。",
+        "多轮续问「一季报呢」（上轮已问股）时，回答延续标的与时间口径。",
+        "管理端 Trace 的 response_assembly 步骤 raw_json 含 assembly_profile、prompt_stats、llm_passes。",
+        "问股/热点流式对话时，首稿边生成边出字，非长时间空白后一次性 typewriter。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src/agents/assembly backend/src/agents/nodes/response_assembly.py backend/src/services/citation_catalog.py backend/src/integrations/llm/service.py backend/tests/test_assembly_*.py backend/tests/test_response_assembly_*.py -q 通过",
+        "$PY -m pytest backend/tests/test_assembly_profile.py backend/tests/test_assembly_prompt_builder.py backend/tests/test_assembly_citation_fix.py backend/tests/test_assembly_template.py backend/tests/test_response_assembly_streaming.py backend/tests/test_response_assembly_multiturn.py backend/tests/test_langgraph_execution.py -q 通过",
+        "单测覆盖 resolve_assembly_profile、prompt 去重、citation patch、template 短路、Trace raw_json 字段",
+        "llm_assembly_model 空时 fallback llm_model；settings 不泄露密钥",
+        "VITE_USE_MOCK=false 时 POST /api/chat/query/stream 问数+问股各 1 条；Trace 含 prompt_stats"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": ["P01", "P06"],
+        "services": ["frontend/src/services/chat.ts", "frontend/src/services/traces.ts"],
+        "realApiEndpoints": ["POST /api/chat/query/stream", "GET /api/traces/{trace_id}"],
+        "mockExitCriteria": [
+          "流式首 token 体验须真实后端验证",
+          "Trace 新字段由通用 timeline 渲染，不要求前端改版"
+        ]
+      },
+      "externalServices": ["LangGraph", "硅基流动 LLM / DeepSeek"],
+      "dependencies": ["T-012", "T-017", "T-018"],
+      "priority": 25,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": "cursor-developer",
+      "tester_id": "cursor-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "Developer+Tester+用户门禁 PASS（2026-06-20）。报告：.sdd/test-reports/test-T-025.md；完成：.sdd/developer-reports/T-025-completion.md",
+      "user_gate": true
+    },
+    {
+      "id": "T-026",
+      "title": "问数自然语言默认可路由（metric/time_range 规则 enrich）",
+      "type": "integration",
+      "description": "T-025 验收发现「今天涨幅前10的行业板块」「行业板块热力图」等问数/热力图 query 常在 clarification_check 因缺失 metric 提前结束。新建 data_query_slot_enrich 规则层，在 slot_extraction 后填充 metric/time_range/market 默认值；clarification_check 对 data_query 剔除已 enrich 的 missing_slots。方案见 .sdd/developer-reports/T-026-plan.md。",
+      "source_feature": "F19 槽位闭环 / F01 对话",
+      "acceptanceCriteria": [
+        "问「今天涨幅前 10 的行业板块」时不触发 metric 澄清，全链路进入 data_query 与 response_assembly，回答含排行解读与 ranking_table。",
+        "问「行业板块热力图」时不因 metric 澄清中断，能进入热力图 tool 与 assembly。",
+        "问「半导体涨幅前五」时不因 metric 澄清中断，slots.metric 有值。",
+        "泛问「帮我查一下数据」等无法规则推断时仍触发澄清，不过度兜底。",
+        "Trace 的 slot_extraction 步骤可见 data_query_slot_enrich.applied_keys。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src/services/data_query_slot_enrich.py backend/src/agents/nodes/slot_extraction.py backend/tests/test_data_query_slot_enrich.py -q 通过",
+        "$PY -m pytest backend/tests/test_data_query_slot_enrich.py backend/tests/test_langgraph_preprocessing.py backend/tests/test_langgraph_execution.py -q 通过",
+        "单测覆盖热力图/排行/成交额/默认 time_range 及不覆盖已有 slot",
+        "VITE_USE_MOCK=false 时 POST /api/chat/query/stream 验证 AC1、AC2 全链路"
+      ],
+      "frontendIntegration": {
+        "required": true,
+        "pages": ["P01", "P04"],
+        "services": ["frontend/src/services/chat.ts", "frontend/src/services/traces.ts"],
+        "realApiEndpoints": ["POST /api/chat/query/stream", "GET /api/traces/{trace_id}"],
+        "mockExitCriteria": []
+      },
+      "externalServices": ["LangGraph", "硅基流动 LLM / DeepSeek"],
+      "dependencies": ["T-016", "T-025"],
+      "priority": 26,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md",
+        "dev-standards/backend-plugin.md"
+      ],
+      "status": "passed",
+      "developer_id": null,
+      "tester_id": null,
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "Tester PASS（2026-06-20）。报告：.sdd/test-reports/test-T-026.md；完成：.sdd/developer-reports/T-026-completion.md",
+      "user_gate": true
+    },
+    {
+      "id": "T-027",
+      "title": "问股 citation 区瘦身（assembly compact）",
+      "type": "integration",
+      "description": "T-025 后 stock_full citation_context_chars≈23k。为 stock_full/stock_narrative/compound 启用 compact citation context：RAG snippet 截断、估值历史/财务 JSON 瘦身、省略重复时间块。方案见 .sdd/developer-reports/T-027-plan.md。",
+      "source_feature": "F01 对话 / F12 回答组装",
+      "acceptanceCriteria": [
+        "问股 stock_full assembly Trace 的 prompt_stats 含 citation_context_mode=compact。",
+        "compact 模式相对 full 字符数显著下降（单测合成 payload 降 ≥30%）。",
+        "compact 仍保留多期财务、估值分位、API 公告等关键 citation 节。",
+        "RAG snippet 单条不超过 480 字符。",
+        "data_default/hotspot_default 仍使用 full 模式。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src/services/citation_context_compact.py backend/src/services/citation_catalog.py backend/src/agents/assembly/profile.py backend/src/agents/nodes/response_assembly.py backend/tests/test_citation_context_compact.py -q 通过",
+        "$PY -m pytest backend/tests/test_citation_context_compact.py backend/tests/test_citation_catalog.py backend/tests/test_response_assembly_streaming.py -q 通过"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": [],
+        "services": [],
+        "realApiEndpoints": [],
+        "mockExitCriteria": []
+      },
+      "externalServices": ["LangGraph", "硅基流动 LLM / DeepSeek"],
+      "dependencies": ["T-025"],
+      "priority": 27,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md"
+      ],
+      "status": "passed",
+      "developer_id": "cursor-developer",
+      "tester_id": "cursor-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "Developer+Tester+用户门禁 PASS（2026-06-20）。用户确认问股 live 吐首字明显变快。报告：.sdd/test-reports/test-T-027.md；完成：.sdd/developer-reports/T-027-completion.md",
+      "user_gate": true
+    },
+    {
+      "id": "T-028",
+      "title": "Hybrid 调参 + Citation 加固",
+      "type": "integration",
+      "description": "T-027 后并行：compact RAG snippet 480→800；扩大 citation 漏标检测、段落级程序补标、LLM patch 失败不回退 draft；Trace citation_missing_before/after。方案见 .sdd/developer-reports/T-028-plan.md。",
+      "source_feature": "F01 对话 / F12 回答组装",
+      "acceptanceCriteria": [
+        "compact snippet 常量为 800。",
+        "叙述性 RAG/API 段落纳入 citation 漏标检测。",
+        "citation patch 失败时保留程序补标或漏标更少版本，不回退裸首稿。",
+        "Trace 含 citation_missing_before_patch / citation_missing_after_patch。",
+        "单测与 response_assembly streaming 回归通过。"
+      ],
+      "technicalChecks": [
+        "$PY -m ruff check backend/src/agents/nodes/citation_rules.py backend/src/agents/assembly/citation_fix.py backend/src/agents/nodes/response_assembly.py backend/src/services/citation_context_compact.py -q 通过",
+        "$PY -m pytest backend/tests/test_citation_rules.py backend/tests/test_assembly_citation_fix.py backend/tests/test_citation_context_compact.py backend/tests/test_response_assembly_streaming.py -q 通过"
+      ],
+      "frontendIntegration": {
+        "required": false,
+        "pages": [],
+        "services": [],
+        "realApiEndpoints": [],
+        "mockExitCriteria": []
+      },
+      "externalServices": ["LangGraph", "硅基流动 LLM / DeepSeek"],
+      "dependencies": ["T-027"],
+      "priority": 28,
+      "rules_files": [
+        "dev-standards/backend-dev.md",
+        "dev-standards/backend-layers.md"
+      ],
+      "status": "passed",
+      "developer_id": "cursor-developer",
+      "tester_id": "cursor-tester",
+      "retry_count": 0,
+      "blocked": false,
+      "notes": "Developer+Tester PASS（2026-06-20）。报告：.sdd/test-reports/test-T-028.md；完成：.sdd/developer-reports/T-028-completion.md",
+      "user_gate": true
     }
   ]
 }

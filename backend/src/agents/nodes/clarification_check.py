@@ -6,6 +6,7 @@ from typing import Any
 
 from ...integrations.langgraph.state import AgentState
 from ...integrations.llm.service import LLMService
+from ...services.data_query_slot_enrich import filter_missing_after_data_query_enrich
 from ...services.rag.chunker import resolve_kb_root
 from ...services.rag.company_index import (
     is_kb_resolvable_document_query,
@@ -91,6 +92,10 @@ def _normalize_slot_lists_for_clarification(
 
     if intent_id == "document_qa" and is_kb_resolvable_document_query(query, slots, kb_root):
         filtered_missing = [name for name in filtered_missing if name != "document_id"]
+        return filtered_missing, filtered_ambiguous
+
+    if intent_id == "data_query":
+        filtered_missing = filter_missing_after_data_query_enrich(filtered_missing, slots)
         return filtered_missing, filtered_ambiguous
 
     if intent_id != "stock_analysis":

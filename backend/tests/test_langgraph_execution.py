@@ -109,7 +109,7 @@ async def test_tool_call_node_invokes_market_ranking_tool() -> None:
         "trace_steps": [],
     }
     with patch(
-        "src.agents.tools.market_ranking_lookup.industry_board_ranking",
+        "backend.src.agents.tools.market_ranking_lookup.industry_board_ranking",
         return_value={"top": [], "bottom": []},
     ):
         result = await tool_call(state, llm=llm, rag=rag, settings=settings)
@@ -166,14 +166,18 @@ async def test_stock_path_trace_contains_rag_and_tool() -> None:
         (),
         {
             "chat_completion_stream": _mock_stream_deltas(
-                "泸州老窖基本面稳健，2025A 营收与净利润保持增长。以上内容仅为信息整理，不构成投资建议。"
+                "泸州老窖基本面稳健，2025A 营收与净利润保持增长[citation:1]。"
+                "\n\n### 参考来源\n\n- [citation:1]测试"
+                "\n\n以上内容仅为信息整理，不构成投资建议。"
             ),
+            "model": "test",
         },
     )()
 
     with (
         patch.object(LLMService, "_intent_client", return_value=mock_intent_client),
         patch.object(LLMService, "_output_client", return_value=mock_output_client),
+        patch.object(LLMService, "_assembly_client", return_value=mock_output_client),
         patch.object(RagService, "retrieve", new_callable=AsyncMock) as mock_retrieve,
     ):
         mock_retrieve.return_value = _sample_rag_result("泸州老窖基本面")
@@ -253,7 +257,16 @@ async def test_data_query_path_completes() -> None:
             return_value=type(
                 "O",
                 (),
-                {"chat_completion_stream": _mock_stream_deltas("半导体板块涨幅排行整理如下。")},
+                {"chat_completion_stream": _mock_stream_deltas("半导体板块涨幅排行整理如下。"), "model": "test"},
+            )(),
+        ),
+        patch.object(
+            LLMService,
+            "_assembly_client",
+            return_value=type(
+                "A",
+                (),
+                {"chat_completion_stream": _mock_stream_deltas("半导体板块涨幅排行整理如下。"), "model": "test"},
             )(),
         ),
     ):
@@ -325,7 +338,16 @@ async def test_hotspot_path_completes() -> None:
             return_value=type(
                 "O",
                 (),
-                {"chat_completion_stream": _mock_stream_deltas("机器人热点解读正文。")},
+                {"chat_completion_stream": _mock_stream_deltas("机器人热点解读正文。"), "model": "test"},
+            )(),
+        ),
+        patch.object(
+            LLMService,
+            "_assembly_client",
+            return_value=type(
+                "A",
+                (),
+                {"chat_completion_stream": _mock_stream_deltas("机器人热点解读正文。"), "model": "test"},
             )(),
         ),
         patch.object(RagService, "retrieve", new_callable=AsyncMock) as mock_retrieve,

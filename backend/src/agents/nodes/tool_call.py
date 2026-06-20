@@ -9,11 +9,13 @@ from ...integrations.langgraph.state import AgentState
 from ...integrations.langgraph.status_phases import emit_tool_progress_end, emit_tool_progress_start
 from ...integrations.llm.service import LLMService
 from ...services.rag.service import RagService
+from ...services.system_time import resolve_system_time
 from ...settings import AppSettings
 from ..data_query_tool_plan import resolve_data_query_tool_names
 from ..hotspot_tool_plan import ranking_industry_param, resolve_hotspot_tool_names
 from ..stock_tool_plan import resolve_stock_tool_names
 from ..tools import TOOL_REGISTRY
+from ...services.trading_calendar import apply_tool_trading_defaults
 from ._helpers import build_parallel_trace_update, normalize_slots
 
 _A_STOCK_ATTRIBUTION = "third_party/a-stock-data (Apache-2.0)"
@@ -124,6 +126,7 @@ async def tool_call(
     emit_tool_progress_start(state, tool_names, slots)
 
     query = str(state.get("normalized_query", ""))
+    time_ctx = resolve_system_time(settings)
     if state.get("route_target") == "hotspot_agent":
         ranking_slots = {**(state.get("slots") or {}), **tool_params}
         ranking_industry = ranking_industry_param(query=query, slots=ranking_slots)
@@ -134,6 +137,25 @@ async def tool_call(
         tool_params.setdefault("rank_limit", 10)
         tool_params.setdefault("query", query)
         tool_params.setdefault("slots", state.get("slots") or {})
+        tool_params = apply_tool_trading_defaults(
+            tool_params,
+            slots=slots,
+            query=query,
+            last_trading_day=time_ctx.last_trading_day,
+            is_current_trading_day=time_ctx.is_trading_day,
+            current_date=time_ctx.current_date,
+        )
+    elif state.get("route_target") == "data_query_agent":
+        tool_params.setdefault("metric", "涨幅排行")
+        tool_params.setdefault("rank_limit", 8)
+        tool_params = apply_tool_trading_defaults(
+            tool_params,
+            slots=slots,
+            query=query,
+            last_trading_day=time_ctx.last_trading_day,
+            is_current_trading_day=time_ctx.is_trading_day,
+            current_date=time_ctx.current_date,
+        )
 
     input_data = {
         "tool_names": tool_names,

@@ -55,6 +55,8 @@ def build_trace_update(
     latency_ms: int = 0,
     error: str | None = None,
     set_current_node: bool = True,
+    raw_json_extra: dict[str, Any] | None = None,
+    detail_sections: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     step = TraceRecorder.record(
         node=node,
@@ -66,6 +68,10 @@ def build_trace_update(
         summary=summary,
         error=error,
     )
+    if raw_json_extra:
+        step["raw_json"] = {**step["raw_json"], **raw_json_extra}
+    if detail_sections:
+        step["detail_sections"] = detail_sections
     update: dict[str, Any] = {"trace_steps": [step]}
     if set_current_node:
         update["current_node"] = node
@@ -107,6 +113,8 @@ async def run_node_with_trace(
     input_data: dict[str, Any],
     summary: str,
     fn: Callable[[], Awaitable[tuple[dict[str, Any], str]]],
+    raw_json_extra: dict[str, Any] | None = None,
+    detail_sections: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Execute node logic and append a trace step."""
     emit_node_entry_status(state, node)
@@ -122,6 +130,8 @@ async def run_node_with_trace(
             summary=step_summary or summary,
             status="success",
             latency_ms=latency_ms,
+            raw_json_extra=raw_json_extra,
+            detail_sections=detail_sections,
         )
         merged = {**output_data, **trace_update}
         emit_node_complete_status(state, node, merged)
@@ -138,6 +148,8 @@ async def run_node_with_trace(
             status="failed",
             latency_ms=latency_ms,
             error=error_msg,
+            raw_json_extra=raw_json_extra,
+            detail_sections=detail_sections,
         )
         return {**trace_update, "error": error_msg}
 

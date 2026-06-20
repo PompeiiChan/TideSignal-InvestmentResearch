@@ -112,6 +112,24 @@ class LLMService:
             role="主输出",
         )
 
+    def _assembly_client(self) -> SiliconFlowLLMClient:
+        assembly_model = self.settings.llm_assembly_model.strip()
+        model = assembly_model or self.settings.llm_model
+        assembly_timeout_raw = self.settings.llm_assembly_timeout.strip()
+        timeout: float | None = None
+        if assembly_timeout_raw:
+            try:
+                timeout = float(assembly_timeout_raw)
+            except (TypeError, ValueError):
+                timeout = None
+        return self._client_for(
+            api_key=self.settings.llm_api_key,
+            base_url=self.settings.llm_base_url,
+            model=model,
+            role="回答组装",
+            timeout=timeout,
+        )
+
     async def recognize_intent(self, query: str) -> IntentResult:
         client = self._intent_client()
         time_ctx = resolve_system_time(self.settings)
