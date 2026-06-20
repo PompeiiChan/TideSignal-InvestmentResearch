@@ -238,7 +238,7 @@
 ---
 
 ## 附录：Bad Case 记录模板
-
+                 
 ```markdown
 ## BC-XXX 标题
 
@@ -449,11 +449,43 @@ Trace 示例：`trace_20260619_230935_017_local`。
 
 ---
 
+## BC-012 热力图问句只有长文、无 sector_heatmap 组件
+
+### 用户问题（示例）
+
+> 帮我看一下今天A股行业板块热力图
+
+### 现象
+
+- Trace 已路由 `data_query_agent`，`tool_call` 调用 `sector_heatmap_lookup`，但 **tiles=0**。
+- 回答为 LLM 长文「热力图概览」，**无**前端 `sector_heatmap` 交互块；`rich_blocks` 持久化为 `[]`。
+
+### 理想态
+
+- 东财 push2 返回行业板块列表 → `tiles` ≥ 5 → 流式推送 `rich_blocks` + 模板/短正文。
+
+### 归因
+
+1. **HTTP 层**：`eastmoney_client.em_get` 使用 `requests.Session` 在本机访问 `push2.eastmoney.com` 触发 `RemoteDisconnected`；同 URL 用 `curl`/`httpx(trust_env=False)` 正常。
+2. **工具编排（已修）**：问数 Agent 仅选 `market_ranking_lookup` 时规则层未补 `sector_heatmap_lookup`（见 `data_query_tool_plan.py`）。
+
+### 修复（摘要）
+
+- `eastmoney_client.py`：`em_get` 改用 **httpx.Client(trust_env=False)**，主站失败时 fallback `82.push2.eastmoney.com`。
+- `data_query_tool_plan.py`：热力图问句强制补/保留 `sector_heatmap_lookup`，纯热力图问句去掉多余排行工具。
+
+### 回归要点
+
+- Trace `tool_call` → `sector_heatmap_lookup.tile_count` ≥ 5；`response_assembly.rich_blocks` 含 `sector_heatmap`。
+- 本地：`lookup_sector_heatmap()` 不应再带 `error=RemoteDisconnected`。
+
+---
+
 ## 变更日志
 
 | 日期 | 说明 |
 |------|------|
-| 2026-06-20 | BC-011：节假日与显式日期涨幅排行锚点（交易日历 + trade_date 透传） |
+| 2026-06-20 | BC-012：热力图 tiles=0（东财 requests→httpx）+ 问数工具编排补热力图 |
 | 2026-06-20 | BC-009：海天味业基本面过度收敛为财报（T-014-P2 passthrough + 维度多 Query） |
 | 2026-06-19 | BC-008：宁德时代续问一季报 stock_name 误澄清（pending_slots 继承） |
 | 2026-06-16 | BC-007：海天 2025 年报营收 document_id 误澄清 |

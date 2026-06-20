@@ -12,12 +12,14 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import requests
+import httpx
 
 from ...services.trading_calendar import resolve_trade_date_label
 
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+REFERER = "https://quote.eastmoney.com/"
 CLIST_URL = "https://push2.eastmoney.com/api/qt/clist/get"
+CLIST_FALLBACK_URL = "https://82.push2.eastmoney.com/api/qt/clist/get"
 
 # Industry boards (m:90+t:2) and concept boards (m:90+t:3)
 BOARD_FS_FILTERS = {
@@ -25,9 +27,11 @@ BOARD_FS_FILTERS = {
     "concept": "m:90+t:3",
 }
 
-_EM_SESSION = requests.Session()
-_EM_SESSION.trust_env = False
-_EM_SESSION.headers.update({"User-Agent": UA})
+_EM_CLIENT = httpx.Client(
+    trust_env=False,
+    timeout=httpx.Timeout(15.0),
+    headers={"User-Agent": UA, "Referer": REFERER},
+)
 _EM_MIN_INTERVAL = 1.0
 _em_last_call = [0.0]
 
@@ -39,13 +43,38 @@ def em_get(
     *,
     timeout: int = 15,
     **kwargs: Any,
-) -> requests.Response:
-    """Throttled Eastmoney HTTP GET (serial ≥1s + jitter)."""
+) -> httpx.Response:
+    """Throttled Eastmoney HTTP GET (serial ≥1s + jitter).
+
+    Uses httpx with trust_env=False — requests.Session intermittently fails
+    against push2.eastmoney.com on some macOS setups (RemoteDisconnected).
+    """
+    _ = kwargs
     wait = _EM_MIN_INTERVAL - (time.time() - _em_last_call[0])
     if wait > 0:
         time.sleep(wait + random.uniform(0.1, 0.5))
+    merged_headers = {**_EM_CLIENT.headers, **(headers or {})}
+    request_timeout = httpx.Timeout(float(timeout))
     try:
-        return _EM_SESSION.get(url, params=params, headers=headers, timeout=timeout, **kwargs)
+        response = _EM_CLIENT.get(
+            url,
+            params=params,
+            headers=merged_headers,
+            timeout=request_timeout,
+        )
+        response.raise_for_status()
+        return response
+    except httpx.HTTPError:
+        if url != CLIST_FALLBACK_URL and "push2.eastmoney.com" in url:
+            fallback = _EM_CLIENT.get(
+                CLIST_FALLBACK_URL,
+                params=params,
+                headers=merged_headers,
+                timeout=request_timeout,
+            )
+            fallback.raise_for_status()
+            return fallback
+        raise
     finally:
         _em_last_call[0] = time.time()
 
@@ -88,7 +117,7 @@ def fetch_board_list(board_kind: str = "concept", *, page_size: int = 100) -> li
         "fs": fs,
         "fields": "f2,f3,f4,f6,f12,f13,f14,f104,f105,f128,f136,f140,f141,f207",
     }
-    response = em_get(CLIST_URL, params=params, headers={"User-Agent": UA}, timeout=15)
+    response = em_get(CLIST_URL, params=params, timeout=15)
     response.raise_for_status()
     rows: list[dict[str, Any]] = []
     for index, item in enumerate(_parse_clist_items(response.json()), start=1):
@@ -140,7 +169,7 @@ def fetch_board_stock_ranking(
         "fs": f"b:{board_code}",
         "fields": "f2,f3,f6,f12,f13,f14",
     }
-    response = em_get(CLIST_URL, params=params, headers={"User-Agent": UA}, timeout=15)
+    response = em_get(CLIST_URL, params=params, timeout=15)
     response.raise_for_status()
     resolved_trade_date = resolve_trade_date_label(trade_date=trade_date)
     rows: list[dict[str, Any]] = []

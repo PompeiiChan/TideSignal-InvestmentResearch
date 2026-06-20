@@ -67,3 +67,13 @@ def test_resolve_ranking_for_market_heat_query() -> None:
         slots={"industry": "宠物行业"},
     )
     assert names == ["market_ranking_lookup"]
+
+
+def test_agent_ranking_only_still_gets_heatmap_for_heatmap_query() -> None:
+    """LLM 若只选排行工具，规则层仍须补热力图（BC：热力图问句不出组件）。"""
+    names = resolve_data_query_tool_names(
+        ["market_ranking_lookup"],
+        query="帮我看一下今天A股行业板块热力图",
+        slots={"metric": "行业板块热力图", "time_range": "近一交易日", "market": "A股"},
+    )
+    assert names == ["sector_heatmap_lookup"]
