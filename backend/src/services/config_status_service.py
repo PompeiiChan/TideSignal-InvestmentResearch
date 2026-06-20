@@ -42,7 +42,6 @@ class ConfigStatusService:
         """Return local knowledge-base, tool data sources and RAG status."""
         kb_root = resolve_kb_root(self.settings.local_kb_path, BACKEND_ROOT)
         rag_service = RagService(self.settings)
-        structured_dir = kb_root / "structured-data"
         financials_dir = kb_root / "financials"
         company_reports_dir = kb_root / "company-reports"
         industry_reports_dir = kb_root / "industry-reports"
@@ -68,6 +67,13 @@ class ConfigStatusService:
                 sample_count=financial_count,
             ),
             MockDataSourceRead(
+                type="financial_live",
+                name="新浪财经财报 API",
+                path="integrations/market_data/sina_finance_client.py",
+                status="ready",
+                sample_count=0,
+            ),
+            MockDataSourceRead(
                 type="report",
                 name="研报数据",
                 path=f"{self._kb_display_path('company-reports')} + industry-reports",
@@ -75,9 +81,30 @@ class ConfigStatusService:
                 sample_count=report_count,
             ),
             MockDataSourceRead(
+                type="report_live",
+                name="东财研报 reportapi",
+                path="integrations/market_data/em_research_report_client.py",
+                status="ready",
+                sample_count=0,
+            ),
+            MockDataSourceRead(
+                type="consensus_live",
+                name="同花顺一致预期",
+                path="integrations/market_data/ths_worth_client.py",
+                status="ready",
+                sample_count=0,
+            ),
+            MockDataSourceRead(
                 type="announcement",
                 name="公告与资讯",
                 path="integrations/market_data (巨潮公告 + 东财快讯)",
+                status="ready",
+                sample_count=0,
+            ),
+            MockDataSourceRead(
+                type="announcement_live",
+                name="巨潮公告 + 东财快讯",
+                path="integrations/market_data/cninfo_client.py + news_client.py",
                 status="ready",
                 sample_count=0,
             ),

@@ -62,6 +62,32 @@ def test_resolve_stock_tool_names_pipeline_fallback_is_empty() -> None:
     assert names == []
 
 
+def test_resolve_stock_tool_names_institution_view() -> None:
+    names = resolve_stock_tool_names(
+        None,
+        query="机构怎么看宁德时代",
+        analysis_dimensions=["机构观点", "一致预期"],
+    )
+    assert names == [
+        "mock_financial_profile_lookup",
+        "consensus_valuation_lookup",
+        "research_report_metadata_lookup",
+    ]
+
+
+def test_resolve_stock_tool_names_institution_view_even_if_agent_omits() -> None:
+    names = resolve_stock_tool_names(
+        ["mock_financial_profile_lookup"],
+        query="卖方怎么看贵州茅台",
+        analysis_dimensions=[],
+    )
+    assert names == [
+        "mock_financial_profile_lookup",
+        "consensus_valuation_lookup",
+        "research_report_metadata_lookup",
+    ]
+
+
 def test_is_qualitative_business_query_detects_pipeline() -> None:
     from backend.src.agents.stock_tool_plan import is_qualitative_business_query
 

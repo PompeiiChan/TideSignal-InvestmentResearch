@@ -273,3 +273,9 @@
 - **经验**：`conversation_context.py` 集中构建 `has_context` / `carryover_hint`；`history_summary` 非空且（关键槽位或 `inherited_slot_keys`）才视为多轮，首轮行为不变。
 - **经验**：`response_assembly` 仅在 `has_context=true` 时追加 `【多轮对话上下文】` user 块；`evidence_pack.conversation_context` 供 trace 与组装层共用。
 - **避坑**：RAG 默认路径仍用 `normalized_query`；短续问（≤12 字）且继承 `stock_name` 时须 `filter_hits_by_entity`，避免「一季报呢」误召回无关公司片段。
+
+### T-018: 问股 live 基本面 Tool（新浪/同花顺/东财/巨潮）
+- **陷阱**：东财 `reportapi` 列表拉取与 EPS 共识聚合若各维护一份分页逻辑，字段变更时会双份返工；`requests.Session` 未设 `trust_env=False` 时本机代理会把东财请求发到错误出口。
+- **经验**：`em_research_report_client.fetch_em_research_report_rows` 作为共享底层，`em_report_consensus_client` 与 `research_report_metadata_lookup` 共用；机构类问股在 `resolve_stock_tool_names` **最早**分支返回三工具，不依赖 LLM 是否漏选。
+- **经验**：`tool_call` 统一从 Tool 结果读 `data_origin` / `is_mock` / `fallback_used` / `attribution` 写入 `detail_sections` 与 `output.tool_attributions`；`local_profile_cache` / `local_kb_file` 相对新浪 live 须标 `fallback=true`。
+- **避坑**：`GET /api/data-sources/status` 的 `SourceType` 与前端 `api.ts` 须同步扩展 `*_live` 类型；REAL_API_TEST 用例用 `skipif` 控制，禁止永久 skip。Tester 须 `VITE_USE_MOCK=false` + Trace 验收，不得仅用 curl/KB 样本判 live PASS。

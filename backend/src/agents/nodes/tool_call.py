@@ -16,6 +16,50 @@ from ..stock_tool_plan import resolve_stock_tool_names
 from ..tools import TOOL_REGISTRY
 from ._helpers import build_parallel_trace_update, normalize_slots
 
+_A_STOCK_ATTRIBUTION = "third_party/a-stock-data (Apache-2.0)"
+
+
+def _resolve_fallback_used(tool_name: str, result: dict[str, Any]) -> bool:
+    if result.get("fallback_used") is True:
+        return True
+    if tool_name == "mock_financial_profile_lookup":
+        origin = str(result.get("data_origin", ""))
+        return origin in {"local_profile_cache", "local_kb_file"}
+    if tool_name == "consensus_valuation_lookup":
+        return str(result.get("data_origin", "")) == "local_kb"
+    return False
+
+
+def _build_tool_attribution_section(tool_name: str, result: dict[str, Any]) -> dict[str, Any]:
+    data_origin = str(result.get("data_origin", "") or "unknown")
+    is_mock = bool(result.get("is_mock", False))
+    fallback_used = _resolve_fallback_used(tool_name, result)
+    source = str(result.get("source", "") or "—")
+    attribution = str(result.get("attribution", "") or _A_STOCK_ATTRIBUTION)
+    return {
+        "title": "工具归因",
+        "items": [
+            {
+                "label": tool_name,
+                "value": f"origin={data_origin}; mock={is_mock}; fallback={fallback_used}",
+            },
+            {"label": "attribution", "value": attribution},
+            {"label": "source", "value": source},
+        ],
+    }
+
+
+def _build_tool_attribution_payload(tool_name: str, result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "tool_name": tool_name,
+        "data_origin": str(result.get("data_origin", "") or ""),
+        "is_mock": bool(result.get("is_mock", False)),
+        "fallback_used": _resolve_fallback_used(tool_name, result),
+        "fallback_reason": str(result.get("fallback_reason", "") or ""),
+        "source": str(result.get("source", "") or ""),
+        "attribution": str(result.get("attribution", "") or _A_STOCK_ATTRIBUTION),
+    }
+
 
 def _resolve_tool_names(state: AgentState) -> list[str]:
     if state.get("supplement_mode"):
@@ -142,12 +186,25 @@ async def tool_call(
 
     latency_ms = int((time.perf_counter() - started) * 1000)
     tool_status = "success" if status == "success" else "failed"
+    detail_sections: list[dict[str, Any]] = []
+    tool_attributions: list[dict[str, Any]] = []
+    for tool_entry in merged_result.get("tools") or []:
+        if not isinstance(tool_entry, dict) or tool_entry.get("status") != "success":
+            continue
+        tool_name = str(tool_entry.get("tool_name", ""))
+        tool_payload = tool_entry.get("result")
+        if not isinstance(tool_payload, dict):
+            continue
+        detail_sections.append(_build_tool_attribution_section(tool_name, tool_payload))
+        tool_attributions.append(_build_tool_attribution_payload(tool_name, tool_payload))
+
     output_data = {
         "tool_status": tool_status,
         "tool_names": tool_names,
         "tool_result": merged_result,
         "tool_latency": latency_ms,
         "tool_error": last_error,
+        "tool_attributions": tool_attributions,
     }
     summary = (
         f"调用 {len(tool_names)} 个工具，状态 {tool_status}"
@@ -163,6 +220,7 @@ async def tool_call(
         status="success" if tool_status == "success" else "failed",
         latency_ms=latency_ms,
         error=last_error,
+        detail_sections=detail_sections or None,
     )
     result = {
         **trace,

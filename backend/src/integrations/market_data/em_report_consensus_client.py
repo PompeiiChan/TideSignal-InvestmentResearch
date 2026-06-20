@@ -6,11 +6,10 @@ import logging
 import re
 from typing import Any
 
-from .eastmoney_client import em_get
+from .em_research_report_client import REPORT_API, fetch_em_research_report_rows
 
 logger = logging.getLogger(__name__)
 
-_REPORT_API = "https://reportapi.eastmoney.com/report/list"
 _PE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*倍\s*(?:PE|市盈率|pe)", re.IGNORECASE)
 
 
@@ -32,50 +31,13 @@ def fetch_em_report_consensus(
 ) -> dict[str, Any]:
     """Aggregate EPS / PE hints from recent Eastmoney research reports."""
     code = stock_code.zfill(6)
-    records: list[dict[str, Any]] = []
-    for page in range(1, max_pages + 1):
-        params = {
-            "industryCode": "*",
-            "pageSize": "50",
-            "industry": "*",
-            "rating": "*",
-            "ratingChange": "*",
-            "beginTime": "2024-01-01",
-            "endTime": "2030-12-31",
-            "pageNo": str(page),
-            "fields": "",
-            "qType": "0",
-            "orgCode": "",
-            "code": code,
-            "rcode": "",
-            "p": str(page),
-            "pageNum": str(page),
-            "pageNumber": str(page),
-        }
-        try:
-            response = em_get(
-                _REPORT_API,
-                params=params,
-                headers={"Referer": "https://data.eastmoney.com/"},
-                timeout=20,
-            )
-            payload = response.json()
-        except Exception as exc:
-            logger.warning("Eastmoney reportapi failed for %s page %s: %s", code, page, exc)
-            break
-        rows = payload.get("data") or []
-        if not rows:
-            break
-        records.extend(rows)
-        total_page = int(payload.get("TotalPage") or 1)
-        if page >= total_page:
-            break
+    records = fetch_em_research_report_rows(code, page_size=50, max_pages=max_pages)
 
     if not records:
         return {
             "found": False,
             "stock_code": code,
-            "source": _REPORT_API,
+            "source": REPORT_API,
             "data_origin": "eastmoney_reportapi",
             "notes": "东财研报列表无记录",
         }
@@ -138,7 +100,7 @@ def fetch_em_report_consensus(
         "stock_code": code,
         "reference_year": 2025,
         "years": years,
-        "source": _REPORT_API,
+        "source": REPORT_API,
         "data_origin": "eastmoney_reportapi",
         "notes": "东财研报 EPS 聚合 + 隐含/正文 PE",
         "report_count": len(records),

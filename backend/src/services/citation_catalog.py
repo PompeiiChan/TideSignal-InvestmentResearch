@@ -12,6 +12,8 @@ from .system_time import SystemTimeContext, resolve_system_time
 
 _FINANCIAL_TOOL_KEY = "mock_financial_profile_lookup"
 _VALUATION_TOOL_KEY = "valuation_profile_lookup"
+_CONSENSUS_TOOL_KEY = "consensus_valuation_lookup"
+_RESEARCH_REPORT_TOOL_KEY = "research_report_metadata_lookup"
 _STOCK_API_TOOL_KEY = "stock_evidence_api_lookup"
 _HOTSPOT_FACT_TOOL_KEY = "hotspot_fact_lookup"
 _HOTSPOT_SIGNAL_TOOL_KEY = "hotspot_signal_lookup"
@@ -102,6 +104,46 @@ def stock_api_tool_is_usable(tool_result: dict[str, Any]) -> bool:
 def stock_api_reference_title(payload: dict[str, Any]) -> str:
     name = str(payload.get("stock_name", "")).strip() or "标的"
     return f"{name} 公告与资讯（API）"
+
+
+def _consensus_tool_payload(tool_result: dict[str, Any]) -> dict[str, Any] | None:
+    payload = tool_result.get(_CONSENSUS_TOOL_KEY)
+    return payload if isinstance(payload, dict) else None
+
+
+def consensus_tool_is_usable(tool_result: dict[str, Any]) -> bool:
+    payload = _consensus_tool_payload(tool_result)
+    return payload is not None and payload.get("found") is True and bool(payload.get("scenarios"))
+
+
+def consensus_reference_title(payload: dict[str, Any]) -> str:
+    name = str(payload.get("stock_name", "")).strip() or "标的"
+    origin = str(payload.get("data_origin", ""))
+    if origin == "ths_worth_consensus":
+        return f"{name} 机构一致预期（同花顺 THS）"
+    if origin == "eastmoney_reportapi":
+        return f"{name} 机构一致预期（东财研报 EPS 聚合）"
+    return f"{name} 机构一致预期"
+
+
+def _research_report_tool_payload(tool_result: dict[str, Any]) -> dict[str, Any] | None:
+    payload = tool_result.get(_RESEARCH_REPORT_TOOL_KEY)
+    return payload if isinstance(payload, dict) else None
+
+
+def research_report_tool_is_usable(tool_result: dict[str, Any]) -> bool:
+    payload = _research_report_tool_payload(tool_result)
+    if payload is None or payload.get("found") is False:
+        return False
+    reports = payload.get("reports")
+    return isinstance(reports, list) and bool(reports)
+
+
+def research_report_reference_title(payload: dict[str, Any]) -> str:
+    name = str(payload.get("stock_name", "")).strip() or "标的"
+    count = int(payload.get("report_count") or 0)
+    suffix = f"（{count} 篇）" if count else ""
+    return f"{name} 卖方研报列表{suffix}（东财 reportapi）"
 
 
 def _hotspot_fact_tool_payload(tool_result: dict[str, Any]) -> dict[str, Any] | None:
@@ -320,6 +362,34 @@ def build_citation_catalog(
             )
         )
         catalog.doc_index["__valuation_tool__"] = next_index
+        next_index += 1
+
+    if consensus_tool_is_usable(tool_result):
+        payload = _consensus_tool_payload(tool_result) or {}
+        catalog.entries.append(
+            CitationEntry(
+                index=next_index,
+                title=consensus_reference_title(payload),
+                source_type="report",
+                doc_id=str(payload.get("stock_code", "")),
+                origin=str(payload.get("data_origin", "ths_worth_consensus")),
+            )
+        )
+        catalog.doc_index["__consensus_tool__"] = next_index
+        next_index += 1
+
+    if research_report_tool_is_usable(tool_result):
+        payload = _research_report_tool_payload(tool_result) or {}
+        catalog.entries.append(
+            CitationEntry(
+                index=next_index,
+                title=research_report_reference_title(payload),
+                source_type="report",
+                doc_id=str(payload.get("stock_code", "")),
+                origin="eastmoney_reportapi",
+            )
+        )
+        catalog.doc_index["__research_report_tool__"] = next_index
         next_index += 1
 
     if stock_api_tool_is_usable(tool_result):

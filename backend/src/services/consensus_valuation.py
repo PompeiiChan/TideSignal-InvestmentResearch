@@ -30,6 +30,7 @@ _PE_KEYS: dict[str, str] = {
 }
 _REFERENCE_YEAR = 2025
 _LOW_COVERAGE_THRESHOLD = 3
+_ATTRIBUTION = "third_party/a-stock-data (Apache-2.0)"
 
 
 def _year_data(years: dict[str, Any], year: int) -> dict[str, Any] | None:
@@ -117,6 +118,10 @@ def build_consensus_scenarios(
             "reference_year": _REFERENCE_YEAR,
             "data_origin": raw.get("data_origin", ""),
             "source": str(raw.get("source", "")),
+            "is_mock": False,
+            "fallback_used": True,
+            "fallback_reason": str(raw.get("notes", "无一致预期数据")),
+            "attribution": _ATTRIBUTION,
             "notes": str(raw.get("notes", "无一致预期数据")),
         }
 
@@ -161,6 +166,10 @@ def build_consensus_scenarios(
         "primary_source": source_meta,
         "data_origin": raw.get("data_origin", ""),
         "source": str(raw.get("source", "")),
+        "is_mock": False,
+        "fallback_used": False,
+        "fallback_reason": "",
+        "attribution": _ATTRIBUTION,
         "notes": str(raw.get("notes", "")),
         "formula": "target_price = EPS × PE",
     }
@@ -196,6 +205,10 @@ def lookup_consensus_valuation(
             "reference_year": _REFERENCE_YEAR,
             "forecast_years": dict(_SCENARIO_YEARS),
             "formula": "target_price = EPS × PE",
+            "is_mock": False,
+            "fallback_used": True,
+            "fallback_reason": "THS/东财 live 不可用，已降级本地研报摘录",
+            "attribution": _ATTRIBUTION,
             "notes": "已降级为本地研报摘录",
         }
 
@@ -208,5 +221,9 @@ def lookup_consensus_valuation(
         "reference_year": _REFERENCE_YEAR,
         "data_origin": "",
         "source": "",
+        "is_mock": False,
+        "fallback_used": True,
+        "fallback_reason": "THS/东财/KB 均无一致预期",
+        "attribution": _ATTRIBUTION,
         "notes": "暂无机构一致预期覆盖，无法构建情景测算",
     }

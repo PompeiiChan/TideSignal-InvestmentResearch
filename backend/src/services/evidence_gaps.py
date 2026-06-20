@@ -151,6 +151,20 @@ def detect_stock_evidence_gaps(
             }
         )
 
+    institution_keywords = ("机构", "一致预期", "研报评级", "卖方", "分析师")
+    haystack = " ".join([query, *dimensions])
+    if any(keyword in haystack for keyword in institution_keywords):
+        has_consensus = isinstance(tool_result.get("consensus_valuation_lookup"), dict)
+        has_reports = isinstance(tool_result.get("research_report_metadata_lookup"), dict)
+        if not has_consensus and not has_reports:
+            gaps.append(
+                {
+                    "gap_id": "institution_view_thin",
+                    "topic": f"{stock_name or '标的'} 机构观点与研报元数据",
+                    "reason": "机构类问题缺少一致预期或东财研报列表结构化数据。",
+                }
+            )
+
     return gaps
 
 
@@ -211,6 +225,13 @@ def build_gap_enrichment_plan(
             rag_queries.append(topic or f"{stock_name} 经营现金流 应收 负债")
         elif gap_id == "valuation_missing":
             tool_names.append("valuation_profile_lookup")
+        elif gap_id == "institution_view_thin":
+            tool_names.extend(
+                [
+                    "consensus_valuation_lookup",
+                    "research_report_metadata_lookup",
+                ]
+            )
 
     gap_ids = {str(gap.get("gap_id", "")).strip() for gap in gaps}
     if gap_ids & _API_SUPPLEMENT_GAP_IDS and not narrative_mode:

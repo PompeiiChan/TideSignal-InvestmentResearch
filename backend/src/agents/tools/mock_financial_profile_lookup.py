@@ -92,6 +92,13 @@ def _success_payload(
         "source": source,
         "data_origin": data_origin,
         "is_mock": False,
+        "fallback_used": data_origin in {"local_profile_cache", "local_kb_file"},
+        "fallback_reason": (
+            "未走新浪 live API，使用本地缓存/KB"
+            if data_origin in {"local_profile_cache", "local_kb_file"}
+            else ""
+        ),
+        "attribution": "third_party/a-stock-data (Apache-2.0)",
         "notes": notes,
     }
 
@@ -106,6 +113,9 @@ def _not_found_payload(*, analysis_dimension: str) -> dict[str, Any]:
         "source": "",
         "data_origin": "",
         "is_mock": False,
+        "fallback_used": True,
+        "fallback_reason": "本地财报库与新浪财经 API 均未返回可用财务画像",
+        "attribution": "third_party/a-stock-data (Apache-2.0)",
         "notes": "本地财报库与新浪财经 API 均未返回可用财务画像",
     }
 

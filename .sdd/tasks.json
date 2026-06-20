@@ -83,8 +83,8 @@
       "name": "第三方真实金融数据 API",
       "required": false,
       "config_keys": [],
-      "tester_access_required": "MVP 不接入",
-      "fallback_allowed": false,
+      "tester_access_required": "T-018：新浪/同花顺/东财/巨潮/腾讯公开 HTTP，零 key；东财须 em_get 限流",
+      "fallback_allowed": true,
       "status": "confirmed"
     },
     {
@@ -1342,11 +1342,15 @@
       ],
       "technicalChecks": [
         "$PY -m ruff check backend/src backend/tests 通过",
-        "$PY -m pytest backend/tests 通过（含 stock live tool 单测，HTTP mock）",
-        "新浪/东财客户端参考 a-stock-data SKILL.md §6.4 / 研报层，走 em_get 或等价限流",
-        "routing_decision stock_analysis_agent tool_names 注册新 Tool，保留 mock_financial_profile_lookup 作 KB 降级",
-        "GET /api/config/status 不泄露密钥；live 数据源状态可观测",
-        "VITE_USE_MOCK=false 时问股链路经 LangGraph tool_call 命中真实后端"
+        "$PY -m mypy backend/src backend/tests 通过",
+        "$PY -m pytest backend/tests/test_financial_profile_lookup.py backend/tests/test_consensus_valuation.py backend/tests/test_research_report_metadata_lookup.py backend/tests/test_stock_tool_plan.py backend/tests/test_tool_call_stock_plan.py backend/tests/test_stock_evidence_api_lookup.py -q 通过",
+        "新浪/东财客户端参考 third_party/a-stock-data/SKILL.md §6.4 / 研报层；东财走 em_get 限流；HTTP 客户端 trust_env=False",
+        "新增 research_report_metadata_lookup 注册 TOOL_REGISTRY；stock_tool_plan 机构类问题默认 consensus + 研报元数据",
+        "tool_call Trace 输出 data_origin / is_mock / fallback_used / attribution（third_party/a-stock-data Apache-2.0）",
+        "GET /api/data-sources/status 可见 financial_live / consensus_live / report_live，不泄露密钥",
+        "REAL_API_TEST=1 覆盖 Sina 未收录标的、THS/东财一致预期、东财研报列表至少各 1 条；fallback 不得标 live PASS",
+        "cd frontend && npm run type-check && npm run lint && npm run build 通过",
+        "VITE_USE_MOCK=false 时问股经 LangGraph tool_call 命中真实后端；浏览器验证 Trace 与页面无 Mock 残留"
       ],
       "frontendIntegration": {
         "required": true,
@@ -1374,12 +1378,12 @@
         "dev-standards/backend-layers.md",
         "dev-standards/backend-plugin.md"
       ],
-      "status": "backlog",
-      "developer_id": null,
-      "tester_id": null,
+      "status": "done",
+      "developer_id": "cursor-developer",
+      "tester_id": "cursor-tester",
       "retry_count": 0,
       "blocked": false,
-      "notes": "数据源选型已对齐：财务=新浪、机构预期=同花顺、研报元数据=东财、公告=巨潮；与 T-019 KB 扩容并行不冲突。",
+      "notes": "[DONE] T-018 - 用户门禁通过（2026-06-15）。技术：.sdd/test-reports/test-T-018.md；用户：.sdd/test-reports/acceptance-roadmap-T-018-result.md",
       "user_gate": true
     },
     {

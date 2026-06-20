@@ -20,10 +20,18 @@ async def test_tool_call_uses_agent_tool_names_for_stock_route(mock_registry: ob
         "mock_financial_profile_lookup": lambda **_kwargs: {
             "tool": "mock_financial_profile_lookup",
             "found": True,
+            "data_origin": "sina_api",
+            "is_mock": False,
+            "source": "https://quotes.sina.cn/",
+            "attribution": "third_party/a-stock-data (Apache-2.0)",
         },
         "valuation_profile_lookup": lambda **_kwargs: {
             "tool": "valuation_profile_lookup",
             "found": True,
+            "data_origin": "tencent_quote_api",
+            "is_mock": False,
+            "source": "https://qt.gtimg.cn/",
+            "attribution": "third_party/a-stock-data (Apache-2.0)",
         },
     }.get(name)
     llm = LLMService(AppSettings())
@@ -44,3 +52,11 @@ async def test_tool_call_uses_agent_tool_names_for_stock_route(mock_registry: ob
     assert "mock_financial_profile_lookup" in result["tool_result"]
     assert "valuation_profile_lookup" in result["tool_result"]
     assert len(result["tool_result"]["tools"]) == 2
+    trace_step = result["trace_steps"][-1]
+    assert "detail_sections" in trace_step
+    titles = [section["title"] for section in trace_step["detail_sections"]]
+    assert "工具归因" in titles
+    output = trace_step["output"]
+    assert "tool_attributions" in output
+    assert len(output["tool_attributions"]) == 2
+    assert output["tool_attributions"][0]["attribution"] == "third_party/a-stock-data (Apache-2.0)"

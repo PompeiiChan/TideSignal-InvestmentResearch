@@ -64,6 +64,7 @@ async def test_data_sources_status_contract() -> None:
     data = body["data"]
     source_types = {item["type"] for item in data["mock_data"]}
     assert {"market", "financial", "announcement", "report", "knowledge"}.issubset(source_types)
+    assert {"financial_live", "consensus_live", "report_live", "announcement_live"}.issubset(source_types)
     assert all(item["path"] for item in data["mock_data"])
     assert all(item["sample_count"] >= 0 for item in data["mock_data"])
     assert {item["status"] for item in data["mock_data"]}.issubset({"ready", "mocked", "missing"})

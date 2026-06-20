@@ -9,6 +9,7 @@ STOCK_TOOL_WHITELIST: frozenset[str] = frozenset(
         "mock_financial_profile_lookup",
         "valuation_profile_lookup",
         "consensus_valuation_lookup",
+        "research_report_metadata_lookup",
         "stock_evidence_api_lookup",
         "earnings_forecast_lookup",
     }
@@ -41,6 +42,11 @@ _QUALITATIVE_BUSINESS_RE = re.compile(
 _FINANCIAL_EXPLICIT_RE = re.compile(
     r"财报|业绩|营收|收入|利润|净利|毛利率|ROE|现金流|负债|估值|市盈|市净|PE|PB|"
     r"同比|环比|多期|财务数据|盈利能力",
+    re.IGNORECASE,
+)
+
+_INSTITUTION_VIEW_RE = re.compile(
+    r"机构怎么看|机构观点|一致预期|研报评级|卖方怎么看|分析师怎么看|目标价",
     re.IGNORECASE,
 )
 
@@ -131,6 +137,11 @@ def needs_valuation_tools(*, query: str, analysis_dimensions: list[str] | None =
     return not (_FINANCIAL_ONLY_KEYWORD_RE.search(haystack) and not _VALUATION_KEYWORD_RE.search(haystack))
 
 
+def needs_institution_tools(*, query: str, analysis_dimensions: list[str] | None = None) -> bool:
+    haystack = " ".join([query, *(analysis_dimensions or [])])
+    return bool(_INSTITUTION_VIEW_RE.search(haystack))
+
+
 def resolve_stock_tool_names(
     requested: list[str] | None,
     *,
@@ -144,6 +155,15 @@ def resolve_stock_tool_names(
             [
                 "valuation_profile_lookup",
                 "consensus_valuation_lookup",
+            ]
+        )
+
+    if needs_institution_tools(query=query, analysis_dimensions=analysis_dimensions):
+        return _dedupe(
+            [
+                "mock_financial_profile_lookup",
+                "consensus_valuation_lookup",
+                "research_report_metadata_lookup",
             ]
         )
 

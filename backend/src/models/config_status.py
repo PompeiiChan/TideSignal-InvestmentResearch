@@ -4,7 +4,18 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-SourceType = Literal["announcement", "report", "financial", "market", "qa", "knowledge"]
+SourceType = Literal[
+    "announcement",
+    "announcement_live",
+    "report",
+    "report_live",
+    "financial",
+    "financial_live",
+    "consensus_live",
+    "market",
+    "qa",
+    "knowledge",
+]
 DataSourceStatusValue = Literal["ready", "mocked", "missing"]
 ModelStatusValue = Literal["ready", "mocked", "missing"]
 PromptAgent = Literal["master_agent", "hotspot_agent", "data_agent", "stock_agent", "quality_check"]

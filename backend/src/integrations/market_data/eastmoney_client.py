@@ -26,6 +26,7 @@ BOARD_FS_FILTERS = {
 }
 
 _EM_SESSION = requests.Session()
+_EM_SESSION.trust_env = False
 _EM_SESSION.headers.update({"User-Agent": UA})
 _EM_MIN_INTERVAL = 1.0
 _em_last_call = [0.0]

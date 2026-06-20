@@ -3,7 +3,7 @@
   "mode": "new",
   "design_ready": false,
   "development_ready": true,
-  "current_task": "T-018",
+  "current_task": "T-019",
   "blocked": false,
-  "notes": "T-014-P2 用户门禁 PASS（2026-06-15）。下一 backlog：T-018 问股 live 基本面 Tool。报告：.sdd/test-reports/acceptance-roadmap-T-014-P2-result.md"
+  "notes": "T-018 用户门禁 PASS（2026-06-15）。当前：T-019 知识库扩容（创业板 50 家财报）。报告：.sdd/test-reports/acceptance-roadmap-T-018-result.md"
 }

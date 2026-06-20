@@ -4,7 +4,17 @@ export type TraceStatus = 'pending' | 'running' | 'success' | 'failed'
 export type SubAgent = 'hotspot_agent' | 'data_agent' | 'stock_agent' | 'chit_chat' | 'clarification'
 export type RiskLevel = 'low' | 'medium' | 'high'
 export type QualityResult = 'PASS' | 'FAIL'
-export type SourceType = 'announcement' | 'report' | 'financial' | 'market' | 'qa' | 'knowledge'
+export type SourceType =
+  | 'announcement'
+  | 'announcement_live'
+  | 'report'
+  | 'report_live'
+  | 'financial'
+  | 'financial_live'
+  | 'consensus_live'
+  | 'market'
+  | 'qa'
+  | 'knowledge'
 export type RichBlockType = 'ranking_table' | 'calculator' | 'sector_heatmap' | 'scenario_calculator'
 
 export interface ApiResponse<T> {
