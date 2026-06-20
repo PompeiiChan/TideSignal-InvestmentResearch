@@ -92,7 +92,7 @@ cd frontend && npm run dev -- --host 127.0.0.1 --port 5199
 | **V1.1** | `ed52d93` | 流式输出、富组件示例与侧栏标签、年报澄清修复（BC-007）等 |
 | **V1.2** | `7485f74` | 回答过程时间线、问数 P1 真实 API、移除问数 Mock 等 |
 | **V1.2+** | `75aa4ec` | 多轮记忆（T-015～T-017）、Query 改写（T-014）、问股 live Tool（T-018）、热点/财务深化与 KB 扩容（T-021～T-024） |
-| **V1.2++（当前）** | `ee1344c` | T-025 回答组装性能、T-026 问数 enrich、T-027 compact citation、T-028 citation 加固与 BC-011 交易日历 |
+| **V1.2++（当前）** | `0d092de` | T-025 回答组装性能、T-026 问数 enrich、T-027 compact citation、T-028 citation 加固与 BC-011 交易日历 |
 
 回滚到某一检查点（**会丢弃之后所有本地未推送改动，慎用**）：
 
@@ -101,7 +101,7 @@ git fetch origin
 git reset --hard <提交哈希>   # 例如 ed52d93、7485f74、75aa4ec
 ```
 
-当前 `main` 与 `origin/main` 对齐在 **`ee1344c`**（推送后）。
+当前 `main` 与 `origin/main` 对齐在 **`0d092de`**。
 
 ## 许可证与免责
 
