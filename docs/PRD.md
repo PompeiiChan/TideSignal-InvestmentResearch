@@ -261,20 +261,35 @@
 | P05 本地知识库 / Mock 数据说明页 | F-05-01、F-05-02、F-05-03 | 在线知识库管理、文件上传、在线编辑 | 数据由用户提供 Markdown，MVP 只需说明和预览 |
 | P06 系统设置页 | F-06-01、F-06-02、F-06-03 | 前端录入真实 Secret、Prompt 版本管理 | 配置展示帮助讲清系统，不做完整后台 |
 
-### 4.3 V2+
+**工具数据丰富度**：V1.2+ 已完成工具数据丰富度专项（T-020～T-024），详见 `docs/agent/tool-richness-roadmap.md`。
 
-| 功能 | 预计版本 | 延后理由 |
-|------|----------|----------|
-| 真实行情 / 财务 / 公告 / 宏观 API 接入 | V1.1 | 需要真实数据源账号、接口协议、费用和合规确认 |
-| 真实硅基流动 LLM / Embedding / Rerank 联调 | V1.1 | 需要 Key、base_url、model、调用额度确认 |
-| 完整 LangGraph 后端流转 | V1.1 | 进入后端前必须由用户提供 Agent 流转图 |
-| 知识库文件上传与管理 | V1.2 | MVP 先使用本地 Markdown，在线管理会增加后台复杂度 |
-| 多用户账号与权限 | V1.2 | 当前 MVP 以单机 / 单用户链路验证为主 |
-| Bad Case 归因与修正闭环 | V2 | 需要上线后真实日志、用户反馈、失败样本和回归评测集 |
-| Prompt 版本管理与评测 | V2 | 依赖 Bad Case 样本和稳定评测集 |
-| 生产级监控告警 | V2 | 超出 MVP 范围，依赖真实部署和流量 |
-| 移动端 H5 / PWA | V2 | 当前确认产品形态为桌面 Web |
-| 投顾工作台 / 客户管理 | V2 | 属于券商业务扩展，不是当前核心链路 |
+| 页面 | 包含功能 | 排除功能 | 理由 |
+|------|----------|----------|------|
+| P01 客户端对话页 | F-01-01、F-01-02、F-01-03、F-01-04、F-01-05、F-01-06 | 多账号云同步、真实交易、主动荐股 | MVP 核心是对话体验和投研问答演示 |
+| P02 管理端可观测页 | F-02-01、F-02-02、F-02-03、F-02-04 | Bad Case 修正闭环、生产告警、权限系统 | 管理端服务内部验证和链路解释，先展示链路 |
+| P03 会话历史视图 | F-03-01、F-03-02、F-03-03 | 语义搜索、多端同步 | 解决切换案例和布局稳定问题 |
+| P04 Trace 详情面板 | F-04-01、F-04-02、F-04-03、F-04-04、F-04-05 | 拖拽编辑流程图、生产级审计 | 展示 Agent 为什么这么回答 |
+| P05 本地知识库 / Mock 数据说明页 | F-05-01、F-05-02、F-05-03 | 在线知识库管理、文件上传、在线编辑 | 数据由用户提供 Markdown，MVP 只需说明和预览 |
+| P06 系统设置页 | F-06-01、F-06-02、F-06-03 | 前端录入真实 Secret、Prompt 版本管理 | 配置展示帮助讲清系统，不做完整后台 |
+
+### 4.3 V1.1（已完成）
+
+| 功能 | 状态 | 完成时间 | 说明 |
+|------|------|----------|------|
+| 真实硅基流动 LLM / Embedding / Rerank 联调 | ✅ 已完成 | 2026-06 | DeepSeek LLM、千问 Embedding/Rerank 均已配置并上线 |
+| 完整 LangGraph 后端流转 | ✅ 已完成 | 2026-06 | 流转图已提供（`docs/agent/langgraph-flow.md`），所有节点已实现 |
+| 本地 Markdown 知识库真实检索 | ✅ 已完成 | 2026-06 | 36 个知识库文件已就位，RAG 检索已接入 |
+| 前端 Mock Trace 替换为真实后端 Trace | ✅ 已完成 | 2026-06 | 前端已对接真实 LangGraph 输出 |
+
+### 4.4 V1.2（已完成）
+
+| 功能 | 状态 | 完成时间 | 说明 |
+|------|------|----------|------|
+| 工具数据丰富度（T-020～T-024） | ✅ 已完成 | 2026-06-19 | 问数、估值、财报、热点、KB 入库扩展全部验收通过 |
+| Query 改写 Phase ① | ✅ 已完成 | 2026-06 | 规则+槽位拼接，无 LLM 改写 |
+| 短期对话记忆（5 轮 QA） | ✅ 基础实现 | 2026-06 | `_build_chat_history(limit=10)` 已实现，产品化与下游注入待完成 |
+
+### 4.5 V2+（规划中）
 
 ### 4.4 关键业务规则
 
@@ -292,7 +307,7 @@
 | 富响应优先 | 表格、个股卡、计算器、引用、风险提示用组件承载 |
 | 投资合规 | 只做信息解读和测算，不提供买入 / 卖出 / 目标价 / 收益承诺 |
 | 本地 Mock 优先 | MVP 使用本地 Markdown / Mock 数据源演示，不依赖真实金融 API |
-| 后端流转图门禁 | 进入 LangGraph 后端开发前必须向用户索取完整流转图 |
+| 后端流转图门禁 | LangGraph 流转图已提供（`docs/agent/langgraph-flow.md`），所有节点已实现并上线 |
 
 ## 5. 复杂功能业务链路与关键实现思路
 
@@ -306,9 +321,9 @@
 ### 5.2 总控 Agent 路由链路
 
 - **触发场景**：收到用户 Query 后。
-- **实现思路**：总控 Agent 做上下文预处理、意图识别、槽位抽取、路由决策、槽位转换，再调度热点助手、问数助手、问股助手。
-- **关键技术选型**：后端后续使用 LangGraph；进入后端前必须向用户索取完整流转图。
-- **MVP 实现**：前端先使用 Mock Trace 驱动节点状态，等后端阶段再替换为真实 LangGraph 输出。
+- **实现思路**：总控 Agent 做上下文预处理、意图识别、槽位抽取、澄清判断、Query 改写、路由决策，再调度热点助手、问数助手、问股助手。
+- **关键技术选型**：后端使用 LangGraph；完整流转图已提供（`docs/agent/langgraph-flow.md`）。
+- **当前实现**：所有节点已实现并上线，包括 `context_preprocess`、`intent_recognition`、`slot_extraction`、`clarification_check`、`query_rewrite`、`routing_decision`、三大子 Agent、`tool_call`、`rag_retrieval`、`evidence_merge`、`quality_check`、`response_assembly`、`fallback_response`。
 - **输出结构**：`routing_output`、`global_slots`、`task_slots`、`agent_response`、`quality_check`、`final_response`。
 
 ### 5.3 短期对话记忆（5 轮 QA）
@@ -324,13 +339,16 @@
 ### 5.4 RAG 与本地知识库链路
 
 - **触发场景**：热点、问股、研报 / 公告 / 知识问答类问题。
-- **实现思路**：用户 Query -> 生成检索 Query -> 本地 Markdown 知识库召回 -> Embedding / Rerank 排序 -> 注入上下文 -> 生成回答。
+- **实现思路**：用户 Query -> Query 改写生成 `retrieval_query` -> 本地 Markdown 知识库召回 -> BM25 + Embedding 混合排序（35% / 65%）-> 可选 Rerank 精排 -> 注入上下文 -> 生成回答。
 - **关键技术选型**：
-  - LLM：通过硅基流动调用 DeepSeek。
-  - Embedding：硅基流动千问。
-  - Rerank：硅基流动千问。
-  - MVP：先用本地 Markdown / Mock 数据，不依赖真实线上数据源。
-- **MVP 实现**：先展示模拟 RAG 命中结果，等用户提供知识库结构后再接真实检索。
+  - LLM：通过硅基流动调用 DeepSeek（已配置）。
+  - Embedding：硅基流动千问（已配置）。
+  - Rerank：硅基流动千问（已配置）。
+  - 检索策略：BM25 + Embedding 加权融合，默认 Top 30 候选池，Rerank 时对 Top 8 精排，Embedding 不可用时降级 BM25-only。
+- **当前实现**：
+  - 本地 Markdown 知识库已就位（`backend/data/knowledge-base/`，36 文件）。
+  - 热点月报、财报、研报、行业资料等非结构化证据已支持真实检索。
+  - Query 改写 Phase ① 已完成（规则+槽位拼接，无 LLM 改写）。
 
 ### 5.5 Mock 数据工具调用链路
 
@@ -511,12 +529,12 @@
 
 | 依赖 | 用途 | 关键配置字段 | Key / 账号来源 | 存放位置 | 缺失时策略 | 状态 |
 |------|------|--------------|----------------|----------|------------|------|
-| 硅基流动 LLM / DeepSeek | 总控 Agent、Sub Agent、回答生成、质检 | `LLM_API_KEY` `LLM_BASE_URL` `LLM_MODEL` | 用户后续提供 | 后端 `.env` | MVP 用 Mock Trace / Mock Response | 已确认 |
-| 硅基流动 Embedding / 千问 | 本地知识库向量化与语义检索 | `EMBEDDING_API_KEY` `EMBEDDING_BASE_URL` `EMBEDDING_MODEL` `EMBEDDING_DIM` | 用户后续提供 | 后端 `.env` | MVP 用模拟 RAG 命中 | 已确认 |
-| 硅基流动 Rerank / 千问 | RAG 召回结果重排 | `RERANK_API_KEY` `RERANK_BASE_URL` `RERANK_MODEL` | 用户后续提供 | 后端 `.env` | MVP 跳过重排或使用静态排序 | 已确认 |
-| 本地 Markdown 知识库 | 公告、研报、财务、投研知识检索 | `LOCAL_KB_PATH` | 用户后续提供文件 | 项目数据目录 | 先用占位 Mock 数据 | 已确认 |
-| 本地 Mock 行情 / 财务 / 公告 / 宏观数据 | 问数、问股、热点工具调用 | `MOCK_DATA_PATH` | 用户后续提供文件 | 项目数据目录 | 先用示例 Mock 数据 | 已确认 |
-| LangGraph | 后端 Agent 编排 | `LANGGRAPH_ENV` 等后续确定 | 本地依赖，无账号 | 后端配置 | 前端阶段先 Mock Trace | 已确认 |
+| 硅基流动 LLM / DeepSeek | 总控 Agent、Sub Agent、回答生成、质检 | `LLM_API_KEY` `LLM_BASE_URL` `LLM_MODEL` `LLM_ASSEMBLY_MODEL` `LLM_ASSEMBLY_TIMEOUT` | 用户已配置 | 后端 `.env` 及 `backend/config/app.toml` | 无 Key 时降级 Mock Trace / Mock Response | **已配置** |
+| 硅基流动 Embedding / 千问 | 本地知识库向量化与语义检索 | `EMBEDDING_API_KEY` `EMBEDDING_BASE_URL` `EMBEDDING_MODEL` `EMBEDDING_DIM` | 用户已配置 | 后端 `.env` 及 `backend/config/app.toml` | 无 Key 时 RAG 降级 BM25-only | **已配置** |
+| 硅基流动 Rerank / 千问 | RAG 召回结果重排 | `RERANK_API_KEY` `RERANK_BASE_URL` `RERANK_MODEL` | 用户已配置 | 后端 `.env` 及 `backend/config/app.toml` | 无 Key 时跳过重排，使用 BM25+Embedding 混合排序 | **已配置** |
+| 本地 Markdown 知识库 | 公告、研报、财务、投研知识检索 | `LOCAL_KB_PATH` | 用户已提供文件 | `backend/data/knowledge-base/` | 先用占位 Mock 数据 | **已就位**（36 文件） |
+| 本地 Mock 行情 / 财务 / 公告 / 宏观数据 | 问数、问股、热点工具调用 | `MOCK_DATA_PATH` | 用户已提供文件 | 项目数据目录 | 先用示例 Mock 数据 | 已确认 |
+| LangGraph | 后端 Agent 编排 | `LANGGRAPH_ENV` 等 | 本地依赖，无账号 | 后端配置 | 前端阶段先 Mock Trace | **流转图已提供**（`docs/agent/langgraph-flow.md`） |
 | 第三方真实金融数据 API | 真实行情、财务、公告、宏观数据 | 暂无 | 暂无 | 暂无 | MVP 不接入 | 已确认 |
 | 支付 / 结算 | 无 | 无 | 无 | 无 | 不涉及 | 已确认 |
 | 短信 / 邮件 / 推送 | 无 | 无 | 无 | 无 | 不涉及 | 已确认 |
@@ -524,9 +542,90 @@
 | 第三方登录 / SSO / OAuth | 无，MVP 不做多账号登录 | 无 | 无 | 无 | 不涉及 | 已确认 |
 | 地图 / 定位 / 实名 / 风控 | 无 | 无 | 无 | 无 | 不涉及 | 已确认 |
 
+---
+
+## 7.1 数据接口清单
+
+系统集成了多个第三方数据源以获取金融数据、行情、公告和研报信息。以下是具体调用的数据接口：
+
+### 7.1.1 东方财富数据源
+
+| 接口名称 | 端点/URL | 用途 | 对应工具 |
+|---------|---------|------|----------|
+| push2 行情排行 | `https://push2.eastmoney.com/api/qt/clist/get` | 获取行业板块/概念板块涨跌幅排行、成分股排行 | `market_ranking_lookup` |
+| datacenter 估值历史 | `https://datacenter-web.eastmoney.com/api/data/v1/get` (RPT_VALUEANALYSIS_DET) | 获取近 3 年 PE/PB 历史分位数据 | `em_valuation_history_client` → `valuation_profile_lookup` |
+| 7x24 全球资讯 | `https://np-weblist.eastmoney.com/comm/web/getFastNewsList` | 获取全球财经快讯、热点新闻 | `news_client` → `hotspot_fact_lookup` |
+| 研报列表 | `https://datacenter-web.eastmoney.com/api/data/v1/get` (RPT_LICO_F10_STKLICO_NEW) | 获取个股研报列表及元数据 | `em_research_report_client` → `research_report_metadata_lookup` |
+| 一致性预期 | `https://datacenter-web.eastmoney.com/api/data/v1/get` (RPTA_HOME_THS_NEWEST) | 获取机构一致性预期数据 | `em_report_consensus_client` → `consensus_valuation_lookup` |
+
+**节流策略**：东方财富请求间隔 ≥1 秒，避免触发限流。
+
+### 7.1.2 新浪财经数据源
+
+| 接口名称 | 端点/URL | 用途 | 对应工具 |
+|---------|---------|------|----------|
+| 财报数据接口 | `https://quotes.sina.cn/cn/api/openapi.php/CompanyFinanceService.getFinanceReport2022` | 获取上市公司财报数据（利润表、资产负债表、现金流量表） | `sina_finance_client` → `mock_financial_profile_lookup` |
+
+**节流策略**：新浪财经请求间隔 ≥1 秒。
+
+### 7.1.3 腾讯财经数据源
+
+| 接口名称 | 端点/URL | 用途 | 对应工具 |
+|---------|---------|------|----------|
+| 实时报价接口 | `http://qt.gtimg.cn/q={stock_code}` | 获取个股实时价格、PE、PB、市值等估值指标 | `tencent_quote_client` → `valuation_profile_lookup` |
+
+**节流策略**：腾讯财经请求间隔 ≥0.5 秒。
+
+### 7.1.4 同花顺 (10jqka / Tonghuashun) 数据源
+
+| 接口名称 | 端点/URL | 用途 | 对应工具 |
+|---------|---------|------|----------|
+| 一致性预期/动态PE | `https://basic.10jqka.com.cn/{stock_code}/worth.html` | 获取机构一致预期 EPS、动态 PE 分位 | `ths_worth_client` → `consensus_valuation_lookup` |
+| 强势股信号 | `https://basic.10jqka.com.cn/api/basic热点强势股数据` | 获取当日强势股、reason 标签、板块热度 | `ths_client` → `hotspot_signal_lookup` |
+
+**节流策略**：同花顺请求间隔 ≥0.8 秒。
+
+### 7.1.5 巨潮资讯数据源
+
+| 接口名称 | 端点/URL | 用途 | 对应工具 |
+|---------|---------|------|----------|
+| 公告查询接口 | `https://www.cninfo.com.cn/new/hisAnnouncement/query` | 获取上市公司公告、研报公告 | `cninfo_client` → `hotspot_fact_lookup` |
+| 股票代码映射 | `http://www.cninfo.com.cn/new/data/szse_stock.json` | 获取股票代码与 orgId 映射关系 | `cninfo_client.resolve_cninfo_org_id` |
+
+**节流策略**：巨潮资讯请求无强制节流，但建议控制频率。
+
+### 7.1.6 硅基流动 AI 数据源
+
+| 接口类型 | 配置字段 | 用途 | 对应模块 |
+|---------|---------|------|----------|
+| LLM API | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | 意图识别、回答生成、质检 | `intent_recognition`、子 Agent、`response_assembly`、`quality_check` |
+| Assembly 模型 | `LLM_ASSEMBLY_MODEL`、`LLM_ASSEMBLY_TIMEOUT` | 回答组装专用模型，支持独立超时控制 | `response_assembly` |
+| Embedding API | `EMBEDDING_API_KEY`、`EMBEDDING_BASE_URL`、`EMBEDDING_MODEL`、`EMBEDDING_DIM` | 本地 Markdown 知识库向量化与语义检索 | `rag_retrieval` |
+| Rerank API | `RERANK_API_KEY`、`RERANK_BASE_URL`、`RERANK_MODEL` | RAG 召回结果重排 | `rag_retrieval` |
+
+**调用策略**：
+- 所有 LLM 调用通过 `backend/src/integrations/llm/client.py` 统一管理
+- 支持 Key 不可用时降级到 Mock 模式
+
+### 7.1.7 数据源映射总结
+
+| 数据类型 | 主要数据源 | 备用数据源 | 使用场景 |
+|---------|-----------|-----------|----------|
+| 行情/排行 | 东方财富 push2 | 腾讯财经 | 问数排行、板块排行、个股报价 |
+| 财报数据 | 新浪财经 | 本地知识库 | 问股财报、财务画像 |
+| 估值数据 | 腾讯财经 + 东方财富 datacenter | 同花顺 worth | 估值水平判断、历史分位 |
+| 热点/新闻 | 东方财富 7x24 | 本地知识库月报 | 热点解读、事实层验证 |
+| 研报/公告 | 巨潮资讯 + 东方财富研报 | 本地知识库 | 研报观点、公告事件 |
+| 强势股信号 | 同花顺强势股 | 东方财富排行 | 热点信号、当日盘面 |
+| AI 能力 | 硅基流动 LLM/Embedding/Rerank | Mock 降级 | 意图识别、回答生成、RAG 检索 |
+
+---
+
 ## 8. System Prompt 默认配置方向
 
-各 Agent 的 System Prompt 先由 Agent 生成默认版本，用户后续可修改。
+各 Agent 的 System Prompt 已在 `docs/agent/llm-system-prompts.md` 中集中维护，包含 16 项 Prompt 清单（意图识别、槽位抽取、澄清追问、安全兜底、四大子 Agent、回答组装等）。
+
+用户可在该文件中编辑 Prompt，改完后使用导回功能写回 Python 源码（`backend/src/integrations/llm/prompts/`）。
 
 ### 8.1 总控 Agent
 
@@ -576,9 +675,9 @@
 
 ## 10. 路线图终版
 
-### 10.1 V1 / MVP
+### 10.1 V1 / MVP（已完成）
 
-V1 聚焦“前端可用原型 + Mock 数据 + Trace 可解释链路”：
+V1 聚焦”前端可用原型 + Mock 数据 + Trace 可解释链路”：
 
 - 客户端对话页：会话历史、历史搜索、新建会话、固定输入框、富响应、计算器、引用和风险提示。
 - 管理端可观测页：同步客户端 Query / Response / 历史记录，右侧展示 Trace 链路。
@@ -587,22 +686,25 @@ V1 聚焦“前端可用原型 + Mock 数据 + Trace 可解释链路”：
 - 系统设置页：仅管理端可见，展示模型、Prompt、合规规则状态。
 - 原型文件：`docs/prototypes/index.html`。
 
-### 10.2 V1.1
+### 10.2 V1.1（已完成）
 
 - 接入后端基础设施：FastAPI + PyCore。
-- 补充 LangGraph 后端流转，进入开发前必须先获取完整 Agent 流转图。
+- 补充 LangGraph 后端流转，完整流转图已提供（`docs/agent/langgraph-flow.md`）。
 - 接入硅基流动 LLM / DeepSeek、硅基流动千问 Embedding / Rerank 的测试配置。
 - 将前端 Mock Trace 替换为真实后端 Trace 输出。
+- 所有节点已实现：`context_preprocess`、`intent_recognition`、`slot_extraction`、`clarification_check`、`query_rewrite`、`routing_decision`、三大子 Agent、`tool_call`、`rag_retrieval`、`evidence_merge`、`quality_check`、`response_assembly`、`fallback_response`。
 
-### 10.3 V1.2
+### 10.3 V1.2（已完成）
 
-- 支持本地 Markdown 知识库真实检索。
-- 支持 Mock 数据文件的统一读取和校验。
-- 支持 Prompt 只读展示与复制。
-- 增强系统设置页的数据状态和配置状态说明。
+- 工具数据丰富度（T-020～T-024）：问数、估值、财报、热点、KB 入库扩展全部验收通过（详见 `docs/agent/tool-richness-roadmap.md`）。
+- Query 改写 Phase ①：规则+槽位拼接生成 `retrieval_query`，多 Query 扩展（T-014-P2）。
+- 短期对话记忆基础实现：`LangGraphRunner._build_chat_history(limit=10)` 已就位，`context_preprocess._summarize_history` 可生成 `history_summary`。
+- 本地 Markdown 知识库真实检索：36 个知识库文件已就位，RAG 检索已接入。
 
-### 10.4 V2+
+### 10.4 V2+（规划中）
 
+- Query 改写 Phase ②（T-014 后续）：独立 LLM 改写节点、HyDE。
+- 槽位体系增强（T-015～T-017）：按意图必填槽位表、会话级 `pending_slots` 继承、下游节点注入短期上下文。
 - 真实金融数据 API 接入。
 - 知识库文件上传与管理。
 - 多用户账号与权限。
@@ -622,10 +724,13 @@ V1 聚焦“前端可用原型 + Mock 数据 + Trace 可解释链路”：
 | 前端状态 | Zustand | 管理当前会话、视图模式、布局宽度、Mock Trace 状态 |
 | 请求库 | Axios | 统一调用后端 API |
 | 后端框架 | FastAPI + PyCore | 基于项目初始化的 `pycore/` 骨架 |
-| Agent 编排 | LangGraph | 后端阶段接入，需先补充完整流转图 |
-| LLM | 硅基流动调用 DeepSeek | Key、base_url、model 后续进入 `.env` |
-| Embedding / Rerank | 硅基流动千问 | MVP 可降级为模拟 RAG 命中 |
-| 数据源 | 本地 Markdown / Mock 数据 | MVP 不接真实金融 API |
+| Agent 编排 | LangGraph | 流转图已提供（`docs/agent/langgraph-flow.md`），所有节点已实现 |
+| LLM | 硅基流动调用 DeepSeek | 已配置，支持意图识别、回答生成、质检 |
+| LLM Assembly | 独立配置的 Assembly 模型 | 已配置，用于回答组装，支持独立超时控制 |
+| Embedding | 硅基流动千问 | 已配置，支持本地 Markdown 知识库向量化 |
+| Rerank | 硅基流动千问 | 已配置，支持 RAG 召回结果重排 |
+| RAG 检索 | BM25 + Embedding 混合召回 | 默认 35% BM25 + 65% 向量加权融合，Embedding 不可用时降级 BM25-only |
+| 数据源 | 本地 Markdown / Mock 数据 | MVP 不接真实金融 API，支持扩展 |
 | 合规质检 | 后端规则 + 前端展示 | 黑名单、风险提示、引用完整性、时间口径 |
 
 ### 11.2 分层结构
@@ -652,10 +757,12 @@ data/
 
 ### 11.3 部署方案
 
-- 本地开发：前端 Vite dev server + 后端 FastAPI dev server。
-- MVP 验收：前端可先使用 Mock 数据独立运行。
-- 后端联调：`VITE_USE_MOCK=false` 后调用真实后端 API。
-- Secret 管理：真实 Key 只进入 `.env`，不写入 `docs/`、`.sdd/` 或原型文件。
+- 本地开发：前端 Vite dev server（端口 5199）+ 后端 FastAPI dev server（端口 8099）。
+- 环境配置：
+  - 前端：`VITE_USE_MOCK=false` 时调用真实后端 API。
+  - 后端：硅基流动 LLM / Embedding / Rerank 配置在 `backend/config/app.toml` 及 `.env`。
+- Secret 管理：真实 Key 只进入 `backend/.env`，不写入 `docs/`、`.sdd/` 或原型文件。
+- 数据库：SQLite 本地数据库（`backend/data/smart_investment.db`），启动自动建表。
 
 ## 12. 原型说明
 
