@@ -101,7 +101,7 @@ git fetch origin
 git reset --hard <提交哈希>   # 例如 ed52d93、7485f74、75aa4ec
 ```
 
-当前 `main` 与 `origin/main` 对齐在 **`0d092de`**。
+当前 `main` 与 `origin/main` 对齐在 **`44e4394`**（功能检查点 **`0d092de`**）。
 
 ## 许可证与免责
 
