@@ -1,6 +1,6 @@
 # 潮声 TideSignal · 智能投研
 
-> 面向散户与投顾的 A 股投研对话助手：用自然语言问热点、问股、问数、读文档，系统按意图路由多 Agent，结合 RAG 与实时工具链生成可溯源、可交互的回答。
+> 面向散户与投顾的 A 股投研对话助手：用自然语言问热点、问股、问数，系统按意图路由多 Agent，结合 RAG 与实时工具链生成可溯源、可交互的回答。
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/) [![FastAPI](https://img.shields.io/badge/FastAPI-0.11x-009688)](https://fastapi.tiangolo.com/) [![React](https://img.shields.io/badge/React-19-61DAFB)](https://react.dev/) [![LangGraph](https://img.shields.io/badge/LangGraph-Agent_Orchestration-orange)](https://langchain-ai.github.io/langgraph/)
 
@@ -22,7 +22,7 @@ TideSignal 把这类问题收敛成一个对话入口：用户用口语提问，
 
 | 功能 | 说明 |
 |------|------|
-| **意图识别与路由** | LangGraph 识别热点 / 问数 / 问股 / 文档问答等意图，路由到对应子 Agent 与工具链 |
+| **意图识别与路由** | LangGraph 识别热点 / 问数 / 问股等意图，路由到对应子 Agent 与工具链 |
 | **RAG 检索与溯源** | 本地知识库（财报、研报、热点月报）混合召回 + 可选 Rerank；正文与参考来源对齐，覆盖约 55 家 A 股标的 |
 | **问数工具链** | 东财 push2 排行 / 热力图、交易日历锚点、成交额等；失败降级 demo 截面并标注口径 |
 | **问股实时工具** | 新浪财报、一致预期、东财研报元数据、巨潮公告组合基本面画像；Trace 含 `data_source` 归因 |
