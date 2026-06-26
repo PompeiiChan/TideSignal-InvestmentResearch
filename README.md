@@ -18,6 +18,26 @@ TideSignal 把这类问题收敛成一个对话入口：用户用口语提问，
 
 ---
 
+## 界面预览
+
+### 客户端对话入口
+
+<img src="assets/screenshots/tidesignal-client-home.png" alt="TideSignal 客户端对话入口" width="100%">
+
+### 行业板块热力图
+
+<img src="assets/screenshots/tidesignal-sector-heatmap.png" alt="TideSignal 行业板块热力图" width="100%">
+
+### 问股分析回答
+
+<img src="assets/screenshots/tidesignal-stock-answer.png" alt="TideSignal 问股分析回答" width="100%">
+
+### 管理端 Trace 链路
+
+<img src="assets/screenshots/tidesignal-admin-trace.png" alt="TideSignal 管理端 Trace 链路" width="100%">
+
+---
+
 ## 核心功能
 
 | 功能 | 说明 |
